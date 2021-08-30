@@ -1,2 +1,2 @@
 # grypania
-Game server for seamless maps
+Game server for seamless maps!
