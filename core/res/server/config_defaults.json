@@ -1,0 +1,10 @@
+{
+  "log_config": {
+    "ruleDefault": {
+
+    }
+  },
+  "base_config": {
+    "inside": 1
+  }
+}

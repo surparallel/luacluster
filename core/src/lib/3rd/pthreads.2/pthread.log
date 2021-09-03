@@ -1,0 +1,20 @@
+﻿Build started 2019/9/16 5:59:48.
+     1>Project "D:\workround\rostra\msvcs\pthreads.2\pthread.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         D:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /I. /Zi /nologo /W3 /WX- /O2 /Oy- /D __CLEANUP_C /D WIN32 /D PTW32_ARCHx86 /D NDEBUG /D _WINDOWS /D _USRDLL /D PTW32_BUILD /D _VC80_UPGRADE=0x0600 /D _WINDLL /D _MBCS /GF /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Fo".\.\\" /Fd".\.\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt pthread.c
+         pthread.c
+     1>d:\workround\rostra\msvcs\pthreads.2\pthread_mutex_consistent.c : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
+       ResourceCompile:
+         C:\Program Files (x86)\Windows Kits\8.1\bin\x86\rc.exe /D NDEBUG /D PTW32_RC_MSC /D _VC80_UPGRADE=0x0600 /l"0x0409" /I. /nologo /fo".\.\version.res" version.rc 
+     1>C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V120\Microsoft.CppBuild.targets(1193,5): warning MSB8012: TargetPath(D:\workround\rostra\msvcs\pthreads.2\.\.\pthread.dll) does not match the Linker's OutputFile property value (D:\workround\rostra\msvcs\pthreads.2\pthreadVC2.dll). This may cause your project to build incorrectly. To correct this, please make sure that $(OutDir), $(TargetName) and $(TargetExt) property values match the value specified in %(Link.OutputFile).
+     1>C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V120\Microsoft.CppBuild.targets(1195,5): warning MSB8012: TargetName(pthread) does not match the Linker's OutputFile property value (pthreadVC2). This may cause your project to build incorrectly. To correct this, please make sure that $(OutDir), $(TargetName) and $(TargetExt) property values match the value specified in %(Link.OutputFile).
+       Link:
+         D:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:".\pthreadVC2.dll" /INCREMENTAL:NO /NOLOGO ws2_32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:".\.\pthread.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:".\.\pthreadVC2.lib" /MACHINE:X86 /SAFESEH /DLL .\.\version.res
+         .\.\pthread.obj
+            Creating library .\.\pthreadVC2.lib and object .\.\pthreadVC2.exp
+         pthread.vcxproj -> D:\workround\rostra\msvcs\pthreads.2\.\.\pthread.dll
+     1>Done Building Project "D:\workround\rostra\msvcs\pthreads.2\pthread.vcxproj" (Build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:01.07

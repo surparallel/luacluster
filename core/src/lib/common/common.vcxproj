@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{621DCBE1-3A5D-4A18-95B6-B811AD49E07B}</ProjectGuid>
+    <RootNamespace>lua</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>..\..\libs\</OutDir>
+    <IntDir>..\..\_objs\$(ProjectName)_d\</IntDir>
+    <TargetName>$(ProjectName)_d</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>..\..\libs\</OutDir>
+    <IntDir>..\..\_objs\$(ProjectName)_d\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;PTW32_STATIC_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>../3rd/redis-network/src;../3rd/pthreads.2;../3rd/lua/src;../3rd/vsopenssl/include;../3rd/sigar/win32;../3rd/redis-win32-Interop;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;PTW32_STATIC_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>../3rd/redis-network/src;../3rd/pthreads.2;../3rd/lua/src;../3rd/vsopenssl/include/;../3rd/sigar/win32;../3rd/redis-win32-Interop;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\3rd\vsopenssl\include\openssl\applink.c" />
+    <ClCompile Include="args.c" />
+    <ClCompile Include="bit.c" />
+    <ClCompile Include="cJSON.c" />
+    <ClCompile Include="conio.c" />
+    <ClCompile Include="dicthelp.c" />
+    <ClCompile Include="elog.c" />
+    <ClCompile Include="entityid.c" />
+    <ClCompile Include="equeue.c" />
+    <ClCompile Include="filesys.c" />
+    <ClCompile Include="int64.c" />
+    <ClCompile Include="locks.c" />
+    <ClCompile Include="luaex.c" />
+    <ClCompile Include="lua_cmsgpack.c" />
+    <ClCompile Include="netex.c" />
+    <ClCompile Include="rtree.c" />
+    <ClCompile Include="srp.c" />
+    <ClCompile Include="timesys.c" />
+    <ClCompile Include="version.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="bit.h" />
+    <ClInclude Include="dicthelp.h" />
+    <ClInclude Include="elog.h" />
+    <ClInclude Include="entityid.h" />
+    <ClInclude Include="filesys.h" />
+    <ClInclude Include="int64.h" />
+    <ClInclude Include="luaex.h" />
+    <ClInclude Include="lua_cmsgpack.h" />
+    <ClInclude Include="netex.h" />
+    <ClInclude Include="plateform.h" />
+    <ClInclude Include="args.h" />
+    <ClInclude Include="cJSON.h" />
+    <ClInclude Include="conio.h" />
+    <ClInclude Include="equeue.h" />
+    <ClInclude Include="locks.h" />
+    <ClInclude Include="proto.h" />
+    <ClInclude Include="rtree.h" />
+    <ClInclude Include="srp.h" />
+    <ClInclude Include="timesys.h" />
+    <ClInclude Include="version.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
