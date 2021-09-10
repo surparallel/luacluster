@@ -1,5 +1,4 @@
-/* eid.c - test eid
-*
+/* 
 * Copyright(C) 2021 - 2022, sun shuo <sun.shuo@surparallel.org>
 * All rights reserved.
 *
@@ -72,7 +71,7 @@ void test_sudoku() {
 	begin.z = 0;
 	end.x = 30;
 	end.z = 30;
-	hand = SudokuCreate(gird, begin, end);
+	hand = SudokuCreate(gird, begin, end, 0);
 
 	TestGirdDir(hand);
 
@@ -83,7 +82,7 @@ void test_sudoku() {
 		rotation.x = rand() % 360;
 		rotation.z = rand() % 360;
 
-		SudokuEntry(hand, i, position, rotation, 1, GetCurrentSec());
+		SudokuEntry(hand, i, position, rotation, 1, GetCurrentSec(), 0);
 	}
 
 	for (int i = 0; i < 100; i++) {
@@ -95,8 +94,4 @@ void test_sudoku() {
 
 
 	SudokuDestory(hand);
-}
-
-void test_supdate() {
-
 }

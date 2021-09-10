@@ -53,7 +53,7 @@ unsigned int GetCurrentSec()
 #ifdef _WIN32
 	struct timeb rawtime;
 	ftime(&rawtime);
-	return rawtime.time;
+	return (unsigned int)rawtime.time;
 #else
 	struct timeval tv;
 	gettimeofday(&tv, NULL); //Under Linux, this function is in the sys / time. H header file

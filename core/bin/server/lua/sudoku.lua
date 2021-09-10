@@ -2,7 +2,6 @@
 local sc = require 'sc'
 local entity = require("entity")
 local entitymng = require("entitymng")
-local cmsgpack = require("cmsgpack")
 local docker = require("docker")
 local int64 = require("int64")
 local elog = require("elog")
@@ -11,7 +10,6 @@ local sudokuapi = require("sudokuapi")
 local spaceFactory= {}
 
 function spaceFactory.New(arg)
-    print("New sudoku")
     local obj = entity.New(arg)
     obj.entities = {}
     
@@ -19,7 +17,7 @@ function spaceFactory.New(arg)
     function obj:Init()
         entitymng.RegistrySev(self.ServerName, self)
         entitymng.RegistryUpdata(self)
-        obj.mysudoku = sudokuapi.Create(sc.sukoku.girdx
+        self.mysudoku = sudokuapi.Create(sc.sukoku.girdx
                                         , sc.sukoku.girdz
                                         , sc.sukoku.beginx
                                         , sc.sukoku.beginz
@@ -28,23 +26,25 @@ function spaceFactory.New(arg)
     end
     
     function obj:update(count, deltaTime)
-        sudokuapi.Update(obj.mysudoku)
+        sudokuapi.Update(self.mysudoku)
     end
 
     function obj:EntryWorld(id, poitionx, poitionz, rotationy, velocity, stamp)
-        
-        local entryid = int64.new_unsigned(id)
-        sudokuapi.Entry(obj.mysudoku, entryid, poitionx, poitionz, rotationy, velocity, stamp)
+        sudokuapi.Entry(self.mysudoku, id, poitionx, poitionz, rotationy, velocity, stamp)
+    end
+
+    function obj:Move(id, poitionx, poitionz, rotationy, velocity, stamp)
+        sudokuapi.Move(self.mysudoku, id, poitionx, poitionz, rotationy, velocity, stamp)
     end
 
     function obj:LeaveWorld(id)
         --从redis获取对象并调用空间的LeaveWorld
-        sudokuapi.Leave(obj.mysudoku, id)
+        sudokuapi.Leave(self.mysudoku, id)
     end
     
     function obj:Destory()
         entitymng.UnRegistryUpdata(self)
-        sudokuapi.Destroy(obj.mysudoku)
+        sudokuapi.Destroy(self.mysudoku)
     end
 
     return obj

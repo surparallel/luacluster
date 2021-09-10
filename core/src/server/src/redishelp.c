@@ -40,8 +40,8 @@ static unsigned redis_port;
 static void doJsonParseFile(char* config)
 {
     if (config == NULL) {
-        config = "./res/server/config.json";
-        if (access_t(config, 0) != 0) {
+        config = getenv("grypania_config");
+        if (config == 0 || access_t(config, 0) != 0) {
             config = "../../res/server/config_defaults.json";
             if (access_t(config, 0) != 0) {
                 return;

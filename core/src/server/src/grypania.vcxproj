@@ -13,7 +13,6 @@
   <ItemGroup>
     <ClInclude Include="..\test\3dmath.h" />
     <ClInclude Include="..\test\eid.h" />
-    <ClInclude Include="..\test\EulerRotationMatrix.h" />
     <ClInclude Include="..\test\redis.h" />
     <ClInclude Include="..\test\space.h" />
     <ClInclude Include="bigworld.h" />
@@ -24,12 +23,12 @@
     <ClInclude Include="lvm.h" />
     <ClInclude Include="networking.h" />
     <ClInclude Include="redishelp.h" />
+    <ClInclude Include="rtreehelp.h" />
     <ClInclude Include="sudoku.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\test\3dmath.c" />
     <ClCompile Include="..\test\eid.c" />
-    <ClCompile Include="..\test\EulerRotationMatrix.c" />
     <ClCompile Include="..\test\redis.c" />
     <ClCompile Include="..\test\space.c" />
     <ClCompile Include="bigworld.c" />
@@ -41,6 +40,7 @@
     <ClCompile Include="lvm.c" />
     <ClCompile Include="networking.c" />
     <ClCompile Include="redishelp.c" />
+    <ClCompile Include="rtreehelp.c" />
     <ClCompile Include="sudoku.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -93,13 +93,13 @@
       <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_PLG_ASSERT_;_DEBUG;_CONSOLE;_LIB;_GPN_ASSERT_;PTW32_STATIC_LIB;USE_OPENSSL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
       <DisableSpecificWarnings>4267;4101;4244;4146</DisableSpecificWarnings>
-      <AdditionalIncludeDirectories>../../lib/3rd/pthreads.2;../test/;../../lib/common;../../lib/3rd/redis-network/src;../../lib/3rd/lua/src;../../lib/3rd/hiredis;../../lib/3rd/vsopenssl/include;../../lib/3rd/sigar/win32;../../lib/3rd/luasocket/src;../../lib/3rd/redis-win32-Interop;../../lib/3rd/3dmath;./;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../lib/3rd/pthreads.2;../test/;../../lib/common;../../lib/3rd/redis-network/src;../../lib/3rd/lua/src;../../lib/3rd/hiredis;../../lib/3rd/vsopenssl/include;../../lib/3rd/sigar/win32;../../lib/3rd/luasocket/src;../../lib/3rd/redis-win32-Interop;../../lib/3rd/3dmath;./;../../lib\common\include\libbson-1.0;../../lib\common\include\libmongoc-1.0;../../lib/3rd/lua-mongodb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\..\libs;..\..\..\bin\server;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>openssl_uptable.obj;pthread_d.lib;hiredis_d.lib;jwsmtp_d.lib;libeay32_d.lib;libmysql64.lib;lua_d.lib;mysqlclient64.lib;redis-network_d.lib;redis-win32-Interop_d.lib;ssleay32_d.lib;common_d.lib;libjemalloc_d.lib;psapi.lib;sigar_d.lib;ws2_32.lib;version.lib;Netapi32.lib;socket_d.lib;mime_d.lib;3dmath_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>openssl_uptable.obj;pthread_d.lib;hiredis_d.lib;jwsmtp_d.lib;libeay32_d.lib;libmysql64.lib;lua_d.lib;mysqlclient64.lib;redis-network_d.lib;redis-win32-Interop_d.lib;ssleay32_d.lib;common_d.lib;libjemalloc_d.lib;psapi.lib;sigar_d.lib;ws2_32.lib;version.lib;Netapi32.lib;socket_d.lib;mime_d.lib;3dmath_d.lib;bson.lib;mongoc.lib;lua-mongodb_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>
@@ -112,7 +112,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>USE_OPENSSL;WIN32;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;NDEBUG;_CONSOLE;_LIB;PTW32_STATIC_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../../lib/3rd/pthreads.2;../test/;../../lib/common;../../lib/3rd/redis-network/src;../../lib/3rd/redis-win32-Interop;../../lib/3rd/lua/src;../../lib/3rd/hiredis;../../lib/3rd/vsopenssl/include;../../lib/3rd/sigar/win32;../../lib/3rd/luasocket/src;../../lib/3rd/3dmath;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../lib/3rd/pthreads.2;../test/;../../lib/common;../../lib/3rd/redis-network/src;../../lib/3rd/lua/src;../../lib/3rd/hiredis;../../lib/3rd/vsopenssl/include;../../lib/3rd/sigar/win32;../../lib/3rd/luasocket/src;../../lib/3rd/redis-win32-Interop;../../lib/3rd/3dmath;./;../../lib\common\include\libbson-1.0;../../lib\common\include\libmongoc-1.0;../../lib/3rd/lua-mongodb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4267;4101;4244;4146</DisableSpecificWarnings>
     </ClCompile>
     <Link>
@@ -121,7 +121,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>..\..\libs;..\..\..\bin\server;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>openssl_uptable.obj;pthread.lib;hiredis.lib;jwsmtp.lib;libeay32.lib;libmysql64.lib;lua.lib;mysqlclient64.lib;redis-network.lib;redis-win32-Interop.lib;ssleay32.lib;common.lib;libjemalloc.lib;psapi.lib;sigar.lib;ws2_32.lib;version.lib;Netapi32.lib;socket.lib;mime.lib;3dmath.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>openssl_uptable.obj;pthread.lib;hiredis.lib;jwsmtp.lib;libeay32.lib;libmysql64.lib;lua.lib;mysqlclient64.lib;redis-network.lib;redis-win32-Interop.lib;ssleay32.lib;common.lib;libjemalloc.lib;psapi.lib;sigar.lib;ws2_32.lib;version.lib;Netapi32.lib;socket.lib;mime.lib;3dmath.lib;bson.lib;mongoc.lib;lua-mongodb.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>

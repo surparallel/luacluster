@@ -56,6 +56,12 @@ sc.sukoku.endx = 100
 sc.sukoku.endz = 100
 sc.sukoku.radius = 15
 
+sc.bigworld = {}
+sc.bigworld.beginx = 0
+sc.bigworld.beginz = 0
+sc.bigworld.endx = 1000
+sc.bigworld.endz = 1000
+
 try(function()
 
     if sc.glob.mysc==nil then

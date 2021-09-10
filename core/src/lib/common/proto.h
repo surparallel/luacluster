@@ -100,6 +100,7 @@ typedef struct _ProtoSendToEntity {
 	unsigned char buf[];
 }*PProtoSendToEntity, ProtoSendToEntity;
 
+//目前不支持ipv6记得去改
 typedef struct _ProtoConnect {
 	ProtoHead		protoHead;
 	char ip[20];

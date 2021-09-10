@@ -18,4 +18,3 @@
 */
 
 void test_sudoku();
-void test_supdate();

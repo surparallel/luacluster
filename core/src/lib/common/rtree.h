@@ -42,7 +42,6 @@ struct rtree {
     size_t reinsert_count;
 };
 
-bool rtree_insert(struct rtree *rtree, double *rect, void *item);
 struct rtree *rtree_new(size_t elsize, int dims);
 void rtree_free(struct rtree *rtree);
 size_t rtree_count(struct rtree *rtree);

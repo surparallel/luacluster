@@ -131,8 +131,8 @@ void UnallocateID(void* pVoid, unsigned long long id) {
 static void doJsonParseFile(char* config, PDocksHandle pDocksHandle)
 {
 	if (config == NULL) {
-		config = "./res/server/config.json";
-		if (access_t(config, 0) != 0) {
+		config = getenv("grypania_config");
+		if (config == 0 || access_t(config, 0) != 0) {
 			config = "../../res/server/config_defaults.json";
 			if (access_t(config, 0) != 0) {
 				return;
@@ -365,9 +365,7 @@ void DockerRandomPushMsg(unsigned char* b, unsigned short s) {
 }
 
 
-void DockerSend(void* pVoid, unsigned long long id, const char* pc, size_t s) {
-
-	PDockerHandle pDockerHandle = pVoid;
+void DockerSend(unsigned long long id, const char* pc, size_t s) {
 
 	VPEID pEntityID = CreateEIDFromLongLong(id);
 	unsigned int addr = GetAddrFromEID(pEntityID);

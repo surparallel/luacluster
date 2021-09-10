@@ -6,10 +6,10 @@ local int64 = require("int64")
 
 local spaceProxyFactory = {}
 
-function spaceProxyFactory.New(id, space)
+function spaceProxyFactory.New(entity)
     local obj = {}
-    local myspace = space
-    obj.id = id
+    obj.id = entity.id
+    obj.entity = entity
     return setmetatable(obj,{
         __index = function (t,k)
             return function(...)
@@ -23,7 +23,7 @@ function spaceProxyFactory.New(id, space)
                 end
                 
                 arg[1] = k
-                for k, v in pairs(myspace.entities) do
+                for k, v in pairs(obj.entity.entities) do
                     local keyid = int64.new_unsigned(k)
                     docker.SendToClient(t.id, keyid, cmsgpack.pack(arg))
                 end

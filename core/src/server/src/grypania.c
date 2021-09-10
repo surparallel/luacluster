@@ -124,7 +124,7 @@ int IssueCommand(int argc, char** argv, int noFind) {
 			mp_encode_bytes(pmp_buf, argv[i], strlen(argv[i]));
 		}
 
-		DockerSend(NULL, strtoull(argv[1], NULL, 0), pmp_buf->b, pmp_buf->len);
+		DockerSend(strtoull(argv[1], NULL, 0), pmp_buf->b, pmp_buf->len);
 		mp_buf_free(pmp_buf);
 	}
 	else if (!strcasecmp(command, "connect")) {
@@ -201,9 +201,6 @@ int IssueCommand(int argc, char** argv, int noFind) {
 	}
 	else if (!strcasecmp(command, "sudoku")) {
 		test_sudoku();
-	}
-	else if (!strcasecmp(command, "supdate")) {
-		test_supdate();
 	}
 	else {
 		printf("not find command %s\n", command);
@@ -289,11 +286,12 @@ void OutOfMemoryHandler(size_t allocation_size) {
 #endif // _WIN32
 }
 
+//getenv
 static void doJsonParseFile(char* config)
 {
 	if (config == NULL) {
-		config = "./res/server/config.json";
-		if (access_t(config, 0) != 0) {
+		config = getenv("grypania_config");
+		if (config == 0 || access_t(config, 0) != 0) {
 			config = "../../res/server/config_defaults.json";
 			if (access_t(config, 0) != 0) {
 				return;
@@ -344,7 +342,7 @@ static void doJsonParseFile(char* config)
 }
 
 int main(int argc, char** argv) {
-	
+
 	srand(time(0));
 	zinit();
 	zmalloc_enable_thread_safeness();
@@ -385,5 +383,4 @@ int main(int argc, char** argv) {
 		FreeRedisHelp();
 		return ret;
 	}
-
 }

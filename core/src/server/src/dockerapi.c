@@ -74,7 +74,7 @@ static int luaB_Send(lua_State* L) {
 	size_t ret;
 	const char* pc = luaL_checklstring(L, 2, &ret);
 
-	DockerSend(pVoid, id, pc, ret);
+	DockerSend(id, pc, ret);
 	return 0;
 }
 

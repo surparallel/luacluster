@@ -1092,8 +1092,8 @@ int SendToEntity(unsigned long long entityid, const char* b, unsigned short s) {
 static void doJsonParseFile(char* config)
 {
     if (config == NULL) {
-        config = "./res/server/config.json";
-        if (IF_WIN32(w_access,access)(config, 0) != 0) {
+        config = getenv("grypania_config");
+        if (config == 0 || IF_WIN32(w_access,access)(config, 0) != 0) {
             config = "../../res/server/config_defaults.json";
             if (IF_WIN32(w_access, access)(config, 0) != 0) {
                 return;

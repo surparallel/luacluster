@@ -131,8 +131,7 @@ function entityMng.RegistrySev(ServerName, obj)
 end
 
 function entityMng.UnRegistrySev(ServerName)
-    local myid = int64.new_unsigned(obj.id)
-    redishelp:hdel("servers",obj.ServerName)
+    redishelp:hdel("servers",ServerName)
 end
 
 function entityMng.GetSev(ServerName)

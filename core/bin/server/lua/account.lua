@@ -1,7 +1,6 @@
 local entity = require("entity")
 local tcpproxy = require("tcpproxy")
 local sc = require("sc")
-local cmsgpack = require("cmsgpack")
 local docker = require("docker")
 local int64 = require("int64")
 

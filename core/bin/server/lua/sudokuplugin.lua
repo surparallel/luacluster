@@ -5,6 +5,7 @@ local cmsgpack = require("cmsgpack")
 local docker = require("docker")
 local int64 = require("int64")
 local spaceproxy = require 'spaceproxy'
+local sudokuapi = require("sudokuapi")
 
 local spacePluginFactory = {}
 
@@ -24,12 +25,13 @@ function spacePluginFactory.New()
 
     function obj:EntryWorld(sapceName)
         --从redis获取对象并调用空间的EntryWorld
-        local space = entitymng.GetSev(sapceName)
-        space:EntryWorld(self.id, self.transform.poition.x, self.transform.poition.z
+        --entitymng.RegistryUpdata(self) 需要在子类的updata调用，引用self数据错误
+        self.space = entitymng.GetSev(sapceName)
+        self.space:EntryWorld(self.id, self.transform.poition.x, self.transform.poition.z
             , self.transform.rotation.y
             , self.transform.velocity
             , self.transform.stamp)
-        self.clients = spaceproxy.New(self.id, space)
+        self.clients = spaceproxy.New(self)
     end
  
     function obj:LeaveWorld(sapceName)
@@ -41,8 +43,7 @@ function spacePluginFactory.New()
 
     function obj:OnAddView(entityList)
 
-        local entry = cmsgpack.unpack(entityList)
-        for key, value in ipairs(entry) do
+        for key, value in ipairs(entityList) do
             -- key = entityid
             obj.entities[value[1]] = value
         end
@@ -70,6 +71,28 @@ function spacePluginFactory.New()
 
     function obj:OnDelView(entityList)
 
+    end
+
+    function obj:Destory()
+        entitymng.UnRegistryUpdata(self)
+    end
+    -- 删除不可见的对象
+    function obj:update(count, deltaTime)
+
+        local limit = math.sqrt(sc.sukoku.girdx * sc.sukoku.girdx + sc.sukoku.girdz * sc.sukoku.girdx)
+        limit = limit * 2;
+
+        for k, v in pairs(self.entities) do
+            local dist = sudokuapi.Dist(self.transform.poition.x, self.transform.poition.z, v[2], v[3], v[4], v[5], v[6])
+            if dist > limit then
+                self.entities[k] = nil
+            end
+        end
+    end
+
+    function obj:Move(poitionx, poitionz, rotationy, velocity, stamp)        
+        self.space.Move(self.id, poitionx, poitionz, rotationy, velocity, stamp)
+        self.clients.OnMove(self.id, poitionx, poitionz, rotationy, velocity, stamp)
     end
 
     return obj

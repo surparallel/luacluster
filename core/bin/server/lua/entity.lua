@@ -11,6 +11,13 @@ function entityFactory.CreateSub(obj, t, name, root, rootk)
     wrap.__name = name
     wrap.__root = root
     wrap.__rootk = rootk --通过key找到对应key flag
+
+    for k, v in pairs(obj) do
+        if type(v) == 'table' then
+            obj[k] = entityFactory.CreateSub(v, wrap, k, root, rootk)
+        end
+    end
+    
     return setmetatable(wrap,{
         __index = function (t,k)
             return rawobj[k]
