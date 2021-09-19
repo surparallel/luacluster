@@ -148,3 +148,95 @@ void quatRandom(struct Quaternion* q) {
     q->w = mathfRandomFloat() - 0.5f;
     quatNormalize(q, q);
 }
+
+//https://github.com/kermado/M3D
+void quatFromToRotation(struct Vector3* fromDirection, struct Vector3* toDirection, struct Quaternion* out)
+{
+    struct Vector3 unitFrom;
+    vector3Normalize(fromDirection, &unitFrom);
+    struct Vector3 unitTo;
+    vector3Normalize(toDirection, &unitTo);
+    float d = vector3Dot(&unitFrom, &unitTo);
+
+    if (d >= 1.0f)
+    {
+        out->w = 1.0f;
+        out->x = 0.0f;
+        out->y = 0.0f;
+        out->z = 0.0f;
+        return;
+    }
+    else if (d <= -1.0f)
+    {
+        struct Vector3 axis;
+        vector3Cross(&unitFrom, &gRight, &axis);
+        if (vector3MagSqrd(&axis) < 1e-6)
+        {
+            vector3Cross(&unitFrom, &gUp, &axis);
+        }
+
+        vector3Normalize(&axis, &axis);
+        quatAxisAngle(&axis, (float)PI, out);
+        return;
+    }
+    else
+    {
+        float s = sqrtf(vector3MagSqrd(&unitFrom) * vector3MagSqrd(&unitTo))
+            + vector3Dot(&unitFrom, &unitTo);
+
+        struct Vector3 v;
+        vector3Cross(&unitFrom, &unitTo, &v);
+
+        out->w = s;
+        out->x = v.x;
+        out->y = v.y;
+        out->z = v.z;
+
+        quatNormalize(out, out);
+        return;
+    }
+}
+
+void quatLookRotation(struct Vector3* forward, struct Quaternion* out)
+{
+    quatFromToRotation(&gForward, forward, out);
+    return;
+}
+
+void quatLookRotationWithUpwards(struct Vector3* forward, struct Vector3* upwards, struct Quaternion* out)
+{
+    struct Quaternion q1;
+    quatLookRotation(forward, &q1);
+
+    struct Vector3 t;
+    vector3Cross(forward, upwards, &t);
+    if (vector3MagSqrd(&t) < 1e-6)
+    {
+        *out = q1;
+        return;
+    }
+
+    struct Vector3 newUp;
+    quatMultVector(&q1, &gUp, &newUp);
+
+    struct Quaternion q2;
+
+    quatFromToRotation(&newUp, upwards, &q2);
+
+    quatMultiply(&q1, &q2, out);
+    return;
+}
+
+void quatToEulerAngles(struct Quaternion* q, struct Vector3* out)
+{
+    float sqw = q->w * q->w;
+    float sqx = q->x * q->x;
+    float sqy = q->y * q->y;
+    float sqz = q->z * q->z;
+
+    out->z = atan2f(2.f * (q->x * q->y + q->z * q->w), sqx - sqy - sqz + sqw);
+    out->y = asinf(-2.f * (q->x * q->z - q->y * q->w));
+    out->x = atan2f(2.f * (q->y * q->z + q->w * q->x), -sqx - sqy + sqz + sqw);
+
+    return;
+};

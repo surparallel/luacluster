@@ -78,6 +78,14 @@ static int luaB_Create(lua_State* L) {
 	end.x = luaL_checknumber(L, 5);
 	end.z = luaL_checknumber(L, 6);
 
+	s_fun("Bigworld::Create");
+
+	if ((unsigned int)(end.x - begin.x) % (unsigned int)(boundary.x) != 0 || (unsigned int)(end.z - begin.z) % (unsigned int)(boundary.z) != 0) {
+		s_error("bigworld::Create The boundary length is not an integer multiple of the gired");
+		lua_pushnil(L);
+		return 1;
+	}
+
 	pBigWorld->boundary = boundary;
 	pBigWorld->begin = begin;
 	pBigWorld->end = end;
@@ -97,6 +105,9 @@ static void DestroyFun(void* value) {
 static int luaB_Destroy(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 	PBigWorld pBigWorld = lua_touserdata(L, 1);
+
+	s_fun("Bigworld::Destroy");
+
 	rtree_free(pBigWorld->prtree);
 
 	listSetFreeMethod(pBigWorld->spaceList, DestroyFun);
@@ -107,13 +118,16 @@ static int luaB_Destroy(lua_State* L) {
 }
 
 //检查地图树，并重新定向到指定地图服务，可能指定到多个地图
-static int luaB_Entry(lua_State* L) {
+static int luaB_BigWorldEntry(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 	PBigWorld pBigWorld = (PBigWorld)lua_touserdata(L, 1);
 
-	unsigned long long entityid = luaL_tou64(L, 1);
-	double pointx = luaL_checknumber(L, 2);
-	double pointz = luaL_checknumber(L, 3);
+	unsigned long long entityid = luaL_tou64(L, 2);
+
+	s_fun("Bigworld::Entry %U", entityid);
+
+	double pointx = luaL_checknumber(L, 3);
+	double pointz = luaL_checknumber(L, 4);
 
 	double rects[2 * 2];
 	rects[0] = pointx;
@@ -125,8 +139,10 @@ static int luaB_Entry(lua_State* L) {
 	rtree_search(pBigWorld->prtree, rects, MultipleIter, result);
 
 	mp_buf* pmp_buf = mp_buf_new();
-	mp_encode_bytes(pmp_buf, "OnEntrySpace", strlen("OnEntrySpace"));
+	const char ptr[] = "OnEntrySpace";
+	mp_encode_bytes(pmp_buf, ptr, sizeof(ptr)-1);
 
+	mp_encode_array(pmp_buf, listLength(result));
 	listIter* iter = listGetIterator(result, AL_START_HEAD);
 	listNode* node;
 	while ((node = listNext(iter)) != NULL) {
@@ -142,59 +158,80 @@ static int luaB_Entry(lua_State* L) {
 	return 1;
 }
 
-static int luaB_OnFull(lua_State* L) {
+static int luaB_SpaceFull(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 	PBigWorld pBigWorld = (PBigWorld)lua_touserdata(L, 1);
 
-	unsigned long long id = luaL_tou64(L, 1);
+	unsigned long long id = luaL_tou64(L, 2);
+
+	s_fun("Bigworld::SpaceFull %U", id);
 
 	dictEntry* entry = dictFind(pBigWorld->spaceDict, &id);
-	if (entry != NULL) {
-		PBigWorldSpace pBigWorldSpace = (PBigWorldSpace)dictGetVal(entry);
-		if (pBigWorldSpace->adjust == 1) {
-			n_error("OnFull Repeat submission %U", id);
-		}
-			
-		pBigWorldSpace->adjust = 1;
-		double linex = (pBigWorldSpace->end.x - pBigWorldSpace->begin.x) / 2;
+	if (entry == NULL) {
 
-		if (linex > pBigWorld->boundary.x) {
-			pBigWorldSpace->tobegin.x = pBigWorldSpace->begin.x + linex;
-		}
-		else {
-			n_error("Cannot split space again %U", id);
-		}
+		lua_pushnil(L);
+		return 1;
 	}
 
-	return 0;
+	PBigWorldSpace pBigWorldSpace = (PBigWorldSpace)dictGetVal(entry);
+	if (pBigWorldSpace->adjust == 1) {
+		s_error("SpaceFull Repeat submission %U", id);
+		lua_pushnil(L);
+		return 1;
+	}
+			
+	pBigWorldSpace->adjust = 1;
+	double linex = (pBigWorldSpace->end.x - pBigWorldSpace->begin.x) / 2;
+
+	if (linex > pBigWorld->boundary.x) {
+		pBigWorldSpace->toend.x = pBigWorldSpace->end.x - linex;
+		pBigWorldSpace->toend.z = pBigWorldSpace->end.z;
+		pBigWorldSpace->tobegin = pBigWorldSpace->begin;
+
+		lua_pushinteger(L, pBigWorldSpace->adjust);
+		lua_pushnumber(L, pBigWorldSpace->toend.x - pBigWorld->boundary.x);
+		lua_pushnumber(L, pBigWorldSpace->begin.z - pBigWorld->boundary.x);
+		lua_pushnumber(L, pBigWorldSpace->end.x + pBigWorld->boundary.z);
+		lua_pushnumber(L, pBigWorldSpace->end.z + pBigWorld->boundary.z);
+		return 5;
+	}
+	else {
+		s_error("Cannot split space for %U", id);
+		lua_pushnil(L);
+		return 1;
+	}
 }
 
+//空间创建成功开始分片
 static int luaB_OnSpace(lua_State* L) {
 
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 	PBigWorld pBigWorld = (PBigWorld)lua_touserdata(L, 1);
-	unsigned long long id = luaL_tou64(L, 1);
-	unsigned long long oid = luaL_tou64(L, 2);
-	double beginx = luaL_checknumber(L, 3);
-	double beginz = luaL_checknumber(L, 4);
-	double endx = luaL_checknumber(L, 5);
-	double endz = luaL_checknumber(L, 6);
+	unsigned long long id = luaL_tou64(L, 2);
+	unsigned long long oid = luaL_tou64(L, 3);
+	double beginx = luaL_checknumber(L, 4);
+	double beginz = luaL_checknumber(L, 5);
+	double endx = luaL_checknumber(L, 6);
+	double endz = luaL_checknumber(L, 7);
+
+	s_fun("Bigworld::OnSpace id:%U oid:%U", id, oid);
 
 	PBigWorldSpace pBigWorldSpace = calloc(1, sizeof(BigWorldSpace));
-	pBigWorldSpace->begin.x = beginx;
-	pBigWorldSpace->begin.z = beginz;
-	pBigWorldSpace->end.x = endx;
-	pBigWorldSpace->end.z = endz;
+	pBigWorldSpace->begin.x = beginx + pBigWorld->boundary.x;
+	pBigWorldSpace->begin.z = beginz + pBigWorld->boundary.z;
+	pBigWorldSpace->end.x = endx - pBigWorld->boundary.x;
+	pBigWorldSpace->end.z = endz - pBigWorld->boundary.z;
 	pBigWorldSpace->id = id;
 
 	mp_buf* pmp_buf2 = mp_buf_new();
-	mp_encode_bytes(pmp_buf2, "OnAlterSpace", sizeof("OnAlterSpace"));
+	const char ptr[] = "OnAlterSpace";
+	mp_encode_bytes(pmp_buf2, ptr, sizeof(ptr)-1);
 	mp_encode_array(pmp_buf2, 5);
 	mp_encode_double(pmp_buf2, u642double(pBigWorldSpace->id));
-	mp_encode_double(pmp_buf2, pBigWorldSpace->begin.x);
-	mp_encode_double(pmp_buf2, pBigWorldSpace->begin.z);
-	mp_encode_double(pmp_buf2, pBigWorldSpace->end.x);
-	mp_encode_double(pmp_buf2, pBigWorldSpace->end.z);
+	mp_encode_double(pmp_buf2, pBigWorldSpace->begin.x - pBigWorld->boundary.x);
+	mp_encode_double(pmp_buf2, pBigWorldSpace->begin.z - pBigWorld->boundary.z);
+	mp_encode_double(pmp_buf2, pBigWorldSpace->end.x + pBigWorld->boundary.x);
+	mp_encode_double(pmp_buf2, pBigWorldSpace->end.z + pBigWorld->boundary.z);
 
 	if (oid != 0) {
 		dictEntry* entry = dictFind(pBigWorld->spaceDict, &oid);
@@ -202,60 +239,63 @@ static int luaB_OnSpace(lua_State* L) {
 			PBigWorldSpace pBigWorldSpace =(PBigWorldSpace)dictGetVal(entry);
 			if (pBigWorldSpace->adjust = 1) {
 				pBigWorldSpace->begin = pBigWorldSpace->tobegin;
-				pBigWorldSpace->toend = pBigWorldSpace->toend;
+				pBigWorldSpace->end = pBigWorldSpace->toend;
 				pBigWorldSpace->adjust = 0;
 
 				double rects[2 * 2];
-				rects[0] = pBigWorldSpace->tobegin.x - pBigWorld->boundary.x;
-				rects[1] = pBigWorldSpace->tobegin.z - pBigWorld->boundary.z;
-				rects[2] = pBigWorldSpace->toend.x + pBigWorld->boundary.x;
-				rects[3] = pBigWorldSpace->toend.z + pBigWorld->boundary.z;
+				rects[0] = pBigWorldSpace->begin.x - pBigWorld->boundary.x;
+				rects[1] = pBigWorldSpace->begin.z - pBigWorld->boundary.z;
+				rects[2] = pBigWorldSpace->end.x + pBigWorld->boundary.x;
+				rects[3] = pBigWorldSpace->end.z + pBigWorld->boundary.z;
 				rtree_delete(pBigWorld->prtree, rects, &oid);
 				rtree_insert(pBigWorld->prtree, rects, &oid);
 
 				mp_encode_array(pmp_buf2, 5);
 				mp_encode_double(pmp_buf2, u642double(pBigWorldSpace->id));
-				mp_encode_double(pmp_buf2, pBigWorldSpace->begin.x);
-				mp_encode_double(pmp_buf2, pBigWorldSpace->begin.z);
-				mp_encode_double(pmp_buf2, pBigWorldSpace->end.x);
-				mp_encode_double(pmp_buf2, pBigWorldSpace->end.z);
+				mp_encode_double(pmp_buf2, pBigWorldSpace->begin.x - pBigWorld->boundary.x);
+				mp_encode_double(pmp_buf2, pBigWorldSpace->begin.z - pBigWorld->boundary.z);
+				mp_encode_double(pmp_buf2, pBigWorldSpace->end.x + pBigWorld->boundary.x);
+				mp_encode_double(pmp_buf2, pBigWorldSpace->end.z + -pBigWorld->boundary.z);
 			}
 		}
 	}
 
 	//先删除旧的再插入新的。
 	double rects[2 * 2];
-	rects[0] = beginx - pBigWorld->boundary.x;
-	rects[1] = beginz - pBigWorld->boundary.z;
-	rects[2] = endx + pBigWorld->boundary.x;
-	rects[3] = endz + pBigWorld->boundary.z;
+	rects[0] = pBigWorldSpace->begin.x - pBigWorld->boundary.x;
+	rects[1] = pBigWorldSpace->begin.z - pBigWorld->boundary.z;
+	rects[2] = pBigWorldSpace->end.x + pBigWorld->boundary.x;
+	rects[3] = pBigWorldSpace->end.z + pBigWorld->boundary.z;
 
 	rtree_insert(pBigWorld->prtree, rects, &id);
 
-	listIter* iter = listGetIterator(pBigWorld->spaceList, AL_START_HEAD);
-	listNode* node;
+	if (listLength(pBigWorld->spaceList) > 0) {
+		listIter* iter = listGetIterator(pBigWorld->spaceList, AL_START_HEAD);
+		listNode* node;
 
-	mp_buf* pmp_buf = mp_buf_new();
-	mp_encode_bytes(pmp_buf, "OnInitSpace", sizeof("OnInitSpace"));
-	mp_encode_array(pmp_buf, listLength(pBigWorld->spaceList));
+		mp_buf* pmp_buf = mp_buf_new();
+		const char ptr[] = "OnInitSpace";
+		mp_encode_bytes(pmp_buf, ptr, sizeof(ptr)-1);
+		mp_encode_array(pmp_buf, listLength(pBigWorld->spaceList));
 
-	while ((node = listNext(iter)) != NULL) {
-		PBigWorldSpace pBigWorldSpace = (PBigWorldSpace)listNodeValue(node);
+		while ((node = listNext(iter)) != NULL) {
+			PBigWorldSpace pBigWorldSpace = (PBigWorldSpace)listNodeValue(node);
 
-		mp_encode_array(pmp_buf, 5);
-		mp_encode_double(pmp_buf, u642double(pBigWorldSpace->id));
-		mp_encode_double(pmp_buf, pBigWorldSpace->begin.x);
-		mp_encode_double(pmp_buf, pBigWorldSpace->begin.z);
-		mp_encode_double(pmp_buf, pBigWorldSpace->end.x);
-		mp_encode_double(pmp_buf, pBigWorldSpace->end.z);
+			mp_encode_array(pmp_buf, 5);
+			mp_encode_double(pmp_buf, u642double(pBigWorldSpace->id));
+			mp_encode_double(pmp_buf, pBigWorldSpace->begin.x - pBigWorld->boundary.x);
+			mp_encode_double(pmp_buf, pBigWorldSpace->begin.z - pBigWorld->boundary.z);
+			mp_encode_double(pmp_buf, pBigWorldSpace->end.x + pBigWorld->boundary.x);
+			mp_encode_double(pmp_buf, pBigWorldSpace->end.z + pBigWorld->boundary.z);
 
-		DockerSend(pBigWorldSpace->id, pmp_buf2->b, pmp_buf2->len);
+			DockerSend(pBigWorldSpace->id, pmp_buf2->b, pmp_buf2->len);
+		}
+
+		DockerSend(id, pmp_buf->b, pmp_buf->len);
+		mp_buf_free(pmp_buf);
+		
 	}
-
-	DockerSend(id, pmp_buf->b, pmp_buf->len);
-	mp_buf_free(pmp_buf);
 	mp_buf_free(pmp_buf2);
-
 	listAddNodeHead(pBigWorld->spaceList, pBigWorldSpace);
 	dictAddWithLonglong(pBigWorld->spaceDict, id, pBigWorldSpace);
 
@@ -266,8 +306,8 @@ static int luaB_OnSpace(lua_State* L) {
 static const luaL_Reg bigworld_funcs[] = {
 	{"Create", luaB_Create},
 	{"Destroy", luaB_Destroy},
-	{"Entry", luaB_Entry},
-	{"OnFull", luaB_OnFull},
+	{"Entry", luaB_BigWorldEntry},
+	{"SpaceFull", luaB_SpaceFull},
 	{"OnSpace", luaB_OnSpace },
 	{NULL, NULL}
 };

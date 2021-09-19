@@ -544,7 +544,7 @@ void* LogRun(void* pVoid) {
 static void doJsonParseFile(char* config)
 {
 	if (config == NULL) {
-		config = getenv("grypania_config");
+		config = getenv("GrypaniaAssetsPath");
 		if (config == 0 || access_t(config, 0) != 0) {
 			config = "../../res/server/config_defaults.json";
 			if (access_t(config, 0) != 0) {
@@ -605,7 +605,7 @@ static void doJsonParseFile(char* config)
 				_pLogFileHandle->rule_default->line = 0;
 				_pLogFileHandle->rule_default->isBreak = 0;
 				_pLogFileHandle->rule_default->process = prc_file;
-				_pLogFileHandle->rule_default->form = 0;
+				_pLogFileHandle->rule_default->form = logform_full;
 
 				cJSON* runleItem = logJson->child;
 				while ((runleItem != NULL) && (runleItem->string != NULL))
@@ -731,7 +731,7 @@ void LogRuleTo(char category, char maxlevel, char minlevel, char* fileName, size
 	pLogRule->line = line;
 	pLogRule->isBreak = isBreak;
 	pLogRule->process = process;
-	pLogRule->form = logform_simple;
+	pLogRule->form = logform_full;
 	pLogPacket->describe = sdsnewlen(pLogRule, sizeof(LogRule));
 	
 	EqPush(_pLogFileHandle->eQueue, pLogPacket);

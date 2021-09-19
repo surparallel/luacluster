@@ -7,9 +7,9 @@
 
 //角度转弧度： π/180×角度  ；弧度变角度：180/π×弧度
 #undef PI
-#define PI (3.14159265358979323846)
-#define RADIANS_PER_DEGREE (PI/180.0)
-#define DEGREE_PER_RADIANS (180.0/PI)
+#define PI (3.14159265358979323846f)
+#define RADIANS_PER_DEGREE (PI/180.0f)
+#define DEGREE_PER_RADIANS (180.0f/PI)
 
 struct Quaternion {
     float x, y, z, w;
@@ -25,5 +25,9 @@ void quatToMatrix(struct Quaternion* q, float out[4][4]);
 void quatNormalize(struct Quaternion* q, struct Quaternion* out);
 void quatRandom(struct Quaternion* q);
 void quatEulerAngles(struct Vector3* angles, struct Quaternion* out);
+void quatToEulerAngles(struct Quaternion* q, struct Vector3* out);
+void quatLookRotation(struct Vector3* forward, struct Quaternion* out);
+void quatFromToRotation(struct Vector3* fromDirection, struct Vector3* toDirection, struct Quaternion* out);
+void quatLookRotationWithUpwards(struct Vector3* forward, struct Vector3* upwards, struct Quaternion* out);
 
 #endif

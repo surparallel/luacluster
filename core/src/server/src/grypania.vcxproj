@@ -15,6 +15,7 @@
     <ClInclude Include="..\test\eid.h" />
     <ClInclude Include="..\test\redis.h" />
     <ClInclude Include="..\test\space.h" />
+    <ClInclude Include="3dmathapi.h" />
     <ClInclude Include="bigworld.h" />
     <ClInclude Include="docker.h" />
     <ClInclude Include="dockerapi.h" />
@@ -31,6 +32,7 @@
     <ClCompile Include="..\test\eid.c" />
     <ClCompile Include="..\test\redis.c" />
     <ClCompile Include="..\test\space.c" />
+    <ClCompile Include="3dmathapi.c" />
     <ClCompile Include="bigworld.c" />
     <ClCompile Include="docker.c" />
     <ClCompile Include="dockerapi.c" />

@@ -240,6 +240,11 @@ int ReadArgFromParam(int argc, char** argv) {
 		{
 			if (checkArg(argv[i + 1])) {
 				assetsPath = argv[i + 1];
+
+				char path[260];
+				strcat(path, "GrypaniaAssetsPath=");
+				strcat(path, assetsPath);
+				putenv(path);
 			}
 			else {
 				printf("Not enough parameters found!\n");
@@ -290,7 +295,7 @@ void OutOfMemoryHandler(size_t allocation_size) {
 static void doJsonParseFile(char* config)
 {
 	if (config == NULL) {
-		config = getenv("grypania_config");
+		config = getenv("GrypaniaAssetsPath");
 		if (config == 0 || access_t(config, 0) != 0) {
 			config = "../../res/server/config_defaults.json";
 			if (access_t(config, 0) != 0) {
@@ -351,7 +356,12 @@ int main(int argc, char** argv) {
 	LogInit(NULL);
 	//这里有需要输入参数的，指定要绑定的地址之类的
 
-	n_details("**********************hello grypania!**********************");
+	n_details("********************************************");
+	n_details("*              hello grypania!             *");
+	n_details("********************************************");
+	s_details("********************************************");
+	s_details("*              hello grypania!             *");
+	s_details("********************************************");
 
 	doJsonParseFile(NULL);
 

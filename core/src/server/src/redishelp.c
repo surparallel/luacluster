@@ -40,7 +40,7 @@ static unsigned redis_port;
 static void doJsonParseFile(char* config)
 {
     if (config == NULL) {
-        config = getenv("grypania_config");
+        config = getenv("GrypaniaAssetsPath");
         if (config == 0 || access_t(config, 0) != 0) {
             config = "../../res/server/config_defaults.json";
             if (access_t(config, 0) != 0) {
@@ -105,22 +105,14 @@ void FreeRedisHelp() {
 	sdsfree(redis_ip);
 }
 
-void SetUpdToAll(unsigned int ip, unsigned short port) {
-	//redis默认监听端口为6387 可以再配置文件中修改
-	redisContext* c = redisConnect(redis_ip, redis_port);
-	if (c->err)
-	{
-		redisFree(c);
-		n_error("Connect to redisServer faile\n");
-		return;
-	}
-	const char* command = "SADD nodeall %d:%d";
+void SetUpdToAll(redisContext* c, unsigned int ip, unsigned short port) {
+
+	const char* command = "SADD cluster:nodeall %d:%d";
 	redisReply* r = (redisReply*)redisCommand(c, command, ip, port);
 
 	if (NULL == r)
 	{
 		n_error("Execut command failure\n");
-		redisFree(c);
 		return;
 	}
 
@@ -128,12 +120,10 @@ void SetUpdToAll(unsigned int ip, unsigned short port) {
 	{
 		n_warn("Failed to execute command[%s]\n", command);
 		freeReplyObject(r);
-		redisFree(c);
 		return;
 	}
 
 	freeReplyObject(r);
-	redisFree(c);
 }
 
 void GetUpdFromAll(unsigned int* ip, unsigned short* port) {
@@ -145,7 +135,7 @@ void GetUpdFromAll(unsigned int* ip, unsigned short* port) {
 		n_error("Connect to redisServer faile");
 		return;
 	}
-	const char* command = "SRANDMEMBER nodeall 1";
+	const char* command = "SRANDMEMBER cluster:nodeall 1";
 	redisReply* r = (redisReply*)redisCommand(c, command);
 
 	if (NULL == r)
@@ -178,8 +168,6 @@ void GetUpdFromAll(unsigned int* ip, unsigned short* port) {
 
 void SetUpdIPAndPortToOutside(unsigned int ip, unsigned short port) {
 
-	SetUpdToAll(ip, port);
-
 	//redis默认监听端口为6387 可以再配置文件中修改
 	redisContext* c = redisConnect(redis_ip, redis_port);
 	if (c->err)
@@ -188,7 +176,10 @@ void SetUpdIPAndPortToOutside(unsigned int ip, unsigned short port) {
 		n_error("Connect to redisServer faile\n");
 		return;
 	}
-	const char* command = "SADD nodeoutside %d:%d";
+
+	SetUpdToAll(c, ip, port);
+
+	const char* command = "SADD cluster:nodeoutside %d:%d";
 	redisReply* r = (redisReply*)redisCommand(c, command, ip, port);
 
 	if (NULL == r)
@@ -212,8 +203,6 @@ void SetUpdIPAndPortToOutside(unsigned int ip, unsigned short port) {
 
 void SetUpdIPAndPortToInside(unsigned int ip, unsigned short port) {
 
-	SetUpdToAll(ip, port);
-
 	//redis默认监听端口为6387 可以再配置文件中修改
 	redisContext* c = redisConnect(redis_ip, redis_port);
 	if (c->err)
@@ -222,7 +211,10 @@ void SetUpdIPAndPortToInside(unsigned int ip, unsigned short port) {
 		n_error("Connect to redisServer faile");
 		return;
 	}
-	const char* command = "SADD nodeinside %d:%d";
+
+	SetUpdToAll(c, ip, port);
+
+	const char* command = "SADD cluster:nodeinside %d:%d";
 	redisReply* r = (redisReply*)redisCommand(c, command, ip, port);
 
 	if (NULL == r)
@@ -263,9 +255,9 @@ void GetUpdInside(unsigned int* ip, unsigned short* port) {
 		return;
 	}
 
-	if (r->type != REDIS_REPLY_ARRAY && r->elements == 0)
+	if (r->type != REDIS_REPLY_ARRAY || (r->type == REDIS_REPLY_ARRAY && r->elements == 0))
 	{
-		n_error("Failed to execute command[%s]", command);
+		n_warn("Failed to execute command[%s]", command);
 		freeReplyObject(r);
 		redisFree(c);
 
@@ -296,7 +288,7 @@ void GetUpdOutside(unsigned int* ip, unsigned short* port) {
 		n_error("Connect to redisServer faile");
 		return;
 	}
-	const char* command = "SRANDMEMBER nodeoutside 1";
+	const char* command = "SRANDMEMBER cluster:nodeoutside 1";
 	redisReply* r = (redisReply*)redisCommand(c, command);
 
 	if (NULL == r)
@@ -306,9 +298,9 @@ void GetUpdOutside(unsigned int* ip, unsigned short* port) {
 		return;
 	}
 
-	if (r->type != REDIS_REPLY_ARRAY && r->elements == 0)
+	if (r->type != REDIS_REPLY_ARRAY || (r->type == REDIS_REPLY_ARRAY && r->elements == 0))
 	{
-		n_error("Failed to execute command[%s]", command);
+		n_warn("Failed to execute command[%s]", command);
 		freeReplyObject(r);
 		redisFree(c);
 

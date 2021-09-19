@@ -3,7 +3,7 @@
 #include "vector.h"
 #include "transform.h"
 #include <math.h>
-double PIOver2 = 0xc.90fdaa22168cp-3;
+static double PIOver2 = 0xc.90fdaa22168cp-3;
 
 //方向向量转欧拉角
 void LookRotation(struct Vector3 fromDir, struct Vector3* eulerAngles)
@@ -295,6 +295,19 @@ inline struct Vector3 GetEulerAngle(struct Quaternion* in)
     return ret;
 };
 
+void GetEulerAngle2(struct Quaternion* q, struct Vector3* EulerAngle)
+{
+    float sqw = q->w * q->w;
+    float sqx = q->x * q->x;
+    float sqy = q->y * q->y;
+    float sqz = q->z * q->z;
+
+    EulerAngle->z = atan2f(2.f * (q->x * q->y + q->z * q->w), sqx - sqy - sqz + sqw);
+    EulerAngle->y = asinf(-2.f * (q->x * q->z - q->y * q->w));
+    EulerAngle->x = atan2f(2.f * (q->y * q->z + q->w * q->x), -sqx - sqy + sqz + sqw);
+
+}
+
 void do3dlibTest() {
 
 	struct BasicTransform bt;
@@ -327,4 +340,17 @@ void do3dlibTest() {
 
 	int a = 1;
 
+    struct Vector3 Euler, Euler2, Euler3;
+    Euler.x = 15.0f * RADIANS_PER_DEGREE;
+    Euler.y = 25.0f * RADIANS_PER_DEGREE;
+    Euler.z = 45.0f * RADIANS_PER_DEGREE;
+    quatEulerAngles(&Euler, &rotation);
+    quatToEulerAngles(&rotation, &Euler2);
+
+    struct Vector3 forwd;
+    forwd.x = 1;
+    forwd.y = 0;
+    forwd.z = 1;
+    quatLookRotation(&forwd, &rotation);
+    quatToEulerAngles(&rotation, &Euler2);
 }

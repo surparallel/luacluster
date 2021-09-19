@@ -44,17 +44,20 @@ sc.redis.ip = "127.0.0.1"
 sc.redis.port = 6379
 
 sc.cluster = {}
-sc.cluster.serves = {space="space"}--集群启动时要启动的服务列表
-sc.cluster.expire = 1 --集群关键key的过期时间秒
+sc.cluster.serves = {"space","bigworld"}--集群启动时要启动的服务列表
+sc.cluster.expire = 15 --集群关键key的过期时间秒
+sc.cluster.nodeSize = 1 --集群的数量
+sc.cluster.nodeStar = 60 --集群服务的启动延迟时间
 
-sc.sukoku = {}
-sc.sukoku.girdx = 10
-sc.sukoku.girdz = 10
-sc.sukoku.beginx = 0
-sc.sukoku.beginz = 0
-sc.sukoku.endx = 100
-sc.sukoku.endz = 100
-sc.sukoku.radius = 15
+sc.sudoku = {}
+sc.sudoku.girdx = 10
+sc.sudoku.girdz = 10
+sc.sudoku.beginx = 0
+sc.sudoku.beginz = 0
+sc.sudoku.endx = 100
+sc.sudoku.endz = 100
+sc.sudoku.radius = 15
+sc.sudoku.outsideSec = 10 * 60
 
 sc.bigworld = {}
 sc.bigworld.beginx = 0

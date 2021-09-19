@@ -1032,7 +1032,7 @@ void SendToNodeWithUINT(unsigned int ip, unsigned short port, unsigned char* b, 
 
     if (IF_WIN32(w_sendto, sendto)(sock, b, s, 0, (struct sockaddr*)&server_addr, len) < 0)
     {
-        n_error("SendToNode::sendto error %i %i", ip, port);
+        n_error("SendToNodeWithUINT::sendto error %i %i", ip, port);
         return;
     }
 }
@@ -1092,7 +1092,7 @@ int SendToEntity(unsigned long long entityid, const char* b, unsigned short s) {
 static void doJsonParseFile(char* config)
 {
     if (config == NULL) {
-        config = getenv("grypania_config");
+        config = getenv("GrypaniaAssetsPath");
         if (config == 0 || IF_WIN32(w_access,access)(config, 0) != 0) {
             config = "../../res/server/config_defaults.json";
             if (IF_WIN32(w_access, access)(config, 0) != 0) {

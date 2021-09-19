@@ -1,32 +1,35 @@
+--space
 local entity = require("entity")
 local entitymng = require("entitymng")
 local cmsgpack = require("cmsgpack")
 local docker = require("docker")
 local int64 = require("int64")
 local elog = require("elog")
+local udpproxy = require 'udpproxy'
 
 local spaceFactory= {}
 
 function spaceFactory.New(arg)
-    print("New space")
     local obj = entity.New(arg)
     obj.entities = {}
 
     --注册自己的entity id到redis
     function obj:Init()
+
+        elog.fun("space::init")
         entitymng.RegistrySev(self.ServerName, self)
         --entitymng.RegistryUpdata(self)
     end
     
-    function obj:update(count, deltaTime)
+    function obj:Update(count, deltaTime)
 
         --print("space update", count, deltaTime)
     end
 
-    function obj:EntryWorld(id)
-        
+    function obj:EntryWorld(id, poitionx, poitionz, rotationy, velocity, stamp, isGhost, stampStop)
         local entryid = tostring(int64.new_unsigned(id))
 
+        elog.fun("space::LeaveWorld"..entryid)
         if self.entities[entryid] ~= nil then
             elog.n_error("EntryWorld::Repeat into space error".. entryid)
             return
@@ -37,17 +40,27 @@ function spaceFactory.New(arg)
         
         for key, value in pairs(self.entities) do
             local keyid = int64.new_unsigned(key)
-            docker.Send(keyid, cmsgpack.pack("OnAddView", {[entryid] = 0}))
+            docker.Send(keyid.tonumber(keyid), cmsgpack.pack("OnAddView", {[entryid]=self.entities[entryid]}))
         end
 
-        self.entities[entryid] = 1--这里记录相关移动状态
+        obj.entities[entryid] = {}
+        obj.entities[entryid][1] = id
+        obj.entities[entryid][2] = poitionx
+        obj.entities[entryid][3] = poitionz
+        obj.entities[entryid][4] = rotationy
+        obj.entities[entryid][5] = velocity
+        obj.entities[entryid][6] = stamp
+        obj.entities[entryid][7] = stampStop
+
+        local entityProxy = udpproxy.New(id)
+        entityProxy:OnEntryWorld("space")
     end
 
     function obj:LeaveWorld(id)
-        --从redis获取对象并调用空间的LeaveWorld
-
+        --从redis获取对象并调用空间的LeaveWorld  
         local entryid = tostring(int64.new_unsigned(id))
-
+        
+        elog.fun("space::LeaveWorld"..entryid)
         if self.entities[entryid] == nil then
             elog.n_error("LeaveWorld::level from space no find id error".. entryid)
             return
@@ -56,10 +69,10 @@ function spaceFactory.New(arg)
         --从redis获取对象并调用空间的EntryWorld
         for key, value in pairs(self.entities) do
             local keyid = int64.new_unsigned(key)
-            docker.Send(keyid, cmsgpack.pack("OnDelView", {[entryid] = 0}))
+            docker.Send(keyid.tonumber(keyid), cmsgpack.pack("OnDelView", {[entryid]=0}))
         end
 
-        self.entities[entryid] = nil--这里记录相关移动状态
+        self.entities[entryid] = nil
     end
     
     function obj:Destory()

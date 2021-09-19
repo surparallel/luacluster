@@ -101,26 +101,12 @@ size_t LogGetFileLine();
 #define n_fun(describe, ...) elog(log_fun, ctg_node, describe, __VA_ARGS__)
 #define n_details(describe, ...) elog(log_details, ctg_node, describe, __VA_ARGS__)
 
-//ctg_entity
-#define t_error(describe, ...) elog(log_error, ctg_entity, describe, __VA_ARGS__)
-#define t_warn(describe, ...) elog(log_warn, ctg_entity, describe, __VA_ARGS__)
-#define t_stat(describe, ...) elog(log_stat, ctg_entity, describe, __VA_ARGS__)
-#define t_fun(describe, ...) elog(log_fun, ctg_entity, describe, __VA_ARGS__)
-#define t_details(describe, ...) elog(ctg_entity, ctg_node, describe, __VA_ARGS__)
-
-//ctg_login
-#define l_error(describe, ...) elog(log_error, ctg_login, describe, __VA_ARGS__)
-#define l_warn(describe, ...) elog(log_warn, ctg_login, describe, __VA_ARGS__)
-#define l_stat(describe, ...) elog(log_stat, ctg_login, describe, __VA_ARGS__)
-#define l_fun(describe, ...) elog(log_fun, ctg_login, describe, __VA_ARGS__)
-#define l_details(describe, ...) elog(ctg_entity, ctg_login, describe, __VA_ARGS__)
-
-//ctg_space
-#define s_error(describe, ...) elog(log_error, ctg_space, describe, __VA_ARGS__)
-#define s_warn(describe, ...) elog(log_warn, ctg_space, describe, __VA_ARGS__)
-#define s_stat(describe, ...) elog(log_stat, ctg_space, describe, __VA_ARGS__)
-#define s_fun(describe, ...) elog(log_fun, ctg_space, describe, __VA_ARGS__)
-#define s_details(describe, ...) elog(ctg_entity, ctg_space, describe, __VA_ARGS__)
+//ctg_script
+#define s_error(describe, ...) elog(log_error, ctg_script, describe, __VA_ARGS__)
+#define s_warn(describe, ...) elog(log_warn, ctg_script, describe, __VA_ARGS__)
+#define s_stat(describe, ...) elog(log_stat, ctg_script, describe, __VA_ARGS__)
+#define s_fun(describe, ...) elog(log_fun, ctg_script, describe, __VA_ARGS__)
+#define s_details(describe, ...) elog(log_details, ctg_script, describe, __VA_ARGS__)
 #endif
 
 

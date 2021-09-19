@@ -9,13 +9,13 @@ local cluster = require("cluster")
 
 function main()
 
-   if  _G["dockerid"] == 0 then
-    --检查集群是否已经初始化，如果没有初始化就进入服务启动流程
-    cluster:CheckInit()
-   end
-
     while(true)
     do
+        if  _G["dockerid"] == 0 and not cluster:IsBooted() then
+            --检查集群是否已经初始化，如果没有初始化就进入服务启动流程
+            cluster:CheckInit()
+        end
+
         ret = {docker.Wait(sc.glob.msec)}
         if #ret == 0 then
             entitymng.LoopUpdata()

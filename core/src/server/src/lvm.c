@@ -38,6 +38,7 @@
 #include "sudoku.h"
 #include "bigworld.h"
 #include "lua-mongodb.h"
+#include "3dmathapi.h"
 
 typedef struct _LVMHandle
 {
@@ -62,6 +63,7 @@ void* LVMCreate(const char* scriptPath, const char* assetsPath) {
 	luaopen_bit(pLVMHandle->luaVM);
 	LuaOpenElog(pLVMHandle->luaVM);
 	luaopen_mongo(pLVMHandle->luaVM);
+	LuaOpenMath3d(pLVMHandle->luaVM);
 	LuaAddPath(pLVMHandle->luaVM, "path", (char*)assetsPath);
 	luaL_requiref(pLVMHandle->luaVM, "socket.core", luaopen_socket_core, 0);
 	luaL_requiref(pLVMHandle->luaVM, "mime.core", luaopen_mime_core, 0);

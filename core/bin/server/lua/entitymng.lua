@@ -112,8 +112,8 @@ function entityMng.LoopUpdata()
     count = count + 1
     
     for k,v in pairs(_G["__update"]) do
-        if v.update ~= nil then
-            v:update(count, deltaTime)
+        if v.Update ~= nil then
+            v:Update(count, deltaTime)
         end
     end
 
@@ -138,8 +138,10 @@ function entityMng.GetSev(ServerName)
     local id = redishelp:hget("servers", ServerName)
     if id ~= nil then
         return udpproxy.New(id)
+    else
+        elog.error("entityMng.GetSev not find"..ServerName)
+        return nil
     end
-    return nil
 end
 
 return entityMng

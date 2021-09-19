@@ -71,7 +71,7 @@ void test_sudoku() {
 	begin.z = 0;
 	end.x = 30;
 	end.z = 30;
-	hand = SudokuCreate(gird, begin, end, 0);
+	hand = SudokuCreate(gird, begin, end, 0, 0, 0);
 
 	TestGirdDir(hand);
 
@@ -82,14 +82,14 @@ void test_sudoku() {
 		rotation.x = rand() % 360;
 		rotation.z = rand() % 360;
 
-		SudokuEntry(hand, i, position, rotation, 1, GetCurrentSec(), 0);
+		SudokuEntry(hand, i, position, rotation, 1, GetCurrentSec(), 0, 0);
 	}
 
 	for (int i = 0; i < 100; i++) {
 		sleep(1);
 		printf("************  %d  *****************\n", i);
 		SudokuUpdate(hand);
-		PrintPoition(hand);
+		PrintAllPoition(hand);
 	}
 
 

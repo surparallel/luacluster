@@ -19,7 +19,7 @@ function udpProxyFactory.New(id)
                     return
                 end
                 arg[1] = k
-                docker.Send(obj.id, cmsgpack.pack(unpack(arg)))
+                docker.Send(self.id, cmsgpack.pack(unpack(arg)))
             end
         end,
         __newindex = function (t,k,v)

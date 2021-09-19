@@ -131,7 +131,7 @@ void UnallocateID(void* pVoid, unsigned long long id) {
 static void doJsonParseFile(char* config, PDocksHandle pDocksHandle)
 {
 	if (config == NULL) {
-		config = getenv("grypania_config");
+		config = getenv("GrypaniaAssetsPath");
 		if (config == 0 || access_t(config, 0) != 0) {
 			config = "../../res/server/config_defaults.json";
 			if (access_t(config, 0) != 0) {
@@ -367,6 +367,7 @@ void DockerRandomPushMsg(unsigned char* b, unsigned short s) {
 
 void DockerSend(unsigned long long id, const char* pc, size_t s) {
 
+	//n_fun("docker::DockerSend");
 	VPEID pEntityID = CreateEIDFromLongLong(id);
 	unsigned int addr = GetAddrFromEID(pEntityID);
 	unsigned char port =  GetPortFromEID(pEntityID);
@@ -475,8 +476,8 @@ void DockerCreateEntity(void* pVoid, int type, const char* c, size_t s) {
 
 	if (NodeInside == type || NodeOutside == type || NodeRandom == type) {
 
-		if (htonl(pDocksHandle->ip) == ip && (pDocksHandle->uport + pDocksHandle->uportOffset)== port) {
-			DockerRandomPushMsg((char*) c, s);
+		if (pDocksHandle->ip == ip && (pDocksHandle->uport + pDocksHandle->uportOffset)== port) {
+			DockerRandomPushMsg((unsigned char*)pProtoHead, len);
 		}
 		else {
 			SendToNodeWithUINT(ip, port, (unsigned char*)pProtoHead, len);

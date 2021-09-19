@@ -46,6 +46,8 @@ static int luaB_SendToClient(lua_State* L) {
 	unsigned long long did = luaL_tou64be(L, 1, 0, 0);
 	unsigned long long pid = luaL_tou64be(L, 2, 0, 0);
 
+	s_fun("Docker::SendToClient %U %U", did, pid);
+
 	size_t ret;
 	const char* pc = luaL_checklstring(L, 3, &ret);
 
@@ -58,6 +60,9 @@ static int luaB_SendToClient(lua_State* L) {
 
 static int luaB_CopyRpcToClient(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
+
+	s_fun("Docker::CopyRpcToClient");
+
 	DockerCopyRpcToClient(pVoid);
 	return 0;
 }
@@ -74,6 +79,8 @@ static int luaB_Send(lua_State* L) {
 	size_t ret;
 	const char* pc = luaL_checklstring(L, 2, &ret);
 
+	s_fun("Docker::Send %U", id);
+
 	DockerSend(id, pc, ret);
 	return 0;
 }
@@ -81,6 +88,8 @@ static int luaB_Send(lua_State* L) {
 static int luaB_Wait(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 	unsigned long long msec = luaL_tou64be(L, 1, 0, 0);
+
+	//s_fun("Docker::Wait %U", msec);
 
 	if (msec == 0)
 		msec = INFINITE;
@@ -92,6 +101,8 @@ static int luaB_AllocateID(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 
 	unsigned long long id = AllocateID(pVoid);
+
+	s_fun("Docker::AllocateID %U", id);
 	luaL_u64pushnumber(L, id);
 	return 1;
 }
@@ -100,6 +111,8 @@ static int luaB_UnallocateID(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 
 	unsigned long long id = luaL_tou64(L, 1);
+
+	s_fun("Docker::UnallocateID %U", id);
 	UnallocateID(pVoid, id);
 	return 0;
 }
@@ -119,6 +132,8 @@ static int luaB_CreateEntity(lua_State* L) {
 	unsigned int type = luaL_checkinteger(L, 1);
 	size_t ret;
 	const char* pc = luaL_checklstring(L, 2, &ret);
+
+	s_fun("Docker::CreateEntity %i", type);
 	DockerCreateEntity(pVoid, type, pc, ret);
 	return 0;
 }
@@ -134,6 +149,8 @@ static int luaB_BindNet(lua_State* L) {
 	PProtoNetBind pProtoNetBind = (PProtoNetBind)pProtoHead;
 	pProtoNetBind->entityId = luaL_tou64be(L, 1, 0, 0);
 	pProtoNetBind->clientId = luaL_checkinteger(L, 2);
+
+	s_fun("Docker::BindNet %U %u", pProtoNetBind->entityId, pProtoNetBind->clientId);
 
 	SendToClient(0, (const char*)pProtoHead, len);
 	free(pProtoHead);
@@ -152,6 +169,8 @@ static int luaB_DestoryNet(lua_State* L) {
 
 	PProtoNetDestory pProtoNetDestory = (PProtoNetDestory)pProtoHead;
 	pProtoNetDestory->clientId = luaL_checkinteger(L, 1);
+
+	s_fun("Docker::BindNet %u", pProtoNetDestory->clientId);
 
 	SendToClient(0, (const char*)pProtoHead, len);
 	free(pProtoHead);

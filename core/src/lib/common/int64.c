@@ -363,7 +363,7 @@ LUALIB_API int64_t luaL_toi64be (lua_State *L, int idx, int base,
 
 LUALIB_API uint64_t luaL_tou64be (lua_State *L, int idx, int base,
                                   int *errcode) {
-  uint64_t n;
+  uint64_t n = 0;
   int success;
   const int tt = lua_type(L, idx);
   switch (tt) {

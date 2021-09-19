@@ -4,18 +4,48 @@ local entitymng = require("entitymng")
 local elog = require("elog")
 local cluster = {}
 
+cluster.isBoots = 0
+
 function cluster:CheckInit()
 
-    if true == redishelp:setnx('cluster:init',"programmer") then
-        redishelp:expire('cluster:init', sc.cluster.expire)
+    if self.isBoots == 0 then
+        --todo 这里要记录获得了权限,并且数量和时间要保证
+        if true == redishelp:setnx('cluster:init',"doing") then
+            redishelp:expire('cluster:init', sc.cluster.expire)
+            self.starTime = os.time()
+            self.isBoots = 1
+        else
+            self.isBoots = 2
+            elog.details("cluster:CheckInit() Win a silver medal")
+        end
+    elseif self.isBoots == 1 and (sc.cluster.nodeSize <= redishelp:scard('cluster:nodeall') or sc.cluster.nodeStar <= (os.time() - self.starTime)) then
 
         for k, v in pairs(sc.cluster.serves) do
-            entitymng.EntityToCreate(sc.entity.DockerRandom, v, {ServerName=k})
+            entitymng.EntityToCreate(sc.entity.DockerRandom, v, {ServerName=v})
         end
-    else
-        elog.details("cluster:CheckInit() Win a silver medal")
+
+        redishelp:set('cluster:init',"done")
+        redishelp:expire('cluster:init', sc.cluster.expire)
+        self.isBoots = 2
     end
+
     return
+end
+
+function cluster:IsBooted()
+    if self.isBoots == 2 then
+        return true
+    else 
+        return false
+    end
+end
+
+function cluster:IsDone()
+    if redishelp:set('cluster:init') == "done" then
+        return true
+    else
+        return false
+    end
 end
 
 return cluster
