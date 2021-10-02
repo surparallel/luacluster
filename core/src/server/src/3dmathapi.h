@@ -20,3 +20,4 @@
 #include "lua.h"
 
 int LuaOpenMath3d(lua_State* L);
+void Position(struct Vector3* position, struct Vector3* angles, float velocity, unsigned int stamp, unsigned int stampStop, struct Vector3* out);

@@ -220,9 +220,7 @@ void quatLookRotationWithUpwards(struct Vector3* forward, struct Vector3* upward
     quatMultVector(&q1, &gUp, &newUp);
 
     struct Quaternion q2;
-
     quatFromToRotation(&newUp, upwards, &q2);
-
     quatMultiply(&q1, &q2, out);
     return;
 }
@@ -237,6 +235,5 @@ void quatToEulerAngles(struct Quaternion* q, struct Vector3* out)
     out->z = atan2f(2.f * (q->x * q->y + q->z * q->w), sqx - sqy - sqz + sqw);
     out->y = asinf(-2.f * (q->x * q->z - q->y * q->w));
     out->x = atan2f(2.f * (q->y * q->z + q->w * q->x), -sqx - sqy + sqz + sqw);
-
     return;
 };

@@ -19,7 +19,7 @@
 
 void* LVMCreate(const char* path, const char* assetsPath);
 void LVMDestory(void* pvlVMHandle);
-int LVMCallFunction(void* pvLVMHandle, char* sdsFile, char* fun, const char* arg, size_t len);
+int LVMCallFunction(void* pvLVMHandle, char* sdsFile, char* fun);
 void LVMSetGlobleLightUserdata(void* pvLVMHandle, const char* name, void* pVoid);
 void* LVMGetGlobleLightUserdata(lua_State* L, const char* name);
 void LVMSetGlobleInt(void* pvLVMHandle, const char* name, int id);

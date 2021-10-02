@@ -9,8 +9,8 @@ local udpproxy = require 'udpproxy'
 
 local spaceFactory= {}
 
-function spaceFactory.New(arg)
-    local obj = entity.New(arg)
+function spaceFactory.New()
+    local obj = entity.New()
     obj.entities = {}
 
     --注册自己的entity id到redis
@@ -18,6 +18,7 @@ function spaceFactory.New(arg)
 
         elog.fun("space::init")
         entitymng.RegistrySev(self.ServerName, self)
+        self.spaceType = "space"
         --entitymng.RegistryUpdata(self)
     end
     
@@ -26,7 +27,7 @@ function spaceFactory.New(arg)
         --print("space update", count, deltaTime)
     end
 
-    function obj:EntryWorld(id, poitionx, poitionz, rotationy, velocity, stamp, isGhost, stampStop)
+    function obj:EntryWorld(id, poitionx, poitionz, rotationy, velocity, stamp, stampStop, isGhost)
         local entryid = tostring(int64.new_unsigned(id))
 
         elog.fun("space::LeaveWorld"..entryid)
@@ -52,8 +53,12 @@ function spaceFactory.New(arg)
         obj.entities[entryid][6] = stamp
         obj.entities[entryid][7] = stampStop
 
+        --这个空间没有尺寸限制
         local entityProxy = udpproxy.New(id)
         entityProxy:OnEntryWorld("space")
+
+        local entityProxy = udpproxy.New(id)
+        entityProxy:OnGetSpace(self.id)
     end
 
     function obj:LeaveWorld(id)

@@ -8,8 +8,8 @@ local udpproxy = require 'udpproxy'
 
 local spaceFactory= {}
 
-function spaceFactory.New(arg)
-    local obj = entity.New(arg)
+function spaceFactory.New()
+    local obj = entity.New()
     obj.entities = {}
     
     --注册自己的entity id到redis
@@ -42,22 +42,24 @@ function spaceFactory.New(arg)
             local bigworld = udpproxy.New(self.bigworld)
             bigworld:OnSpace(self.id, self.oid, self.beginx, self.beginz, self.endx, self.endz)
         end
+
+        self.spaceType = "sudokuex"
     end
 
-    function obj:update(count, deltaTime)
+    function obj:Update(count, deltaTime)
         sudokuapi.Update(self.mysudoku)
     end
 
-    function obj:EntryWorld(id, poitionx, poitionz, rotationy, velocity, stamp, isGhost, stampStop)
-        sudokuapi.Entry(self.mysudoku, id, poitionx, poitionz, rotationy, velocity, stamp, isGhost, stampStop)
+    function obj:EntryWorld(id, poitionx, poitionz, rotationy, velocity, stamp, stampStop, isGhost)
+        sudokuapi.Entry(self.mysudoku, id, poitionx, poitionz, rotationy, velocity, stamp, stampStop, isGhost)
 
         local entityProxy = udpproxy.New(id)
-        entityProxy:OnEntryWorld(self.spaceType, self.beginx, self.beginz, self.endx, self.endz)
+        entityProxy:OnGetSpace(self.id)
     end
 
     --todolist 移动导致格子和预测不同，要重新计算可见范围
-    function obj:Move(id, poitionx, poitionz, rotationy, velocity, stamp)
-        sudokuapi.Move(self.mysudoku, id, poitionx, poitionz, rotationy, velocity, stamp)
+    function obj:Move(id, poitionx, poitionz, rotationy, velocity, stamp, stampStop)
+        sudokuapi.Move(self.mysudoku, id, poitionx, poitionz, rotationy, velocity, stamp, stampStop)
     end
 
     function obj:LeaveWorld(id)

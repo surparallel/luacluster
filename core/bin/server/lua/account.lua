@@ -14,10 +14,10 @@ function accountFactory.OnFreshKey(t,k,v,o,f)
     end
 end
 
-function accountFactory.New(arg)
-    local obj = entity.New(arg)
+function accountFactory.New()
+    local obj = entity.New()
     obj:AddKeyFlags("ping", sc.keyflags.exposed)
-    obj:Inherit("spaceplugin")
+    obj:Inherit("moveplugin")
     obj.client = tcpproxy.New(obj.id)
 
     obj.transform = {}

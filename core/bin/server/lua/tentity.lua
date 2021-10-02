@@ -5,9 +5,9 @@ function test.OnFreshKey(t,k,v,o,f)
     print("OnFreshKey")
 end
 
-function test.New(arg)
+function test.New()
     print("New")
-    local obj = entity.New(arg)
+    local obj = entity.New()
 
     function obj:fun()
         print("test entity fun")

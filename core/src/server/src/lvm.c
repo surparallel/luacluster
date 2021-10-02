@@ -81,7 +81,7 @@ void LVMDestory(void* pvlVMHandle) {
 	free(pLVMHandle);
 }
 
-int LVMCallFunction(void* pvLVMHandle, char* sdsFile, char* fun, const char* arg, size_t len) {
+int LVMCallFunction(void* pvLVMHandle, char* sdsFile, char* fun) {
 
 	PLVMHandle pLVMHandle = pvLVMHandle;
 
@@ -108,13 +108,7 @@ int LVMCallFunction(void* pvLVMHandle, char* sdsFile, char* fun, const char* arg
 
 	//call fun
 	lua_getfield(pLVMHandle->luaVM, LUA_GLOBALSINDEX, fun);
-
-	int argCount = 0;
-	//这里要压入参数
-	if (arg != NULL)
-		argCount = mp_c_unpack(pLVMHandle->luaVM, arg, len);
-
-	if (lua_pcall(pLVMHandle->luaVM, argCount, LUA_MULTRET, 0)) {
+	if (lua_pcall(pLVMHandle->luaVM, 0, LUA_MULTRET, 0)) {
 		elog(log_error, ctg_script, "plg_LvmCallFile.plua_pcall:%s lua:%s", fun, lua_tolstring(pLVMHandle->luaVM, -1, NULL));
 		lua_settop(pLVMHandle->luaVM, 0);
 		return 0;

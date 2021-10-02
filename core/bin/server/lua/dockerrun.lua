@@ -25,7 +25,7 @@ function main()
             try(function()
                 arg = {cmsgpack.unpack(ret[2])}
 
-               entitymng.CreateEntity(arg[1], arg[2])
+               entitymng.NewEntity(arg[1], arg[2])
 
             end).catch(function (ex)
                 elog.error(ex)
@@ -37,9 +37,7 @@ function main()
                 if obj ~= nil then
 
                     --通知对象销毁
-                    if type(obj.Destory) == "function" then
-                        obj:Destory()
-                    end
+                    obj:DoInheritFun(obj, "Destory")
 
                     --管理器销毁
                     entitymng.UnRegistryObj(ret[2])

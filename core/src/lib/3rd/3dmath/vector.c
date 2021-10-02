@@ -94,7 +94,7 @@ void vector3ProjectPlane(struct Vector3* in, struct Vector3* normal, struct Vect
 }
 
 void vector3MoveTowards(struct Vector3* from, struct Vector3* towards, float maxDistance, struct Vector3* out) {
-    float distance = vector3DistSqrd(from, towards);
+    float distance = vector3DistSqrd(towards, from);
 
     if (distance < maxDistance * maxDistance) {
         *out = *towards;

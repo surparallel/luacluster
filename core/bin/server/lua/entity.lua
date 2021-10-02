@@ -1,4 +1,4 @@
-local strpath = require("strpath")
+
 local entityFactory = {}
 local bit = require("bit")
 
@@ -6,6 +6,7 @@ local bit = require("bit")
 function entityFactory.CreateSub(obj, t, name, root, rootk)
     local wrap = {}
     local rawobj = obj or {}
+
     wrap.__rawobj = rawobj
     wrap.__parant = t --__parant为空并且__rootk等于__name则为对象根属性
     wrap.__name = name
@@ -17,7 +18,7 @@ function entityFactory.CreateSub(obj, t, name, root, rootk)
             obj[k] = entityFactory.CreateSub(v, wrap, k, root, rootk)
         end
     end
-    
+
     return setmetatable(wrap,{
         __index = function (t,k)
             return rawobj[k]
@@ -45,14 +46,8 @@ function entityFactory.CreateSub(obj, t, name, root, rootk)
     })
 end
 
-function classname(level)
-    local info = debug.getinfo(level)
-    local name = strpath.strippath(info.short_src)
-    return strpath.stripextension(name)
-end
-
---New 以及其他的所有New 就是一个构造函数
-function entityFactory.New(arg)
+--CreateObj 以及其他的所有CreateObj 就是一个构造函数
+function entityFactory.New()
 
     local wrap = {}
     local rawobj = {}
@@ -60,15 +55,41 @@ function entityFactory.New(arg)
     wrap.__KeyFilter = {}
     wrap.__KeyFlags = {}
     wrap.__inherit = {}
+    wrap.__allparant = {}
 
-    if arg ~= nil then
-        for k,v in pairs(arg) do
-            rawobj[k] = v      
+    function rawobj:CopyArg(arg)
+        if arg ~= nil then
+            for k,v in pairs(arg) do
+                self.__rawobj[k] = v
+            end
         end
     end
 
-    function rawobj:testFun(arg)
-        print("hello entity::"..arg)
+    function rawobj:EntityClass(class)
+        rawset(self, "__class", class)
+    end
+
+    function rawobj:DoInheritFun(sub, fun, ...)    
+        if(sub.__inherit ~= nil) then
+            for k, v in pairs(sub.__inherit) do
+                self:DoInheritFun(v, fun)
+            end
+        end
+        
+        if sub[fun] ~= nil then
+            sub[fun](self, ...)
+        end
+    end
+    
+    function rawobj:Recombination(obj, out)
+        local __rawobj = rawget(obj, "__rawobj")
+        local __name = rawget(obj, "__name")
+        out[__name] = __rawobj
+        for k, v in pairs(out[__name]) do
+            if type(v) == "table" then
+                entityFactory.Recombination(v, out[__name])
+            end
+        end
     end
 
     --当注册完成时被调用返回entity id
@@ -108,15 +129,11 @@ function entityFactory.New(arg)
     end
 
     --对象继承是浅copy
-    function rawobj:Inherit(parant)
-        local __inherit = rawget(self, "__inherit")
- 
-        if __inherit[parant] ~= nil then
+    function rawobj:Inherit(parant) 
+        if self.__inherit[parant] ~= nil then
             error("Repeated inheritance ["..parant.."]")
             return
         end
-
-        --assert(classname(3) ~= parant, "error "..parant.." inherit self!")
 
         local parantFactory = require(parant)
         local parantObj = parantFactory.New()
@@ -125,22 +142,21 @@ function entityFactory.New(arg)
             return
         end
 
-        if parantObj.__inherit ~= nil then
-            for k, v in pairs(parantObj.__inherit) do
-                if self.__inherit[k] ~= nil then
-                    error("Inherit copy from ["..parant.."] __inherit have duplicate key:".. k)
-                    return
-                end
+        for k, v in pairs(parantObj.__allparant) do
+            if self.__allparant[k] ~= nil then
+                error("Repeated inheritance ["..k.."]")
+                return
             end
+            self.__allparant[k] = v
+        end 
 
-            for k, v in pairs(parantObj.__inherit) do
-                if self.__inherit[k] ~= nil then
-                    self.__inherit[k] = v 
-                end
-            end
+        self.__inherit[parant] = parantObj
+
+        if self.__allparant[parant] ~= nil then
+            error("Repeated inheritance ["..parant.."]")
+            return    
         end
-
-        __inherit[parant] = parantObj
+        self.__allparant[parant] = parantObj
 
         if parantObj.__rawobj ~= nil  then
             for k, v in pairs(parantObj.__rawobj) do self.__rawobj[k] = v end
@@ -160,21 +176,19 @@ function entityFactory.New(arg)
     
     setmetatable(wrap,{
         __index = function (t,k)
-            return rawobj[k]
+            return t.__rawobj[k]
         end,
         __newindex = function (t,k,v)
-
-            local KeyFlags = rawget(wrap, "__KeyFlags")
-            if KeyFlags ~= nil and KeyFlags[k] ~= nil then
+            if t.__KeyFlags ~= nil and t.__KeyFlags[k] ~= nil then
                 if t.__KeyFilter ~= nil then
                     for key, fun in pairs(t.__KeyFilter) do
-                        fun(t,k,v,rawobj[k],KeyFlags[k])
+                        fun(t,k,v,t.__rawobj[k],t.__KeyFlags[k])
                     end  
                 end
 
-                if rawobj[k] == nil and type(v) == 'table' then
+                if t.__rawobj[k] == nil and type(v) == 'table' then
                     if getmetatable(v) == nil then
-                        rawobj[k] = entityFactory.CreateSub(v, t, k, t, k)
+                        t.__rawobj[k] = entityFactory.CreateSub(v, t, k, t, k)
                     else
                         error("An attempt was made to assign an object that cannot be serialized")
                     end
@@ -182,7 +196,7 @@ function entityFactory.New(arg)
                 end
             end
 
-            rawobj[k] = v
+            t.__rawobj[k] = v
         end
     })
     return wrap

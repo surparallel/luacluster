@@ -108,6 +108,7 @@ http://nadeausoftware.com/articles/2012/10/c_c_tip_how_detect_compiler_name_and_
 #include <string.h>
 #include <time.h>
 #include <stdbool.h>
+#include <math.h>
 
 #ifdef _WIN32
 #ifdef _DEBUG

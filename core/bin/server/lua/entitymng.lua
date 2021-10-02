@@ -30,10 +30,14 @@ function entityMng.RegistryObj(obj)
     return id
 end
 
-function entityMng.CreateEntity(name, arg)
+function entityMng.NewEntity(name, arg)
     
-    local e = require(name).New(arg)
+    local e = require(name).New()
     if e ~= nil then
+        
+        e:CopyArg(arg)
+        e:EntityClass(name)
+
         entityMng.RegistryObj(e)
         
         local myid = int64.new_unsigned(e.id)
@@ -46,7 +50,7 @@ function entityMng.CreateEntity(name, arg)
         end
 
         if type(e.Init) == "function" then
-            e:Init()
+            e:DoInheritFun(e, "Init")
         end
     else
         elog.error("main::proto_rpc_create:: New error::",name)
@@ -112,7 +116,7 @@ function entityMng.LoopUpdata()
     count = count + 1
     
     for k,v in pairs(_G["__update"]) do
-        if v.Update ~= nil then
+        if v["Update"] ~= nil then
             v:Update(count, deltaTime)
         end
     end

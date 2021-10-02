@@ -34,9 +34,6 @@ typedef struct mp_buf {
     size_t len, free;
 } mp_buf;
 
-int mp_pack(lua_State* L);
-int mp_unpack(lua_State* L);
-
 LUALIB_API int luaopen_cmsgpack(lua_State* L);
 
 mp_buf* mp_buf_new();
@@ -46,11 +43,6 @@ void mp_encode_double(mp_buf* buf, double d);
 void mp_encode_int(mp_buf* buf, size_t n);
 void mp_encode_array(mp_buf* buf, size_t n);
 void mp_encode_map(mp_buf* buf, size_t n);
-
-unsigned char* mp_buf_point(mp_buf* buf, size_t* len);
-int mp_c_pack(lua_State* L, mp_buf* buf);
-int mp_c_unpack(lua_State* L, const char* s, size_t len);
-
 
 void mp_cur_init(mp_cur* cursor, const unsigned char* s, size_t len);
 void mp_decode_type(mp_cur* c, int* type);

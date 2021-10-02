@@ -121,11 +121,6 @@ void mp_buf_free(mp_buf *buf) {
     mp_realloc(buf, 0);
 }
 
-unsigned char* mp_buf_point(mp_buf* mp_buf, size_t *len) {
-    *len = mp_buf->len;
-    return mp_buf->b;
-}
-
 /* ---------------------------- String cursor ----------------------------------
  * This simple data structure is used for parsing. Basically you create a cursor
  * using a string pointer and a length, then it is possible to access the
@@ -837,32 +832,6 @@ int mp_pack(lua_State *L) {
     return 1;
 }
 
-/*
- * Packs all arguments as a stream for multiple upacking later.
- * Returns error if no arguments provided.
- */
-int mp_c_pack(lua_State* L, mp_buf* buf) {
-    int nargs = lua_gettop(L);
-    int i;
-
-    if (nargs == 0)
-        return luaL_argerror(L, 0, "MessagePack pack needs input.");
-
-    if (!lua_checkstack(L, nargs))
-        return luaL_argerror(L, 0, "Too many arguments for MessagePack pack.");
-
-    for (i = 1; i <= nargs; i++) {
-        /* Copy argument i to top of stack for _encode processing;
-         * the encode function pops it from the stack when complete. */
-        luaL_checkstack(L, 1, "in function mp_check");
-        lua_pushvalue(L, i);
-
-        mp_encode_lua_type(L, buf, 0);
-    }
-
-    return 1;
-}
-
 /* ------------------------------- Decoding --------------------------------- */
 
 void mp_decode_to_lua_type(lua_State *L, mp_cur *c);
@@ -1167,63 +1136,6 @@ int mp_unpack_full(lua_State *L, int limit, int offset) {
 
 int mp_unpack(lua_State *L) {
     return mp_unpack_full(L, 0, 0);
-}
-
-int mp_c_unpack_full(lua_State* L, const char* s, size_t len, int limit, int offset) {
-    mp_cur c;
-    int cnt; /* Number of objects unpacked */
-    int decode_all = (!limit && !offset);
-
-    if (offset < 0 || limit < 0) /* requesting negative off or lim is invalid */
-        return luaL_error(L,
-            "Invalid request to unpack with offset of %d and limit of %d.",
-            offset, len);
-    else if (offset > len)
-        return luaL_error(L,
-            "Start offset %d greater than input length %d.", offset, len);
-
-    if (decode_all) limit = INT_MAX;
-
-    mp_cur_init(&c, (const unsigned char*)s + offset, len - offset);
-
-    /* We loop over the decode because this could be a stream
-     * of multiple top-level values serialized together */
-    for (cnt = 0; c.left > 0 && cnt < limit; cnt++) {
-        mp_decode_to_lua_type(L, &c);
-
-        if (c.err == MP_CUR_ERROR_EOF) {
-            return luaL_error(L, "Missing bytes in input.");
-        }
-        else if (c.err == MP_CUR_ERROR_BADFMT) {
-            return luaL_error(L, "Bad data format in input.");
-        }
-    }
-
-    if (!decode_all) {
-        /* c->left is the remaining size of the input buffer.
-         * subtract the entire buffer size from the unprocessed size
-         * to get our next start offset */
-        int offset = (int)(len - c.left);
-
-        luaL_checkstack(L, 1, "in function mp_unpack_full");
-
-        /* Return offset -1 when we have have processed the entire buffer. */
-        lua_pushinteger(L, c.left == 0 ? -1 : offset);
-        /* Results are returned with the arg elements still
-         * in place. Lua takes care of only returning
-         * elements above the args for us.
-         * In this case, we have one arg on the stack
-         * for this function, so we insert our first return
-         * value at position 2. */
-        lua_insert(L, 2);
-        cnt += 1; /* increase return count by one to make room for offset */
-    }
-
-    return cnt;
-}
-
-int mp_c_unpack(lua_State* L, const char* s, size_t len) {
-    return mp_c_unpack_full(L, s, len, 0, 0);
 }
 
 int mp_unpack_one(lua_State *L) {

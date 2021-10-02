@@ -209,7 +209,7 @@ void* DockerRun(void* pVoid) {
 	LVMSetGlobleInt(pDockerHandle->LVMHandle, "dockerid", pDockerHandle->id);
 
 	//调用脚本的初始化
-	LVMCallFunction(pDockerHandle->LVMHandle, pDocksHandle->entryfile, pDocksHandle->entryfunction, 0, 0);
+	LVMCallFunction(pDockerHandle->LVMHandle, pDocksHandle->entryfile, pDocksHandle->entryfunction);
 
 	return NULL;
 }

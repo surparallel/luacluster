@@ -28,6 +28,70 @@
 #include "dicthelp.h"
 #include "quaternion.h"
 #include "vector.h"
+#include "timesys.h"
+
+void Position(struct Vector3* position, struct Vector3* angles, float velocity, unsigned int stamp, unsigned int stampStop, struct Vector3* out) {
+	unsigned int current = GetCurrentSec();
+	if (stampStop && current >= stampStop)
+		current = stampStop;
+
+	struct Quaternion quaternion;
+	quatEulerAngles(angles, &quaternion);
+	quatMultVector(&quaternion, &gForward, out);
+
+	vector3Scale(out, out, (current - stamp) * velocity);
+	vector3Add(position, out, out);
+}
+
+static int luaB_Position(lua_State* L) {
+
+	s_fun("math3d::Position");
+	//position
+	struct Vector3 position;
+	position.x = luaL_checknumber(L, 1);
+	position.y = luaL_checknumber(L, 2);
+	position.z = luaL_checknumber(L, 3);
+
+	//rotation
+	struct Vector3 angles;
+	angles.x = luaL_checknumber(L,4) * RADIANS_PER_DEGREE;
+	angles.y = luaL_checknumber(L, 5) * RADIANS_PER_DEGREE;;
+	angles.z = luaL_checknumber(L, 6) * RADIANS_PER_DEGREE;
+
+	//velocity 每秒移动的速度
+	float velocity = luaL_checknumber(L, 7);
+
+	//stamp 秒
+	unsigned int stamp = luaL_checkinteger(L, 8);
+	unsigned int stampStop = luaL_checkinteger(L, 9);
+
+	struct Vector3 out;
+	Position(&position, &angles, velocity, stamp, stampStop, &out);
+
+	lua_pushnumber(L, out.x);
+	lua_pushnumber(L, out.y);
+	lua_pushnumber(L, out.z);
+
+	return 3;
+}
+
+static int luaB_Dist(lua_State* L) {
+
+	s_fun("sudoku::Dist");
+	struct Vector3 position1;
+	position1.x = luaL_checknumber(L, 1);
+	position1.y = luaL_checknumber(L, 2);;
+	position1.z = luaL_checknumber(L, 3);
+
+	//position
+	struct Vector3 position;
+	position.x = luaL_checknumber(L, 4);
+	position.y = luaL_checknumber(L, 5);;
+	position.z = luaL_checknumber(L, 6);
+
+	lua_pushnumber(L, sqrtf(vector3DistSqrd(&position, &position)));
+	return 1;
+}
 
 static int luaB_LookVector(lua_State* L) {
 
@@ -43,23 +107,28 @@ static int luaB_LookVector(lua_State* L) {
 
 	struct Vector3 forward, euler;
 	vector3Sub(&b, &a, &forward);
+
+	float distance = sqrtf(vector3MagSqrd(&forward));
 	struct Quaternion out;
 	quatLookRotation(&forward, &out);
 	quatToEulerAngles(&out, &euler);
 
-	lua_pushnumber(L, euler.x);
-	lua_pushnumber(L, euler.y);
-	lua_pushnumber(L, euler.z);
-	return 3;
+	lua_pushnumber(L, distance);
+	lua_pushnumber(L, euler.x * DEGREE_PER_RADIANS);
+	lua_pushnumber(L, euler.y * DEGREE_PER_RADIANS);
+	lua_pushnumber(L, euler.z * DEGREE_PER_RADIANS);
+	return 4;
 }
 
 static const luaL_Reg math3d_funcs[] = {
-  {"LookVector", luaB_LookVector},
-  {NULL, NULL}
+	{"Position", luaB_Position},
+	{"Dist", luaB_Dist},
+	{"LookVector", luaB_LookVector},
+	{NULL, NULL}
 };
 
 int LuaOpenMath3d(lua_State* L) {
 	luaL_register(L, "math3d", math3d_funcs);
-	return 2;
+	return 1;
 }
 

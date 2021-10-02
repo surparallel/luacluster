@@ -62,8 +62,8 @@ sc.sudoku.outsideSec = 10 * 60
 sc.bigworld = {}
 sc.bigworld.beginx = 0
 sc.bigworld.beginz = 0
-sc.bigworld.endx = 1000
-sc.bigworld.endz = 1000
+sc.bigworld.endx = 100
+sc.bigworld.endz = 100
 
 try(function()
 

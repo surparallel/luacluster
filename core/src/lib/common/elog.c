@@ -172,6 +172,20 @@ char* GetCategoryName(char Category) {
 	return 0;
 }
 
+int double2str(double value, int decimals, char* str, size_t len)
+{
+	int l;
+	if (decimals == 0)
+		l = sprintf(str, "%g", value);
+	else {
+		char format[10];
+		sprintf(format, "%%.%dlf", decimals);
+		l = snprintf(str, len, format, value);
+	}
+
+	return l;
+}
+
 char* LogFormatDescribe(char const *fmt, ...) {
 	sds s = sdsempty();
 	size_t initlen = sdslen(s);
@@ -187,6 +201,7 @@ char* LogFormatDescribe(char const *fmt, ...) {
 		size_t l;
 		long long num;
 		unsigned long long unum;
+		double dnum;
 
 		/* Make sure there is always space for at least 1 char. */
 		if (sdsavail(s) == 0) {
@@ -218,6 +233,20 @@ char* LogFormatDescribe(char const *fmt, ...) {
 				{
 					char buf[SDS_LLSTR_SIZE];
 					l = sdsll2str(buf, num);
+					if (sdsavail(s) < l) {
+						s = sdsMakeRoomFor(s, l);
+					}
+					memcpy(s + i, buf, l);
+					sdsIncrLen(s, (int)l);
+					i += l;
+				}
+				break;
+			case 'f':
+			case 'F':
+				dnum = va_arg(ap, double);
+				{
+					char buf[SDS_LLSTR_SIZE];
+					l = double2str(dnum, 0, buf, SDS_LLSTR_SIZE);
 					if (sdsavail(s) < l) {
 						s = sdsMakeRoomFor(s, l);
 					}

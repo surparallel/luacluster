@@ -355,7 +355,6 @@ int main(int argc, char** argv) {
 
 	LogInit(NULL);
 	//这里有需要输入参数的，指定要绑定的地址之类的
-
 	n_details("********************************************");
 	n_details("*              hello grypania!             *");
 	n_details("********************************************");

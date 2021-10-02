@@ -8,10 +8,10 @@ local udpproxy = require 'udpproxy'
 
 local spaceFactory= {}
 
-function spaceFactory.New(arg)
-    local obj = entity.New(arg)
+function spaceFactory.New()
+    local obj = entity.New()
     obj.entities = {}
-    obj.split = 0;
+    obj.split = 0;--测试分裂空间
     
     --注册自己的entity id到redis
     function obj:Init()
@@ -39,6 +39,9 @@ function spaceFactory.New(arg)
         self.endx = sc.bigworld.endx
         self.endz = sc.bigworld.endz
         self.spaceType = "bigworld"
+
+        --创建测试npc
+        entitymng.EntityToCreate(sc.entity.NodeInside , "npc")
     end
     
     --引导entity进入space 如果是多个就进入多个
@@ -49,6 +52,7 @@ function spaceFactory.New(arg)
         entityProxy:OnEntryWorld(self.spaceType, self.beginx, self.beginz, self.endx, self.endz)
     end
     
+    --理论上这个对象不会被销毁
     function obj:Destory()
         bigworldapi.Destroy()
     end
@@ -77,9 +81,10 @@ function spaceFactory.New(arg)
         --放入rtree 删除原空间，调整原空间后重新插入
         bigworldapi.OnSpace(self.apihandle, id, oid, beginx, beginz, endx, endz)
 
-        if obj.split == 0 then
+        --空间创建成功后测试分裂空间
+        if self.split == 0 then
             self:SpaceFull(id)
-            obj.split = 1
+            self.split = 1
         end
     end
 

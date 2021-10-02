@@ -8,8 +8,8 @@ function botsFactory.OnFreshKey(t,k,v,o,f)
     print("OnFreshKey")
 end
 
-function botsFactory.New(arg)
-    local obj = entity.New(arg)
+function botsFactory.New()
+    local obj = entity.New()
 
     function obj:Init()
         self.server = tcpproxy.New(self.id)

@@ -4,25 +4,21 @@ local entitymng = require("entitymng")
 local docker = require("docker")
 local int64 = require("int64")
 local spaceproxy = require 'spaceproxy'
-local sudokuapi = require("sudokuapi")
 local udpproxy = require 'udpproxy'
+local math3d = require 'math3d'
+local elog = require("elog")
+local entity = require("entity")
 
 local spacepluginFactory = {}
 
-function spacepluginFactory.OnFreshKey(t,k,v,o,f)
-    print("OnFreshKey")
-
-    if t:HaveKeyFlags(k, sc.keyflags.broadcast) then
-        for k, v in pairs(t.entities) do
-            local keyid = int64.new_unsigned(k)
-            docker.SendToClient(t.id, keyid, cmsgpack.pack("ChangStatus", {[k] = v}))
-        end
-    end
-end
-
 function spacepluginFactory.New()
-    local obj = {}
-    self.spaceInfo = {}
+    local obj = entity.New()
+    obj.spaceInfo = {}
+    obj.transform = {}
+    obj.transform.poition = {}
+    obj.transform.nowPotion = {}
+    obj.transform.rotation = {}
+    obj.entities = {}
 
     --这里要改为链接bigworld
     function obj:EntryWorld(sapceName)
@@ -33,8 +29,9 @@ function spacepluginFactory.New()
             , self.transform.rotation.y
             , self.transform.velocity
             , self.transform.stamp
+            , self.transform.stampStop
             , self.isGhost
-            , self.transform.stampStop)
+        )
         self.clients = spaceproxy.New(self)
         self.isGhost = 0
         self.spaces = {}
@@ -49,43 +46,32 @@ function spacepluginFactory.New()
 
     end
 
+    --当entity在bigworld模式下获得空间时
+    function obj:OnGetSpace(spaceType, beginx, beginz, endx, endz)
+
+    end
+
     --用户主动离开
     function obj:LeaveWorld(sapceName)
         --从redis获取对象并调用空间的LeaveWorld
         for k, v in pairs(self.spaces) do
             v.LeaveWorld(self.id)
-            spaces[k] = nil
+            self.spaces[k] = nil
         end
     end
 
     --可能会收到多个空间的进入可见列表
     function obj:OnAddView(entityList)
         for key, value in ipairs(entityList) do
-            -- key = entityid
-            self.entities[key] = value
+            local id64 = int64.new_unsigned(value[1])
+            local sid = tostring(id64)
+            self.entities[sid] = value
         end
 
         --转发到客户端
-        docker.CopyRpcToClient()
-    end
-
-    --其他客户端调用更改可见范围内的状态
-    function obj:OnMove(id, poitionx, poitionz, rotationy, velocity, stamp, stampStop)
-
-        if (self.entities[id] ~= nil and stamp ~=0) then
-            self.entities[id][1] = id
-            self.entities[id][2] = poitionx
-            self.entities[id][3] = poitionz
-            self.entities[id][4] = rotationy
-            self.entities[id][5] = velocity
-            self.entities[id][6] = stamp
-            self.entities[id][7] = stampStop
-        elseif (self.entities[id] ~= nil and stamp == 0) then
-            self.entities[id] = nil
+        if self.clientid ~= nil then
+            docker.CopyRpcToClient()
         end
-
-        --转发到客户端
-        docker.CopyRpcToClient()
     end
 
     --废弃
@@ -104,15 +90,16 @@ function spacepluginFactory.New()
         limit = limit * 2;
 
         for k, v in pairs(self.entities) do
-            local dist = sudokuapi.Dist(self.transform.poition.x, self.transform.poition.z, v[2], v[3], v[4], v[5], v[6])
+            local x,y,z =math3d.Position(v[2], 0, v[3], v[4], 0, v[5], v[6], v[7])
+            local dist = math3d.Dist(self.transform.poition.x, 0, self.transform.poition.z, x, y, z)
             if dist > limit then
                 self.entities[k] = nil
             end
         end
     end
 
-    --引导进入空间可能会有多个，要分出ghost
-    function obj:OnEntrySpace(spaces)
+    --引导进入其他空间
+    function obj:OnRedirectToSpace(spaces)
 
         for k, v in pairs(spaces) do
 
@@ -122,7 +109,7 @@ function spacepluginFactory.New()
             --首次登录
             self.spaces[tostring(id64)]:EntryWorld(self.id, self.transform.poition.x,
             self.transform.poition.z, self.transform.rotation.y,
-            self.transform.velocity, self.transform.stamp,  self.isGhost, self.transform.stampStop)
+            self.transform.velocity, self.transform.stamp,  self.transform.stampStop, self.isGhost)
 
             if self.isGhost == 0 then
                 self.master = v
@@ -138,29 +125,62 @@ function spacepluginFactory.New()
         self.spaces[tostring(id64)] = nil
     end
 
-    function obj:Move(poitionx, poitionz, rotationy, velocity, stamp)
-        local id64 = int64.new_unsigned(self.id)
-        self.spaces[tostring(id64)] = nil
-        for k, v in pairs(self.spaces) do
-
-            v:Move(self.id, poitionx, poitionz, rotationy, velocity, stamp)
-        end
-
-        self.clients:OnMove(self.id, poitionx, poitionz, rotationy, velocity, stamp)
-    end
-
     function obj:OnDelGhost(id)
 
-        if self.master.id == id then
-            return
-        end
-
         if self.master ~= nil then
+            if self.master == id then
+                return
+            end
             local remoteCall = udpproxy.New(self.master)
             remoteCall:SetGhost(self.id)
         end
 
         self.master = id
+    end
+
+    function obj:EntityPosition(id)
+
+        local id64 = int64.new_unsigned(id)
+        if self.entities[tostring(id64)] == nil then
+            return nil
+        end
+
+        local entity = self.entities[tostring(id64)]
+        return math3d.Position(entity[2], 0, entity[3], 0, entity[4], 0, entity[5], entity[6], entity[7])
+    end
+
+    --其他客户端调用更改可见范围内的状态
+    function obj:OnMove(id, poitionx, poitionz, rotationy, velocity, stamp, stampStop)
+
+        local id64 = int64.new_unsigned(id)
+        local sid = tostring(id64)
+        if self.entities[sid] == nil then
+            self.entities[sid] = {}
+        end
+
+        self.entities[sid][1] = id
+        self.entities[sid][2] = poitionx
+        self.entities[sid][3] = poitionz
+        self.entities[sid][4] = rotationy
+        self.entities[sid][5] = velocity
+        self.entities[sid][6] = stamp
+        self.entities[sid][7] = stampStop
+
+        --转发到客户端
+        if self.clientid ~= nil then
+            docker.CopyRpcToClient()
+        end
+    end
+
+    function obj:Move(poitionx, poitionz, rotationy, velocity, stamp)
+
+        --通知空间
+        for k, v in pairs(self.spaces) do
+            v:Move(self.id, poitionx, poitionz, rotationy, velocity, stamp)
+        end
+
+        --通知客户端
+        self.clients:OnMove(self.id, poitionx, poitionz, rotationy, velocity, stamp)
     end
 
     return obj

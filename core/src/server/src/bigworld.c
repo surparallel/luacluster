@@ -139,7 +139,7 @@ static int luaB_BigWorldEntry(lua_State* L) {
 	rtree_search(pBigWorld->prtree, rects, MultipleIter, result);
 
 	mp_buf* pmp_buf = mp_buf_new();
-	const char ptr[] = "OnEntrySpace";
+	const char ptr[] = "OnRedirectToSpace";
 	mp_encode_bytes(pmp_buf, ptr, sizeof(ptr)-1);
 
 	mp_encode_array(pmp_buf, listLength(result));
@@ -255,7 +255,7 @@ static int luaB_OnSpace(lua_State* L) {
 				mp_encode_double(pmp_buf2, pBigWorldSpace->begin.x - pBigWorld->boundary.x);
 				mp_encode_double(pmp_buf2, pBigWorldSpace->begin.z - pBigWorld->boundary.z);
 				mp_encode_double(pmp_buf2, pBigWorldSpace->end.x + pBigWorld->boundary.x);
-				mp_encode_double(pmp_buf2, pBigWorldSpace->end.z + -pBigWorld->boundary.z);
+				mp_encode_double(pmp_buf2, pBigWorldSpace->end.z + pBigWorld->boundary.z);
 			}
 		}
 	}
