@@ -1,0 +1,333 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{011B3FDF-5982-384A-800F-E703BF668E74}</ProjectGuid>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
+    <Keyword>Win32Proj</Keyword>
+    <Platform>x64</Platform>
+    <ProjectName>mongoc_static</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\..\..\..\..\libs</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\..\..\..\..\_objs\$(ProjectName)_d\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectName)_d</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\..\..\..\..\libs</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\..\..\..\..\_objs\$(ProjectName)\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectName)</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>.\src;.\src\mongoc;..\..\..\src\libmongoc\src;..\..\..\src\libmongoc\..\..\src\common;..\..\..\src\zlib-1.2.11;..\..\..\builds\src\zlib-1.2.11;..\..\..\src\libbson\src;..\..\..\builds\src\libbson\src;..\..\..\builds\src\libbson\src\bson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;MONGOC_STATIC;BSON_STATIC;MONGOC_COMPILATION;_CRT_SECURE_NO_WARNINGS;_GNU_SOURCE;_BSD_SOURCE;_DEFAULT_SOURCE;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;MONGOC_STATIC;BSON_STATIC;MONGOC_COMPILATION;_CRT_SECURE_NO_WARNINGS;_GNU_SOURCE;_BSD_SOURCE;_DEFAULT_SOURCE;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libmongoc\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libmongoc\src\mongoc;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\..\..\src\common;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\zlib-1.2.11;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src\bson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libmongoc\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libmongoc\src\mongoc;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\..\..\src\common;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\zlib-1.2.11;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src\bson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Message>
+      </Message>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>.\src;.\src\mongoc;..\..\..\src\libmongoc\src;..\..\..\src\libmongoc\..\..\src\common;..\..\..\src\zlib-1.2.11;..\..\..\builds\src\zlib-1.2.11;..\..\..\src\libbson\src;..\..\..\builds\src\libbson\src;..\..\..\builds\src\libbson\src\bson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;MONGOC_STATIC;BSON_STATIC;MONGOC_COMPILATION;_CRT_SECURE_NO_WARNINGS;_GNU_SOURCE;_BSD_SOURCE;_DEFAULT_SOURCE;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;MONGOC_STATIC;BSON_STATIC;MONGOC_COMPILATION;_CRT_SECURE_NO_WARNINGS;_GNU_SOURCE;_BSD_SOURCE;_DEFAULT_SOURCE;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libmongoc\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libmongoc\src\mongoc;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\..\..\src\common;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\zlib-1.2.11;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src\bson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libmongoc\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libmongoc\src\mongoc;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\..\..\src\common;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\zlib-1.2.11;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src\bson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Message>
+      </Message>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\adler32.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\crc32.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\deflate.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\infback.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\inffast.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\inflate.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\inftrees.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\trees.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\zutil.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\compress.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\uncompr.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\gzclose.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\gzlib.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\gzread.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\zlib-1.2.11\gzwrite.c">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalOptions) -w</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-aggregate.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-apm.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-array.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-async.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-async-cmd.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-buffer.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-bulk-operation.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-change-stream.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-client.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-client-pool.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-client-side-encryption.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cluster.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cluster-sasl.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-collection.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-compression.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-counters.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-crypt.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cursor-array.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cursor.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cursor-cmd.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cursor-change-stream.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cursor-cmd-deprecated.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cursor-find.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cursor-find-cmd.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cursor-find-opquery.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cursor-legacy.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-database.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-error.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-find-and-modify.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-init.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-gridfs.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-gridfs-bucket.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-gridfs-bucket-file.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-gridfs-file.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-gridfs-file-list.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-gridfs-file-page.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-handshake.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-host-list.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-index.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-list.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-linux-distro-scanner.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-log.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-matcher.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-matcher-op.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-memcmp.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cmd.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-opts.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-opts-helpers.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-queue.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-read-concern.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-read-prefs.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-rpc.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-server-description.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-server-stream.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-client-session.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-set.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-socket.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-buffered.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-file.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-gridfs.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-gridfs-download.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-gridfs-upload.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-socket.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-topology.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-topology-description.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-topology-description-apm.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-topology-scanner.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-uri.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-util.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-version-functions.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-write-command.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-write-command-legacy.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-write-concern.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\common\common-b64.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\common\common-md5.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-crypto.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-scram.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-tls.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-ssl.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-crypto-cng.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-rand-cng.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-tls-secure-channel.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-secure-channel.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-sasl.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cluster-sspi.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-sspi.c" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libmongoc\src\mongoc\mongoc-config.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libmongoc\src\mongoc\mongoc-version.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-apm.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-bulk-operation.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-change-stream.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-client.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-client-pool.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-client-side-encryption.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-collection.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-cursor.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-database.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-error.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-flags.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-find-and-modify.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-gridfs.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-gridfs-bucket.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-gridfs-file.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-gridfs-file-page.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-gridfs-file-list.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-handshake.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-host-list.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-init.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-index.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-iovec.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-log.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-macros.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-matcher.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-opcode.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-prelude.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-read-concern.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-read-prefs.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-server-description.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-client-session.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-socket.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-tls-libressl.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-tls-openssl.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-buffered.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-file.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-gridfs.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-socket.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-topology-description.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-uri.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-version-functions.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-write-concern.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-rand.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-stream-tls.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\mongoc-ssl.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libmongoc\src\mongoc\forwarding\mongoc.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

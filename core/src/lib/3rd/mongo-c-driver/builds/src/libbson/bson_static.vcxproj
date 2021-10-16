@@ -1,0 +1,187 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{48504139-0F83-300A-BDEF-7AA6C537032D}</ProjectGuid>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
+    <Keyword>Win32Proj</Keyword>
+    <Platform>x64</Platform>
+    <ProjectName>bson_static</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\..\..\..\..\libs</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\..\..\..\..\_objs\$(ProjectName)_d\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectName)_d</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\..\..\..\..\libs</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\..\..\..\..\_objs\$(ProjectName)_d\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectName)</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>.\src;.\src\bson;..\..\..\src\common;..\..\..\src\libbson\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;BSON_STATIC;BSON_COMPILATION;JSONSL_PARSE_NAN;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;BSON_STATIC;BSON_COMPILATION;JSONSL_PARSE_NAN;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src\bson;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\..\..\src\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src\bson;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\..\..\src\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Message>
+      </Message>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>.\src;.\src\bson;..\..\..\src\common;..\..\..\src\libbson\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;BSON_STATIC;BSON_COMPILATION;JSONSL_PARSE_NAN;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;BSON_STATIC;BSON_COMPILATION;JSONSL_PARSE_NAN;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src\bson;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\..\..\src\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src\bson;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src;D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\..\..\src\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Message>
+      </Message>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bcon.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-atomic.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-clock.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-context.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-decimal128.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-error.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-iso8601.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-iter.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-json.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-keys.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-md5.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-memory.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-oid.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-reader.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-string.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-timegm.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-utf8.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-value.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-version-functions.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-writer.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\jsonsl\jsonsl.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\common\common-b64.c" />
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\common\common-md5.c" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src\bson\bson-config.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src\bson\bson-version.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bcon.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-atomic.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-clock.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-compat.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-context.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-decimal128.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-endian.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-error.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-iter.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-json.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-keys.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-macros.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-md5.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-memory.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-oid.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-prelude.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-reader.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-string.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-types.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-utf8.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-value.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-version-functions.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-writer.h" />
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\forwarding\bson.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

@@ -18,7 +18,4 @@
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
 
-int anetUdpSockName(int fd, unsigned int* ip, unsigned short* port);
 void IntConfigPrimary(int fd, unsigned int* ip, unsigned short* port);
-unsigned int InetPton(const char* src, void* dst);
-char* InetNtop(const void* src, char* dst, size_t size);

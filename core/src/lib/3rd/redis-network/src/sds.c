@@ -27,19 +27,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
-#ifdef _WIN32
-#include "Win32_Portability.h"
-#include "win32fixes.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <assert.h>
 #include "sds.h"
-#include "zmalloc.h"
 
 /* Create a new sds string with the content specified by the 'init' pointer
  * and 'initlen'.
@@ -57,9 +50,9 @@ sds sdsnewlen(const void *init, size_t initlen) {
     struct sdshdr *sh;
 
     if (init) {
-        sh = zmalloc(sizeof(struct sdshdr)+initlen+1);
+        sh = malloc(sizeof(struct sdshdr)+initlen+1);
     } else {
-        sh = zcalloc(sizeof(struct sdshdr)+initlen+1);
+        sh = calloc(1, sizeof(struct sdshdr)+initlen+1);
     }
     if (sh == NULL) return NULL;
     sh->len = (int)initlen;                                                      /* cast (int) */
@@ -90,7 +83,7 @@ sds sdsdup(const sds s) {
 /* Free an sds string. No operation is performed if 's' is NULL. */
 void sdsfree(sds s) {
     if (s == NULL) return;
-    zfree(s-sizeof(struct sdshdr));
+    free(s-sizeof(struct sdshdr));
 }
 
 /* Set the sds string length to the length as obtained with strlen(), so
@@ -144,7 +137,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
         newlen *= 2;
     else
         newlen += SDS_MAX_PREALLOC;
-    newsh = zrealloc(sh, sizeof(struct sdshdr)+newlen+1);
+    newsh = realloc(sh, sizeof(struct sdshdr)+newlen+1);
     if (newsh == NULL) return NULL;
 
     newsh->free = (int)(newlen - len);                                           /* cast (int) */
@@ -161,7 +154,7 @@ sds sdsRemoveFreeSpace(sds s) {
     struct sdshdr *sh;
 
     sh = (void*) (s-(sizeof(struct sdshdr)));
-    sh = (struct sdshdr *)zrealloc(sh, sizeof(struct sdshdr)+sh->len+1);         /* cast (struct sdshdr *) */
+    sh = (struct sdshdr *)realloc(sh, sizeof(struct sdshdr)+sh->len+1);         /* cast (struct sdshdr *) */
     sh->free = 0;
     return sh->buf;
 }
@@ -303,9 +296,9 @@ sds sdscpy(sds s, const char *t) {
  * The function returns the length of the null-terminated string
  * representation stored at 's'. */
 
-int sdsll2str(char *s, PORT_LONGLONG value) {
+int sdsll2str(char *s, long long value) {
     char *p, aux;
-    PORT_ULONGLONG v;
+    unsigned long long v;
     size_t l;
 
     /* Generate the string representation, this method produces
@@ -334,8 +327,8 @@ int sdsll2str(char *s, PORT_LONGLONG value) {
     return (int)l;                                                               /* cast (int) */
 }
 
-/* Identical sdsll2str(), but for PORT_ULONGLONG type. */
-int sdsull2str(char *s, PORT_ULONGLONG v) {
+/* Identical sdsll2str(), but for unsigned long long type. */
+int sdsull2str(char *s, unsigned long long v) {
     char *p, aux;
     size_t l;
 
@@ -383,7 +376,7 @@ sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
     /* We try to start using a static buffer for speed.
      * If not possible we revert to heap allocation. */
     if (buflen > sizeof(staticbuf)) {
-        buf = zmalloc(buflen);
+        buf = malloc(buflen);
         if (buf == NULL) return NULL;
     } else {
         buflen = sizeof(staticbuf);
@@ -394,17 +387,17 @@ sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
     while(1) {
         buf[buflen-2] = '\0';
         va_copy(cpy,ap);
-        vsnprintf(buf, buflen WIN32_ONLY(-1), fmt, cpy);    // : see comment below
+        vsnprintf(buf, buflen - 1, fmt, cpy);    // : see comment below
         va_end(cpy);
         if (buf[buflen-2] != '\0') {
-            if (buf != staticbuf) zfree(buf);
+            if (buf != staticbuf) free(buf);
             buflen *= 2;
 
             // : from the vsnprintf documentation in MSDN:
             // "To ensure that there is room for the terminating null, be sure
             //  that count is strictly less than the buffer length and
             //  initialize the buffer to null prior to calling the function."
-            buf = IF_WIN32(zcalloc,zmalloc)(buflen);
+            buf = calloc(1, buflen);
             if (buf == NULL) return NULL;
             continue;
         }
@@ -413,7 +406,7 @@ sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
 
     /* Finally concat the obtained string to the SDS string and return it. */
     t = sdscat(s, buf);
-    if (buf != staticbuf) zfree(buf);
+    if (buf != staticbuf) free(buf);
     return t;
 }
 
@@ -453,9 +446,9 @@ sds sdscatprintf(sds s, const char *fmt, ...) {
  * %s - C String
  * %S - SDS string
  * %i - signed int
- * %I - 64 bit signed integer (PORT_LONGLONG, int64_t)
+ * %I - 64 bit signed integer (long long, int64_t)
  * %u - unsigned int
- * %U - 64 bit unsigned integer (PORT_ULONGLONG, uint64_t)
+ * %U - 64 bit unsigned integer (unsigned long long, uint64_t)
  * %% - Verbatim "%" character.
  */
 sds sdscatfmt(sds s, char const *fmt, ...) {
@@ -471,8 +464,8 @@ sds sdscatfmt(sds s, char const *fmt, ...) {
     while(*f) {
         char next, *str;
         unsigned int l;
-        PORT_LONGLONG num;
-        PORT_ULONGLONG unum;
+        long long num;
+        unsigned long long unum;
 
         /* Make sure there is always space for at least 1 char. */
         if (sh->free == 0) {
@@ -503,7 +496,7 @@ sds sdscatfmt(sds s, char const *fmt, ...) {
                 if (next == 'i')
                     num = va_arg(ap,int);
                 else
-                    num = va_arg(ap,PORT_LONGLONG);
+                    num = va_arg(ap,long long);
                 {
                     char buf[SDS_LLSTR_SIZE];
                     l = sdsll2str(buf,num);
@@ -522,7 +515,7 @@ sds sdscatfmt(sds s, char const *fmt, ...) {
                 if (next == 'u')
                     unum = va_arg(ap,unsigned int);
                 else
-                    unum = va_arg(ap,PORT_ULONGLONG);
+                    unum = va_arg(ap,unsigned long long);
                 {
                     char buf[SDS_LLSTR_SIZE];
                     l = sdsull2str(buf,unum);
@@ -694,7 +687,7 @@ sds *sdssplitlen(const char *s, int len, const char *sep, int seplen, int *count
 
     if (seplen < 1 || len < 0) return NULL;
 
-    tokens = zmalloc(sizeof(sds)*slots);
+    tokens = malloc(sizeof(sds)*slots);
     if (tokens == NULL) return NULL;
 
     if (len == 0) {
@@ -707,7 +700,7 @@ sds *sdssplitlen(const char *s, int len, const char *sep, int seplen, int *count
             sds *newtokens;
 
             slots *= 2;
-            newtokens = zrealloc(tokens,sizeof(sds)*slots);
+            newtokens = realloc(tokens,sizeof(sds)*slots);
             if (newtokens == NULL) goto cleanup;
             tokens = newtokens;
         }
@@ -731,7 +724,7 @@ cleanup:
     {
         int i;
         for (i = 0; i < elements; i++) sdsfree(tokens[i]);
-        zfree(tokens);
+        free(tokens);
         *count = 0;
         return NULL;
     }
@@ -742,7 +735,7 @@ void sdsfreesplitres(sds *tokens, int count) {
     if (!tokens) return;
     while(count--)
         sdsfree(tokens[count]);
-    zfree(tokens);
+    free(tokens);
 }
 
 /* Append to the sds string "s" an escaped string representation where
@@ -916,13 +909,13 @@ sds *sdssplitargs(const char *line, int *argc) {
                 if (*p) p++;
             }
             /* add the token to the vector */
-            vector = zrealloc(vector,((*argc)+1)*sizeof(char*));
+            vector = realloc(vector,((*argc)+1)*sizeof(char*));
             vector[*argc] = current;
             (*argc)++;
             current = NULL;
         } else {
             /* Even on empty input string return something not NULL. */
-            if (vector == NULL) vector = zmalloc(sizeof(void*));
+            if (vector == NULL) vector = malloc(sizeof(void*));
             return vector;
         }
     }
@@ -930,7 +923,7 @@ sds *sdssplitargs(const char *line, int *argc) {
 err:
     while((*argc)--)
         sdsfree(vector[*argc]);
-    zfree(vector);
+    free(vector);
     if (current) sdsfree(current);
     *argc = 0;
     return NULL;

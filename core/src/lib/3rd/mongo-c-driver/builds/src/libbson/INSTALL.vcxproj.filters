@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\CMakeFiles\5289cda6e7f3641ce9c97fab499d477c\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{F9DCDF77-03F5-39D3-8FA0-6705854E90CC}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

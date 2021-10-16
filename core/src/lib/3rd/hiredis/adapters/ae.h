@@ -31,11 +31,7 @@
 #ifndef __HIREDIS_AE_H__
 #define __HIREDIS_AE_H__
 #include <sys/types.h>
-#ifdef _WIN32
-#include "..\..\src\ae.h"
-#else
 #include <ae.h>
-#endif
 #include "../hiredis.h"
 #include "../async.h"
 
@@ -69,15 +65,6 @@ static void redisAeAddRead(void *privdata) {
     }
 }
 
-#ifdef _WIN32
-static void redisAeForceAddRead(void *privdata) {
-    redisAeEvents *e = (redisAeEvents*)privdata;
-    aeEventLoop *loop = e->loop;
-    e->reading = 1;
-    aeCreateFileEvent(loop, e->fd, AE_READABLE, redisAeReadEvent, e);
-}
-#endif
-
 static void redisAeDelRead(void *privdata) {
     redisAeEvents *e = (redisAeEvents*)privdata;
     aeEventLoop *loop = e->loop;
@@ -109,7 +96,7 @@ static void redisAeCleanup(void *privdata) {
     redisAeEvents *e = (redisAeEvents*)privdata;
     redisAeDelRead(privdata);
     redisAeDelWrite(privdata);
-    free(e);
+    hi_free(e);
 }
 
 static int redisAeAttach(aeEventLoop *loop, redisAsyncContext *ac) {
@@ -121,7 +108,10 @@ static int redisAeAttach(aeEventLoop *loop, redisAsyncContext *ac) {
         return REDIS_ERR;
 
     /* Create container for context and r/w events */
-    e = (redisAeEvents*)malloc(sizeof(*e));
+    e = (redisAeEvents*)hi_malloc(sizeof(*e));
+    if (e == NULL)
+        return REDIS_ERR;
+
     e->context = ac;
     e->loop = loop;
     e->fd = c->fd;
@@ -129,9 +119,6 @@ static int redisAeAttach(aeEventLoop *loop, redisAsyncContext *ac) {
 
     /* Register functions to start/stop listening for events */
     ac->ev.addRead = redisAeAddRead;
-#ifdef _WIN32
-    ac->ev.forceAddRead = redisAeForceAddRead;
-#endif
     ac->ev.delRead = redisAeDelRead;
     ac->ev.addWrite = redisAeAddWrite;
     ac->ev.delWrite = redisAeDelWrite;

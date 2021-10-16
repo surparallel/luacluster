@@ -100,6 +100,10 @@ typedef struct _ProtoSendToEntity {
 	unsigned char buf[];
 }*PProtoSendToEntity, ProtoSendToEntity;
 
+typedef struct _ProtoSendTCancel {
+	ProtoHead		protoHead;
+}*PProtoSendTCancel, ProtoSendTCancel;
+
 //目前不支持ipv6记得去改
 typedef struct _ProtoConnect {
 	ProtoHead		protoHead;

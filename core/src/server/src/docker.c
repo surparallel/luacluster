@@ -25,7 +25,6 @@
 #include "cJSON.h"
 #include "equeue.h"
 #include "sds.h"
-#include "zmalloc.h"
 #include "lua.h"
 #include "lauxlib.h"
 #include "lvm.h"
@@ -34,10 +33,10 @@
 #include "proto.h"
 #include "elog.h"
 #include "entityid.h"
-#include "networking.h"
 #include "redishelp.h"
 #include "timesys.h"
 #include "int64.h"
+#include "uvnet.h"
 
 #define MAX_DOCKER 255
 
@@ -388,7 +387,7 @@ void DockerSend(unsigned long long id, const char* pc, size_t s) {
 		DockerPushMsg(docker, (unsigned char*)pProtoHead, len);
 	}
 	else {
-		SendToNodeWithUINT(addr, pDocksHandle->uport + port, (unsigned char*)pProtoHead, len);
+		NetSendToNodeWithUINT(addr, pDocksHandle->uport + port, (unsigned char*)pProtoHead, len);
 	}
 	
 	free(pProtoHead);
@@ -416,10 +415,10 @@ void DockerSendToClient(void* pVoid, unsigned long long did, unsigned long long 
 	memcpy(pProtoRoute->callArg, pc, s);
 
 	if (pDocksHandle->ip == addr && pDocksHandle->uportOffset == port) {
-		SendToEntity(pid, (unsigned char*)pProtoHead, len);
+		NetSendToEntity(pid, (unsigned char*)pProtoHead, len);
 	}
 	else {
-		SendToNodeWithUINT(addr, pDocksHandle->uport + port, (unsigned char*)pProtoHead, len);
+		NetSendToNodeWithUINT(addr, pDocksHandle->uport + port, (unsigned char*)pProtoHead, len);
 	}
 
 	free(pProtoHead);
@@ -480,7 +479,7 @@ void DockerCreateEntity(void* pVoid, int type, const char* c, size_t s) {
 			DockerRandomPushMsg((unsigned char*)pProtoHead, len);
 		}
 		else {
-			SendToNodeWithUINT(ip, port, (unsigned char*)pProtoHead, len);
+			NetSendToNodeWithUINT(ip, port, (unsigned char*)pProtoHead, len);
 		}
 	}
 	free(pProtoHead);

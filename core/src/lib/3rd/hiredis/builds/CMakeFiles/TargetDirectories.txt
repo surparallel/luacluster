@@ -1,0 +1,8 @@
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/CMakeFiles/hiredis.dir
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/CMakeFiles/INSTALL.dir
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/CMakeFiles/RUN_TESTS.dir
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/CMakeFiles/hiredis-test.dir
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/CMakeFiles/hiredis_static.dir
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/CMakeFiles/PACKAGE.dir
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/CMakeFiles/ALL_BUILD.dir
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/CMakeFiles/ZERO_CHECK.dir

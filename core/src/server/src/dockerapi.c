@@ -31,9 +31,9 @@
 #include "docker.h"
 #include "proto.h"
 #include "entityid.h"
-#include "networking.h"
 #include "int64.h"
 #include "timesys.h"
+#include "uvnet.h"
 
 //因为网络层有entity和client的对应信息。
 //所以如果entity是当前节点就直接发到网络层
@@ -141,18 +141,21 @@ static int luaB_CreateEntity(lua_State* L) {
 static int luaB_BindNet(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 
+	unsigned long long entityId = luaL_tou64be(L, 1, 0, 0);
+	unsigned int clientId = luaL_checkinteger(L, 2);
+
 	unsigned short len = sizeof(ProtoNetBind);
 	PProtoHead pProtoHead = malloc(len);
 	pProtoHead->len = len;
 	pProtoHead->proto = proto_net_bind;
 
 	PProtoNetBind pProtoNetBind = (PProtoNetBind)pProtoHead;
-	pProtoNetBind->entityId = luaL_tou64be(L, 1, 0, 0);
-	pProtoNetBind->clientId = luaL_checkinteger(L, 2);
+	pProtoNetBind->entityId = entityId;
+	pProtoNetBind->clientId = clientId;
 
 	s_fun("Docker::BindNet %U %u", pProtoNetBind->entityId, pProtoNetBind->clientId);
 
-	SendToClient(0, (const char*)pProtoHead, len);
+	NetSendToClient(0, (const char*)pProtoHead, len);
 	free(pProtoHead);
 	return 0;
 }
@@ -168,11 +171,11 @@ static int luaB_DestoryNet(lua_State* L) {
 	pProtoHead->proto = proto_net_destory;
 
 	PProtoNetDestory pProtoNetDestory = (PProtoNetDestory)pProtoHead;
-	pProtoNetDestory->clientId = luaL_checkinteger(L, 1);
+	pProtoNetDestory->clientId = clientId;
 
 	s_fun("Docker::BindNet %u", pProtoNetDestory->clientId);
 
-	SendToClient(0, (const char*)pProtoHead, len);
+	NetSendToClient(0, (const char*)pProtoHead, len);
 	free(pProtoHead);
 	return 0;
 }

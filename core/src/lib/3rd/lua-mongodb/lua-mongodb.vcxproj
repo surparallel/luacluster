@@ -79,10 +79,10 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;MONGOC_STATIC;BSON_STATIC;MONGOC_COMPILATION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>..\..\common\include\libbson-1.0;..\..\common\include\libmongoc-1.0;..\lua\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\mongo-c-driver\include\libbson-1.0;..\mongo-c-driver\include\libmongoc-1.0;..\lua\src;..\mongo-c-driver\src\libbson\src\;..\mongo-c-driver\builds\src\libbson\src\bson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -95,9 +95,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;MONGOC_STATIC;BSON_STATIC;MONGOC_COMPILATION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\..\common\include\libbson-1.0;..\..\common\include\libmongoc-1.0;..\lua\src;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\mongo-c-driver\include\libbson-1.0;..\mongo-c-driver\include\libmongoc-1.0;..\lua\src;..\mongo-c-driver\src\libbson\src\;..\mongo-c-driver\builds\src\libbson\src\bson;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

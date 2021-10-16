@@ -22,7 +22,7 @@ function movepluginFactory.New()
     function obj:MoveTo(x, y, z)
 
         if (x < self.spaceInfo.beginx or  x > self.spaceInfo.endx) and (z < self.spaceInfo.beginz or  z > self.spaceInfo.endz) then
-            elog.error("space::MoveTo outside error",string.format("x:%f y:%f z:%f",x,y,z))
+            elog.error(string.format("space::MoveTo outside error x:%f y:%f z:%f",x,y,z))
             return
         end
 

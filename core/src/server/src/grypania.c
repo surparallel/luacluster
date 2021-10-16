@@ -22,8 +22,6 @@
 #include "conio.h"
 #include "version.h"
 #include "elog.h"
-#include "zmalloc.h"
-#include "networking.h"
 #include "lua.h"
 #include "docker.h"
 #include "hiredis.h"
@@ -35,6 +33,7 @@
 #include "filesys.h"
 #include "3dmath.h"
 #include "space.h"
+#include "uvnet.h"
 
 static const char* assetsPath = 0;
 static unsigned int dockerid = 0;
@@ -85,7 +84,7 @@ int IssueCommand(int argc, char** argv, int noFind) {
 		do3dlibTest();
 	}
 	else if (!strcasecmp(command, "net")) {
-		SendToClient(atoi(argv[1]), argv[2], strlen(argv[2]));
+		NetSendToClient(atoi(argv[1]), argv[2], strlen(argv[2]));
 	}
 	else if (!strcasecmp(command, "create")) {
 
@@ -162,7 +161,7 @@ int IssueCommand(int argc, char** argv, int noFind) {
 		}
 		else
 		{
-			SendToNode(ip, port, (unsigned char*)pProtoHead, len);
+			NetSendToNode(ip, port, (unsigned char*)pProtoHead, len);
 		}
 		free(pProtoHead);
 	}
@@ -197,7 +196,7 @@ int IssueCommand(int argc, char** argv, int noFind) {
 		memcpy(pbuf->ip, argv[1], sdslen(argv[1]));
 		pbuf->port = atoi(argv[2]);
 
-		SendToClient(0, (const char*)pbuf, len);
+		NetSendToClient(0, (const char*)pbuf, len);
 	}
 	else if (!strcasecmp(command, "sudoku")) {
 		test_sudoku();
@@ -283,14 +282,6 @@ int ReadArgFromParam(int argc, char** argv) {
 	return 1;
 }
 
-void OutOfMemoryHandler(size_t allocation_size) {
-	n_warn("Out Of Memory allocating %i bytes.", allocation_size);
-
-#ifdef _WIN32
-	abort();
-#endif // _WIN32
-}
-
 //getenv
 static void doJsonParseFile(char* config)
 {
@@ -349,10 +340,6 @@ static void doJsonParseFile(char* config)
 int main(int argc, char** argv) {
 
 	srand(time(0));
-	zinit();
-	zmalloc_enable_thread_safeness();
-	zmalloc_set_oom_handler(OutOfMemoryHandler);
-
 	LogInit(NULL);
 	//这里有需要输入参数的，指定要绑定的地址之类的
 	n_details("********************************************");
@@ -369,26 +356,24 @@ int main(int argc, char** argv) {
 	if (ReadArgFromParam(argc, argv)) {
 
 		InitRedisHelp();
-		NetServiceCreate(nodetype, listentcp);
+		NetCreate(nodetype, listentcp);
 		unsigned int ip = 0;
 		unsigned char uportOffset = 0;
 		unsigned short uport = 0;
-		NetUDPAddr(&ip, &uportOffset, &uport);
+		NetUDPAddr2(&ip, &uportOffset, &uport);
 		DocksCreate(ip, uportOffset, uport, assetsPath, dockerSize, nodetype);
 
 		ret = ArgsInteractive(IssueCommand);
 		DocksDestory();
-		NetServerDestory();
+		NetDestory();
 		LogDestroy();
-		zuninit();
 		FreeRedisHelp();
 		return ret;
 	}
 	else {
 		DocksDestory();
-		NetServerDestory();
+		NetDestory();
 		LogDestroy();
-		zuninit();
 		FreeRedisHelp();
 		return ret;
 	}

@@ -42,7 +42,7 @@ function main()
                     --管理器销毁
                     entitymng.UnRegistryObj(ret[2])
                 else
-                    elog.error("main::proto_rpc_destory:: not find obj:" .. ret[2])
+                    elog.error(string.format("main::proto_rpc_destory:: not find obj: %u" ,ret[2]))
                 end
             end).catch(function (ex)
                 elog.error(ex)
@@ -57,10 +57,10 @@ function main()
                         table.remove(arg, 1)
                         obj[funName](obj, unpack(arg))
                     else
-                        elog.error("main::proto_rpc_call:: not find fun:" .. funName)
+                        elog.error(string.format("main::proto_rpc_call:: not find:%s.%s",obj.__class,funName))
                     end
                 else
-                    elog.error("main::proto_rpc_call:: not find obj:" .. string.format("%u",ret[2]))
+                    elog.error(string.format("main::proto_rpc_call:: not find obj:%u" ,ret[2]))
                 end
             end).catch(function (ex)
                 elog.error(ex)
@@ -96,14 +96,14 @@ function main()
                                 table.remove(arg, 1)
                                 obj[funName](obj, unpack(arg))
                             else
-                                elog.error("main::proto_route_call:: not exposed fun:" .. funName)
+                                elog.error(string.format("main::proto_route_call:: not exposed fun:%s", funName))
                             end
                         else
-                            elog.error("main::proto_route_call:: not find fun:" .. funName)
+                            elog.error(string.format("main::proto_route_call:: not find fun: %s", funName))
                         end
                     
                     else
-                        elog.error("main::proto_route_call:: not find obj:" .. string.format("%u",ret[2]))
+                        elog.error(string.format("main::proto_route_call:: not find obj: %u",ret[2]))
                     end
                 end
 

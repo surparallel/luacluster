@@ -1,0 +1,171 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bcon.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-atomic.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-clock.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-context.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-decimal128.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-error.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-iso8601.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-iter.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-json.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-keys.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-md5.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-memory.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-oid.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-reader.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-string.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-timegm.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-utf8.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-value.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-version-functions.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-writer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\jsonsl\jsonsl.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\common\common-b64.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\common\common-md5.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src\bson\bson-config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\builds\src\libbson\src\bson\bson-version.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bcon.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-atomic.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-clock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-compat.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-context.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-decimal128.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-endian.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-error.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-iter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-json.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-keys.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-macros.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-md5.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-memory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-oid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-prelude.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-reader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-string.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-utf8.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-value.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-version-functions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\bson-writer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\src\bson\forwarding\bson.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\workround\grypania\core\src\lib\3rd\mongo-c-driver\src\libbson\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{62930441-8056-3DC1-9776-EBA274B2F597}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{3E9475E4-7C6F-3D9B-B620-BBF0326B21EB}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

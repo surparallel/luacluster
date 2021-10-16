@@ -30,9 +30,9 @@ function spaceFactory.New()
     function obj:EntryWorld(id, poitionx, poitionz, rotationy, velocity, stamp, stampStop, isGhost)
         local entryid = tostring(int64.new_unsigned(id))
 
-        elog.fun("space::LeaveWorld"..entryid)
+        elog.fun(string.format("space::LeaveWorld %s",entryid))
         if self.entities[entryid] ~= nil then
-            elog.n_error("EntryWorld::Repeat into space error".. entryid)
+            elog.n_error(string.format("EntryWorld::Repeat into space error %s", entryid))
             return
         end
 
@@ -67,7 +67,7 @@ function spaceFactory.New()
         
         elog.fun("space::LeaveWorld"..entryid)
         if self.entities[entryid] == nil then
-            elog.n_error("LeaveWorld::level from space no find id error".. entryid)
+            elog.n_error(string.format("LeaveWorld::level from space no find id error %s", entryid))
             return
         end
 

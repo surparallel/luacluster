@@ -40,20 +40,20 @@ function entityMng.NewEntity(name, arg)
 
         entityMng.RegistryObj(e)
         
-        local myid = int64.new_unsigned(e.id)
-        elog.details("New::"..name..",id::"..tostring(myid))
+        local myid = tostring(int64.new_unsigned(e.id))
+        elog.details(string.format("New::id::%s",myid))
 
         if(e.clientid ~= nil)then
             entityMng.BindObj(e.id, e.clientid)
         else
-            elog.details("main::proto_rpc_create::not BindObj::",name)
+            elog.details(string.format("main::proto_rpc_create::not BindObj::%s",name))
         end
 
         if type(e.Init) == "function" then
             e:DoInheritFun(e, "Init")
         end
     else
-        elog.error("main::proto_rpc_create:: New error::",name)
+        elog.error(string.format("main::proto_rpc_create:: New error::%s",name))
     end
 end
 
@@ -143,7 +143,7 @@ function entityMng.GetSev(ServerName)
     if id ~= nil then
         return udpproxy.New(id)
     else
-        elog.error("entityMng.GetSev not find"..ServerName)
+        elog.error(string.format("entityMng.GetSev not find %s",ServerName))
         return nil
     end
 end

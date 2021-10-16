@@ -24,7 +24,6 @@
 */
 
 #include "plateform.h"
-#include "zmalloc.h"
 #include "entityid.h"
 
 #pragma pack(push,1)
@@ -78,7 +77,7 @@ unsigned char GetPortFromEID(VPEID pVPEID) {
 
 VPEID CreateEID(unsigned int addr, unsigned char port, unsigned char dock, unsigned short id) {
 
-	PEID pEID = (PEID)zcalloc(sizeof(EID));
+	PEID pEID = (PEID)calloc(1, sizeof(EID));
 	pEID->addr = addr;
 	pEID->port = port;
 	pEID->dock = dock;
@@ -88,7 +87,7 @@ VPEID CreateEID(unsigned int addr, unsigned char port, unsigned char dock, unsig
 
 void DestoryEID(VPEID pVPEID) {
 	PEID pEID = (PEID)pVPEID;
-	zfree(pEID);
+	free(pEID);
 }
 
 unsigned long long GetEID(VPEID pVPEID) {
@@ -108,7 +107,7 @@ void SetEID(VPEID pVPEID, unsigned long long eid) {
 
 VPEID CreateEIDFromLongLong(unsigned long long eid) {
 	if (sizeof(EID) == sizeof(unsigned long long)) {
-		PEID pEID = (PEID)zcalloc(sizeof(EID));
+		PEID pEID = (PEID)calloc(1, sizeof(EID));
 		memcpy(pEID, &eid, sizeof(EID));
 		return pEID;
 	}

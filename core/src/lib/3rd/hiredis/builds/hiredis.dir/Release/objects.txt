@@ -1,0 +1,8 @@
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/Release/alloc.obj
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/Release/async.obj
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/Release/dict.obj
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/Release/hiredis.obj
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/Release/net.obj
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/Release/read.obj
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/Release/sds.obj
+D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/Release/sockcompat.obj

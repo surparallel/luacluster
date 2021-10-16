@@ -33,6 +33,7 @@ function accountFactory.New()
 
     obj.transform.velocity = 0
     obj.transform.stamp = os.time()
+    obj.transform.stampStop = 0
 
     function obj:Init()
 
