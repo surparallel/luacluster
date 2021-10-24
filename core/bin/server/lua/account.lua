@@ -37,7 +37,8 @@ function accountFactory.New()
 
     function obj:Init()
 
-        elog.fun("account::init")
+        local myid = tostring(int64.new_unsigned(self.id))
+        elog.fun(string.format("account::init %s", myid))
         if(obj.clientid ~= nil)then
             obj.client = tcpproxy.New(self.id)
         end

@@ -513,25 +513,24 @@ BIGNUM* SRP_Calc_M1(BIGNUM* N, BIGNUM* g, const char* username, BIGNUM* s, BIGNU
     unsigned char dig[SHA_DIGEST_LENGTH];
     unsigned char digg[SHA_DIGEST_LENGTH];
     unsigned char digu[SHA_DIGEST_LENGTH];
-    EVP_MD_CTX ctxt;
+    EVP_MD_CTX* ctxt = EVP_MD_CTX_create();
 
     if((tmp = OPENSSL_malloc(BN_num_bytes(N))) == NULL)
     {
         return NULL;
     }
-
     // H(N)
-    EVP_MD_CTX_init(&ctxt);
-    EVP_DigestInit_ex(&ctxt, EVP_sha1(), NULL);
+    EVP_MD_CTX_init(ctxt);
+    EVP_DigestInit_ex(ctxt, EVP_sha1(), NULL);
     BN_bn2bin(N, tmp);
-    EVP_DigestUpdate(&ctxt, tmp, BN_num_bytes(N));
-    EVP_DigestFinal_ex(&ctxt, dig, NULL);
+    EVP_DigestUpdate(ctxt, tmp, BN_num_bytes(N));
+    EVP_DigestFinal_ex(ctxt, dig, NULL);
 
     // H(g)
-    EVP_DigestInit_ex(&ctxt, EVP_sha1(), NULL);
+    EVP_DigestInit_ex(ctxt, EVP_sha1(), NULL);
     BN_bn2bin(g, tmp);
-    EVP_DigestUpdate(&ctxt, tmp, BN_num_bytes(g));
-    EVP_DigestFinal_ex(&ctxt, digg, NULL);
+    EVP_DigestUpdate(ctxt, tmp, BN_num_bytes(g));
+    EVP_DigestFinal_ex(ctxt, digg, NULL);
 
     // H(N) ^ H(g)
     int i = 0;
@@ -541,23 +540,23 @@ BIGNUM* SRP_Calc_M1(BIGNUM* N, BIGNUM* g, const char* username, BIGNUM* s, BIGNU
     }
 
     // H(username)
-    EVP_DigestInit_ex(&ctxt, EVP_sha1(), NULL);
-    EVP_DigestUpdate(&ctxt, username, strlen(username));
-    EVP_DigestFinal_ex(&ctxt, digu, NULL);
+    EVP_DigestInit_ex(ctxt, EVP_sha1(), NULL);
+    EVP_DigestUpdate(ctxt, username, strlen(username));
+    EVP_DigestFinal_ex(ctxt, digu, NULL);
 
-    EVP_DigestInit_ex(&ctxt, EVP_sha1(), NULL);
-    EVP_DigestUpdate(&ctxt, dig, sizeof(dig));
-    EVP_DigestUpdate(&ctxt, digu, sizeof(digu));
+    EVP_DigestInit_ex(ctxt, EVP_sha1(), NULL);
+    EVP_DigestUpdate(ctxt, dig, sizeof(dig));
+    EVP_DigestUpdate(ctxt, digu, sizeof(digu));
     BN_bn2bin(s, tmp);
-    EVP_DigestUpdate(&ctxt, tmp, BN_num_bytes(s));
+    EVP_DigestUpdate(ctxt, tmp, BN_num_bytes(s));
     BN_bn2bin(A, tmp);
-    EVP_DigestUpdate(&ctxt, tmp, BN_num_bytes(A));
+    EVP_DigestUpdate(ctxt, tmp, BN_num_bytes(A));
     BN_bn2bin(B, tmp);
-    EVP_DigestUpdate(&ctxt, tmp, BN_num_bytes(B));
+    EVP_DigestUpdate(ctxt, tmp, BN_num_bytes(B));
     BN_bn2bin(K, tmp);
-    EVP_DigestUpdate(&ctxt, tmp, BN_num_bytes(K));
-    EVP_DigestFinal_ex(&ctxt, dig, NULL);
-    EVP_MD_CTX_cleanup(&ctxt);
+    EVP_DigestUpdate(ctxt, tmp, BN_num_bytes(K));
+    EVP_DigestFinal_ex(ctxt, dig, NULL);
+    EVP_MD_CTX_destroy(ctxt);
 
     OPENSSL_free(tmp);
     return BN_bin2bn(dig, sizeof(dig), NULL);
@@ -658,23 +657,23 @@ BIGNUM* SRP_Calc_M2(BIGNUM* A, BIGNUM* M1, BIGNUM* K)
     /* H(A | M1 | K) */
     unsigned char* tmp = NULL;
     unsigned char dig[SHA_DIGEST_LENGTH];
-    EVP_MD_CTX ctxt;
+    EVP_MD_CTX* ctxt= EVP_MD_CTX_create();
 
     if((tmp = OPENSSL_malloc(BN_num_bytes(K))) == NULL)
     {
         return NULL;
     }
 
-    EVP_MD_CTX_init(&ctxt);
-    EVP_DigestInit_ex(&ctxt, EVP_sha1(), NULL);
+    EVP_MD_CTX_init(ctxt);
+    EVP_DigestInit_ex(ctxt, EVP_sha1(), NULL);
     BN_bn2bin(A, tmp);
-    EVP_DigestUpdate(&ctxt, tmp, BN_num_bytes(A));
+    EVP_DigestUpdate(ctxt, tmp, BN_num_bytes(A));
     BN_bn2bin(M1, tmp);
-    EVP_DigestUpdate(&ctxt, tmp, BN_num_bytes(M1));
+    EVP_DigestUpdate(ctxt, tmp, BN_num_bytes(M1));
     BN_bn2bin(K, tmp);
-    EVP_DigestUpdate(&ctxt, tmp, BN_num_bytes(K));
-    EVP_DigestFinal_ex(&ctxt, dig, NULL);
-    EVP_MD_CTX_cleanup(&ctxt);
+    EVP_DigestUpdate(ctxt, tmp, BN_num_bytes(K));
+    EVP_DigestFinal_ex(ctxt, dig, NULL);
+    EVP_MD_CTX_destroy(ctxt);
 
     OPENSSL_free(tmp);
     return BN_bin2bn(dig, sizeof(dig), NULL);

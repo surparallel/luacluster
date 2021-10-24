@@ -17,7 +17,7 @@
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
 
-#include <pthread.h>
+#include "uv.h"
 #include "plateform.h"
 #include "elog.h"
 #include "sds.h"
@@ -30,6 +30,7 @@
 #include "dict.h"
 #include "dicthelp.h"
 #include "cJSON.h"
+#include "sdshelp.h"
 
 #define FILEFORMDEFAULT "@dir/@ctg_@data.log"
 
@@ -57,7 +58,7 @@ typedef struct _LogRule
 	sds fileName;//后端匹配的文件名0为全部文件
 	size_t line;//后端匹配行数0为全部行数
 	char isBreak;//规则是放在前面还是后面，一旦被处理过的消息就不会在后面的规则处理。
-	enum Process process;//处理方式目前有文件，屏幕，转发。
+	unsigned int process;//处理方式目前有文件，屏幕，转发。
 	unsigned int form;//日志输出的格式。
 }*PLogRule, LogRule;
 
@@ -69,11 +70,19 @@ typedef struct _LogFileHandle
 	size_t	fileLine;//前端过滤指定行
 	char	category;//前端过滤分类
 	void* eQueue;
-	pthread_t thread;
+	uv_thread_t thread;
 	dict* fileList;//缓存文件句柄
 	dict* category_rule;//根据分类的规则器
-	sds level_error, level_warn, level_stat, level_function, level_details;
-	sds sctg_node, sctg_dock, sctg_entity, sctg_script, sctg_login, sctg_space;
+	sds level_error;
+	sds level_warn;
+	sds level_stat;
+	sds level_function;
+	sds level_details;
+
+	sds sctg_node;
+	sds sctg_dock;
+	sds sctg_script;
+	
 	int maxQueueSize;
 	sds	 outDir;//输出目录
 	unsigned long long setFileSec;//设定文件日志的间隔时间
@@ -100,7 +109,7 @@ static dictType SdsFileDictType = {
 	NULL,
 	NULL,
 	sdsCompareCallback,
-	sdsDestructor,
+	NULL,
 	fileDestructor
 };
 
@@ -157,17 +166,8 @@ char* GetCategoryName(char Category) {
 	else if (Category == ctg_dock) {
 		return _pLogFileHandle->sctg_dock;
 	}
-	else if (Category == ctg_entity) {
-		return _pLogFileHandle->sctg_entity;
-	}
 	else if (Category == ctg_script) {
 		return _pLogFileHandle->sctg_script;
-	}
-	else if (Category == ctg_login) {
-		return _pLogFileHandle->sctg_login;
-	}
-	else if (Category == ctg_space) {
-		return _pLogFileHandle->sctg_space;
 	}
 	return 0;
 }
@@ -185,7 +185,7 @@ int double2str(double value, int decimals, char* str, size_t len)
 
 	return l;
 }
-
+#define SDS_LLSTR_SIZE 21
 char* LogFormatDescribe(char const *fmt, ...) {
 	sds s = sdsempty();
 	size_t initlen = sdslen(s);
@@ -453,121 +453,122 @@ static void PacketFree(void* ptr) {
 	free(pLogPacket);
 }
 
-void* LogRun(void* pVoid) {
+void LogRun(void* pVoid) {
 	PLogFileHandle pLogFileHandle = pVoid;
 	do {
 
 		EqWait(pLogFileHandle->eQueue);
+		size_t eventQueueLength = 0;
+		do {
+			//如果长度超过限制要释放掉队列	
+			PLogPacket pLogPacket = (PLogPacket)EqPopWithLen(pLogFileHandle->eQueue, &eventQueueLength);
 
-		//如果长度超过限制要释放掉队列
-		size_t eventQueueLength;
-		PLogPacket pLogPacket = (PLogPacket)EqPopWithLen(pLogFileHandle->eQueue, &eventQueueLength);
-
-		if (pLogPacket != 0) {
-			//退出线程
-			if (pLogPacket->cmd == cmd_cancel) {
-				return 0;
-			}
-			else if (pLogPacket->cmd == cmd_rule) {
-				dictEntry* pdictEntry = dictFind(pLogFileHandle->category_rule, GetLevelName(pLogPacket->category));
-				list* plist;
-				if (pdictEntry == 0) {
-					plist = listCreate();
-					dictAdd(pLogFileHandle->category_rule, GetLevelName(pLogPacket->category), plist);
+			if (pLogPacket != 0) {
+				//退出线程
+				if (pLogPacket->cmd == cmd_cancel) {
+					return;
 				}
-				else {
-					plist = dictGetVal(pdictEntry);
-				}
-				
-				PLogRule pLogRule = (PLogRule)pLogPacket->describe;
-				if (pLogRule->isBreak) {
-					listAddNodeHead(plist, pLogRule);
-				}
-				else {
-					listAddNodeTail(plist, pLogRule);
-				}
-				continue;
-			}
-
-			dictEntry* pdictEntry = dictFind(pLogFileHandle->category_rule, GetLevelName(pLogPacket->category));
-			if (pdictEntry != 0)
-			{
-				listIter* iter = listGetIterator(dictGetVal(pdictEntry) , AL_START_HEAD);
-				listNode* node;
-				while ((node = listNext(iter)) != NULL) {
-					PLogRule pLogRule = listNodeValue(node);
-
-					if (pLogPacket->level < pLogRule->minlevel || pLogPacket->level > pLogRule->maxlevel) continue;
-					else if (pLogRule->fileName != 0 && sdscmp(pLogRule->fileName, pLogPacket->fileName) != 0) continue;
-					else if (pLogRule->line != 0 && pLogRule->line != pLogPacket->line) continue;
+				else if (pLogPacket->cmd == cmd_rule) {
+					dictEntry* pdictEntry = dictFind(pLogFileHandle->category_rule, GetLevelName(pLogPacket->category));
+					list* plist;
+					if (pdictEntry == 0) {
+						plist = listCreate();
+						dictAdd(pLogFileHandle->category_rule, GetLevelName(pLogPacket->category), plist);
+					}
 					else {
-						if (pLogRule->process != prc_null)
-						{
-							if (pLogRule->process & prc_print || pLogPacket->level == log_error) {
-								LogErrFunPrintf(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogRule->form);
-							}
+						plist = dictGetVal(pdictEntry);
+					}
+				
+					PLogRule pLogRule = (PLogRule)pLogPacket->describe;
+					if (pLogRule->isBreak) {
+						listAddNodeHead(plist, pLogRule);
+					}
+					else {
+						listAddNodeTail(plist, pLogRule);
+					}
+					continue;
+				}
+
+				dictEntry* pdictEntry = dictFind(pLogFileHandle->category_rule, GetLevelName(pLogPacket->category));
+				if (pdictEntry != 0)
+				{
+					listIter* iter = listGetIterator(dictGetVal(pdictEntry) , AL_START_HEAD);
+					listNode* node;
+					while ((node = listNext(iter)) != NULL) {
+						PLogRule pLogRule = listNodeValue(node);
+
+						if (pLogPacket->level < pLogRule->minlevel || pLogPacket->level > pLogRule->maxlevel) continue;
+						else if (pLogRule->fileName != 0 && sdscmp(pLogRule->fileName, pLogPacket->fileName) != 0) continue;
+						else if (pLogRule->line != 0 && pLogRule->line != pLogPacket->line) continue;
+						else {
+							if (pLogRule->process != prc_null)
+							{
+								if (pLogRule->process & prc_print || pLogPacket->level == log_error) {
+									LogErrFunPrintf(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogRule->form);
+								}
 							
-							if (pLogRule->process & prc_file) {
-								LogErrFunFile(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogRule->form);
-							}
+								if (pLogRule->process & prc_file) {
+									LogErrFunFile(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogRule->form);
+								}
 							
-							if (pLogRule->process & prc_net_file) {
+								if (pLogRule->process & prc_net_file) {
+
+									if (pLogPacket->isNet) {
+										//是网络传输的
+										LogErrFunFile(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogRule->form);
+										break;
+									}
+									else {
+										//发送到网络目的地
+									}
+								}
+								break;
+							}
+						
+						}
+					}
+					listReleaseIterator(iter);
+					PacketFree(pLogPacket);
+				}
+				else if(pLogFileHandle->rule_default){
+
+					if (pLogPacket->level < pLogFileHandle->rule_default->minlevel || pLogPacket->level > pLogFileHandle->rule_default->maxlevel) continue;
+					else if (pLogFileHandle->rule_default->fileName != 0 && sdscmp(pLogFileHandle->rule_default->fileName, pLogPacket->fileName) != 0) continue;
+					else if (pLogFileHandle->rule_default->line != 0 && pLogFileHandle->rule_default->line != pLogPacket->line) continue;
+					else {
+						if (pLogFileHandle->rule_default->process != prc_null) {
+
+					
+							if (pLogFileHandle->rule_default->process & prc_print || pLogPacket->level == log_error) {
+								LogErrFunPrintf(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogFileHandle->rule_default->form);
+							}
+						
+							if (pLogFileHandle->rule_default->process & prc_file) {
+								LogErrFunFile(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogFileHandle->rule_default->form);
+							}
+						
+							if (pLogFileHandle->rule_default->process & prc_net_file) {
 
 								if (pLogPacket->isNet) {
 									//是网络传输的
-									LogErrFunFile(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogRule->form);
-									break;
+									LogErrFunFile(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogFileHandle->rule_default->form);
 								}
 								else {
 									//发送到网络目的地
 								}
 							}
-							break;
 						}
-						
 					}
+					PacketFree(pLogPacket);
 				}
-				listReleaseIterator(iter);
-				PacketFree(pLogPacket);
-			}
-			else if(pLogFileHandle->rule_default){
 
-				if (pLogPacket->level < pLogFileHandle->rule_default->minlevel || pLogPacket->level > pLogFileHandle->rule_default->maxlevel) continue;
-				else if (pLogFileHandle->rule_default->fileName != 0 && sdscmp(pLogFileHandle->rule_default->fileName, pLogPacket->fileName) != 0) continue;
-				else if (pLogFileHandle->rule_default->line != 0 && pLogFileHandle->rule_default->line != pLogPacket->line) continue;
-				else {
-					if (pLogFileHandle->rule_default->process != prc_null) {
-
-					
-						if (pLogFileHandle->rule_default->process & prc_print || pLogPacket->level == log_error) {
-							LogErrFunPrintf(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogFileHandle->rule_default->form);
-						}
-						
-						if (pLogFileHandle->rule_default->process & prc_file) {
-							LogErrFunFile(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogFileHandle->rule_default->form);
-						}
-						
-						if (pLogFileHandle->rule_default->process & prc_net_file) {
-
-							if (pLogPacket->isNet) {
-								//是网络传输的
-								LogErrFunFile(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogFileHandle->rule_default->form);
-							}
-							else {
-								//发送到网络目的地
-							}
-						}
-						continue;
-					}
+				if (eventQueueLength > pLogFileHandle->maxQueueSize) {
+					EqEmpty(pLogFileHandle->eQueue, PacketFree);
 				}
 			}
-
-			if (eventQueueLength > pLogFileHandle->maxQueueSize) {
-				EqEmpty(pLogFileHandle->eQueue, PacketFree);
-			}
-		}
+		} while (eventQueueLength);
 	} while (1);
-	return 0;
+	return;
 }
 
 static void doJsonParseFile(char* config)
@@ -586,9 +587,8 @@ static void doJsonParseFile(char* config)
 	cJSON* json;
 
 	f = fopen_t(config, "rb");
-
 	if (f == NULL) {
-		//printf("Error Open File: [%s]\n", filename);
+		printf("Error Open File: [%s]\n", config);
 		return;
 	}
 
@@ -661,7 +661,7 @@ static void doJsonParseFile(char* config)
 						_pLogFileHandle->rule_default->isBreak = (char)cJSON_GetNumberValue(runleItem);
 					}
 					else if (strcmp(runleItem->string, "process") == 0) {
-						_pLogFileHandle->rule_default->process = (enum Process)cJSON_GetNumberValue(runleItem);
+						_pLogFileHandle->rule_default->process = (unsigned int)cJSON_GetNumberValue(runleItem);
 					}
 					else if (strcmp(runleItem->string, "form") == 0) {
 						_pLogFileHandle->rule_default->form = (unsigned int) cJSON_GetNumberValue(runleItem);
@@ -691,9 +691,7 @@ void LogInit(char* config) {
 
 	_pLogFileHandle->sctg_node = sdsnew("node");
 	_pLogFileHandle->sctg_dock = sdsnew("dock");
-	_pLogFileHandle->sctg_entity = sdsnew("entity");
 	_pLogFileHandle->sctg_script = sdsnew("script");
-	_pLogFileHandle->sctg_login = sdsnew("login");
 
 	_pLogFileHandle->eQueue = EqCreate();
 	_pLogFileHandle->category_rule = dictCreate(&SdsRuleDictType, NULL);
@@ -709,7 +707,7 @@ void LogInit(char* config) {
 
 	doJsonParseFile(config);
 
-	pthread_create(&_pLogFileHandle->thread, NULL, LogRun, _pLogFileHandle);
+	uv_thread_create(&_pLogFileHandle->thread, LogRun, _pLogFileHandle);
 }
 
 void LogCancel() {
@@ -717,7 +715,7 @@ void LogCancel() {
 	pLogPacket->cmd = cmd_cancel;
 
 	EqPush(_pLogFileHandle->eQueue, pLogPacket);
-	pthread_join(_pLogFileHandle->thread, NULL);
+	uv_thread_join(&_pLogFileHandle->thread);
 }
 
 void LogDestroy() {
@@ -730,9 +728,7 @@ void LogDestroy() {
 	
 	sdsfree(_pLogFileHandle->sctg_node);
 	sdsfree(_pLogFileHandle->sctg_dock);
-	sdsfree(_pLogFileHandle->sctg_entity);
 	sdsfree(_pLogFileHandle->sctg_script);
-	sdsfree(_pLogFileHandle->sctg_login);
 
 	sdsfree(_pLogFileHandle->level_error);
 	sdsfree(_pLogFileHandle->level_warn);
@@ -748,7 +744,7 @@ void LogDestroy() {
 	free(_pLogFileHandle);
 }
 
-void LogRuleTo(char category, char maxlevel, char minlevel, char* fileName, size_t line, char isBreak, enum Process process, char* form) {
+void LogRuleTo(char category, char maxlevel, char minlevel, char* fileName, size_t line, char isBreak, unsigned int process, char* form) {
 	PLogPacket pLogPacket = calloc(1, sizeof(LogPacket));
 	pLogPacket->cmd = cmd_rule;
 	pLogPacket->category = category;

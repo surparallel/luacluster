@@ -1,0 +1,14 @@
+--- This file is part of LuaDist project
+
+name = "luasocket"
+version = "3.0-rc1"
+
+desc = "Network support for the Lua language"
+author = "Diego Nehab"
+license = "MIT/X11"
+url = "http://luaforge.net/projects/luasocket/"
+maintainer = "Peter Drahoš"
+
+depends = {
+	"lua >= 5.1, < 5.3"
+}

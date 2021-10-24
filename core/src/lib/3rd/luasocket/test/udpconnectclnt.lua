@@ -1,7 +1,7 @@
 local socket = require"socket"
 local udp = socket.udp
 local localhost = "127.0.0.1"
-local port = assert(arg[1], "missing port argument")
+local port = arg[1]
 
 se = udp(); se:setoption("reuseaddr", true)
 se:setsockname(localhost, 5062)

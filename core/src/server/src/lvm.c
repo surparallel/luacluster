@@ -27,7 +27,6 @@
 #include "filesys.h"
 #include "dicthelp.h"
 #include "lua_cmsgpack.h"
-#include "luaex.h"
 #include "dockerapi.h"
 #include "srp.h"
 #include "bit.h"
@@ -47,6 +46,21 @@ typedef struct _LVMHandle
 	int luaHot;
 }*PLVMHandle, LVMHandle;
 
+void LuaAddPath(lua_State* ls, char* name, char* value)
+{
+	sds v;
+	lua_getglobal(ls, "package");
+	lua_getfield(ls, -1, name);
+	v = sdsnew(lua_tostring(ls, -1));
+	v = sdscat(v, ";");
+	v = sdscat(v, value);
+	lua_pushstring(ls, v);
+	lua_setfield(ls, -3, name);
+	lua_pop(ls, 2);
+
+	sdsfree(v);
+}
+
 void* LVMCreate(const char* scriptPath, const char* assetsPath) {
 
 	PLVMHandle pLVMHandle = malloc(sizeof(LVMHandle));
@@ -65,8 +79,9 @@ void* LVMCreate(const char* scriptPath, const char* assetsPath) {
 	luaopen_mongo(pLVMHandle->luaVM);
 	LuaOpenMath3d(pLVMHandle->luaVM);
 	LuaAddPath(pLVMHandle->luaVM, "path", (char*)assetsPath);
-	luaL_requiref(pLVMHandle->luaVM, "socket.core", luaopen_socket_core, 0);
-	luaL_requiref(pLVMHandle->luaVM, "mime.core", luaopen_mime_core, 0);
+	LuaAddPath(pLVMHandle->luaVM, "path", (char*)"./lua/?.lua;");
+	luaopen_socket_core(pLVMHandle->luaVM);
+	luaopen_mime_core(pLVMHandle->luaVM);
 	return pLVMHandle;
 }
 
@@ -122,7 +137,7 @@ int LVMCallFunction(void* pvLVMHandle, char* sdsFile, char* fun) {
 	//如果函数不返回呢？函数返回其他类型参数呢？
 	//clear lua --lua_pop(L,1) lua_settop(L, -(n)-1)
 	lua_settop(pLVMHandle->luaVM, 0);
-	return ret;
+	return (int)ret;
 }
 
 void LVMSetGlobleInt(void* pvLVMHandle, const char* name, int id) {

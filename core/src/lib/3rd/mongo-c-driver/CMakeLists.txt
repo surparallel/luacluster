@@ -85,7 +85,7 @@ if (BUILD_VERSION STREQUAL "0.0.0")
       file (STRINGS ${PROJECT_SOURCE_DIR}/VERSION_CURRENT BUILD_VERSION)
       message ("file VERSION_CURRENT contained BUILD_VERSION ${BUILD_VERSION}")
    else ()
-      find_package (PythonInterp)
+      #find_package (PythonInterp)
       if (PYTHONINTERP_FOUND)
          execute_process (
             COMMAND ${PYTHON_EXECUTABLE} build/calc_release_version.py
@@ -105,7 +105,7 @@ if (BUILD_VERSION STREQUAL "0.0.0")
             message ("calculated BUILD_VERSION ${BUILD_VERSION}")
          endif ()
       else ()
-         message (FATAL_ERROR
+         message (
             "BUILD_VERSION not specified and could not be calculated\
  (Python was not found on the system); specify in CMake command, -DBUILD_VERSION=<version>"
          )

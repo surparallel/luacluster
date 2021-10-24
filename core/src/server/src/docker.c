@@ -17,8 +17,8 @@
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
 
+#include "uv.h"
 #include "plateform.h"
-#include <pthread.h>
 #include "adlist.h"
 #include "dict.h"
 #include "dicthelp.h"
@@ -37,6 +37,7 @@
 #include "timesys.h"
 #include "int64.h"
 #include "uvnet.h"
+#include "sdshelp.h"
 
 #define MAX_DOCKER 255
 
@@ -50,7 +51,7 @@ enum entity {
 
 //消息句柄是静态全局变量
 typedef struct _DockerHandle {
-	pthread_t pthreadHandle;
+	uv_thread_t pthreadHandle;
 	void* eQueue;
 	void* LVMHandle;
 	unsigned short id;//docker id
@@ -62,6 +63,7 @@ typedef struct _DockerHandle {
 	dict* id_unallocate;
 	dict* id_allocate;
 	unsigned char* pBuf;
+	size_t eventQueueLength;
 }*PDockerHandle, DockerHandle;
 
 typedef struct _DocksHandle {
@@ -145,7 +147,7 @@ static void doJsonParseFile(char* config, PDocksHandle pDocksHandle)
 	f = fopen_t(config, "rb");
 
 	if (f == NULL) {
-		//printf("Error Open File: [%s]\n", filename);
+		printf("Error Open File: [%s]\n", config);
 		return;
 	}
 
@@ -200,7 +202,7 @@ static void PacketFree(void* ptr) {
 	sdsfree(ptr);
 }
 
-void* DockerRun(void* pVoid) {
+void DockerRun(void* pVoid) {
 
 	PDockerHandle pDockerHandle = pVoid;
 
@@ -210,7 +212,7 @@ void* DockerRun(void* pVoid) {
 	//调用脚本的初始化
 	LVMCallFunction(pDockerHandle->LVMHandle, pDocksHandle->entryfile, pDocksHandle->entryfunction);
 
-	return NULL;
+	return;
 }
 
 void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short uport, const char* assetsPath, unsigned short dockerSize, int nodetype) {
@@ -245,7 +247,8 @@ void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short upor
 		pDockerHandle->id_allocate = dictCreate(DefaultUintPtr(), NULL);
 		pDockerHandle->id_unallocate = dictCreate(DefaultUintPtr(), NULL);
 		pDockerHandle->entityCount = 0;
-		pthread_create(&pDockerHandle->pthreadHandle, NULL, DockerRun, pDockerHandle);
+		pDockerHandle->eventQueueLength = 0;
+		uv_thread_create(&pDockerHandle->pthreadHandle, DockerRun, pDockerHandle);
 
 		pDocksHandle->listPDockerHandle[i] = pDockerHandle;
 	}
@@ -262,10 +265,10 @@ void DockerCancel() {
 		pProtoHead->proto = proto_ctr_cancel;
 
 		EqPush(pDockerHandle->eQueue, pProtoHead);
-		pthread_join(pDockerHandle->pthreadHandle, NULL);
+		
+		uv_thread_join(&pDockerHandle->pthreadHandle);
 
 		EqDestory(pDockerHandle->eQueue, PacketFree);
-
 		free(pDockerHandle);
 	}
 }
@@ -286,19 +289,12 @@ void DocksDestory() {
 int DockerLoop(void* pVoid, lua_State* L, long long msec) {
 
 	PDockerHandle pDockerHandle = pVoid;
-	//EqWait(pDockerHandle->eQueue);
-
-	unsigned long long mtiem = GetCurrentMilli();
-	mtiem = mtiem + msec;
-	long long secs = mtiem / 1000;
-	long long nsecs = (mtiem % 1000) * (1000 * 1000);
-
-	EqTimeWait(pDockerHandle->eQueue, secs, nsecs);
+	if (pDockerHandle->eventQueueLength == 0) {	
+		EqTimeWait(pDockerHandle->eQueue, msec);
+	}
 
 	//如果长度超过限制要释放掉队列
-	size_t eventQueueLength;
-	pDockerHandle->pBuf = EqPopWithLen(pDockerHandle->eQueue, &eventQueueLength);
-
+	pDockerHandle->pBuf = EqPopWithLen(pDockerHandle->eQueue, &pDockerHandle->eventQueueLength);
 	PProtoHead pProtoHead = (PProtoHead)pDockerHandle->pBuf;
 	if (pProtoHead != 0) {
 		//可以用table的方式来处理lua的不确定多返回值的情况ret={fun()}

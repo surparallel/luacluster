@@ -1,5 +1,0 @@
-D:/workround/grypania/core/src/lib/3rd/libuv/builds/CMakeFiles/uv_a.dir
-D:/workround/grypania/core/src/lib/3rd/libuv/builds/CMakeFiles/uv.dir
-D:/workround/grypania/core/src/lib/3rd/libuv/builds/CMakeFiles/INSTALL.dir
-D:/workround/grypania/core/src/lib/3rd/libuv/builds/CMakeFiles/ALL_BUILD.dir
-D:/workround/grypania/core/src/lib/3rd/libuv/builds/CMakeFiles/ZERO_CHECK.dir

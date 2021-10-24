@@ -181,15 +181,6 @@ assert(table.concat(t) == s, "mismatch")
 print("ok")
 
 --------------------------------
-io.write("testing source.table: ")
-local inp = {'a','b','c','d','e'}
-local source = ltn12.source.table(inp)
-sink, t = ltn12.sink.table()
-assert(ltn12.pump.all(source, sink), "returned error")
-for i = 1, #inp do assert(t[i] == inp[i], "mismatch") end
-print("ok")
-
---------------------------------
 io.write("testing source.chain (with split): ")
 source = ltn12.source.string(s)
 filter = split(5)
@@ -198,21 +189,6 @@ sink, t = ltn12.sink.table()
 assert(ltn12.pump.all(source, sink), "returned error")
 assert(table.concat(t) == s, "mismatch")
 assert(filter(nil, 1), "filter not empty")
-print("ok")
-
---------------------------------
-io.write("testing source.chain (with several filters): ")
-local function double(x) -- filter turning "ABC" into "AABBCC"
-    if not x then return end
-    local b={}
-    for k in x:gmatch'.' do table.insert(b, k..k) end
-    return table.concat(b)
-end
-source = ltn12.source.string(s)
-source = ltn12.source.chain(source, double, double, double)
-sink, t = ltn12.sink.table()
-assert(ltn12.pump.all(source, sink), "returned error")
-assert(table.concat(t) == double(double(double(s))), "mismatch")
 print("ok")
 
 --------------------------------
@@ -227,15 +203,6 @@ assert(ltn12.pump.all(source, sink), "returned error")
 assert(table.concat(t) == s, "mismatch")
 assert(filter(nil, 1), "filter not empty")
 assert(filter2(nil, 1), "filter2 not empty")
-print("ok")
-
---------------------------------
-io.write("testing sink.chain (with several filters): ")
-source = ltn12.source.string(s)
-sink, t = ltn12.sink.table()
-sink = ltn12.sink.chain(double, double, double, sink)
-assert(ltn12.pump.all(source, sink), "returned error")
-assert(table.concat(t) == double(double(double(s))), "mismatch")
 print("ok")
 
 --------------------------------
@@ -305,4 +272,3 @@ assert(filter3(nil, 1), "filter3 not empty")
 assert(filter4(nil, 1), "filter4 not empty")
 assert(filter5(nil, 1), "filter5 not empty")
 print("ok")
-

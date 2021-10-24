@@ -42,7 +42,7 @@
 #endif // __LP64__
 #else
 #ifdef __LP64__
-#define fopen_t fopen64
+#define fopen_t fopen
 #define fseek_t fseeko64
 #define ftell_t ftello64
 #else

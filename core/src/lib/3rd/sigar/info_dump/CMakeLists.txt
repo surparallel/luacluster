@@ -1,0 +1,5 @@
+set(SIGAR_INFO_DUMP_SRC main.c)
+include_directories(../include)
+set(CMAKE_C_FLAGS "-Werror -pedantic -std=c11")
+add_executable(sigar_info_dump ${SIGAR_INFO_DUMP_SRC})
+target_link_libraries(sigar_info_dump sigar)

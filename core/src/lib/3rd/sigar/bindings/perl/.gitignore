@@ -1,0 +1,9 @@
+Makefile
+*.bs
+*.c
+*.cpp
+*.o
+*.old
+Sigar_generated.xs
+blib
+pm_to_blib

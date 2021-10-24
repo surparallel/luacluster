@@ -125,7 +125,7 @@ void EulerAnglesToMatrix(const struct EulerAngle* inEulerAngle, enum EEulerOrder
 }
 
 // 由旋转矩阵创建四元数
-inline CQuaternion(const float m[4][4], struct Quaternion* out)
+void CQuaternion(const float m[4][4], struct Quaternion* out)
 {
     float tr, s, q[4];
     int i, j, k;
@@ -168,7 +168,7 @@ inline CQuaternion(const float m[4][4], struct Quaternion* out)
 };
 
 // 由欧拉角创建四元数
-inline CAngleToQuaternion(const struct Vector3* angle, struct Quaternion* out)
+void CAngleToQuaternion(const struct Vector3* angle, struct Quaternion* out)
 {
     float cx = cos(angle->x / 2);
     float sx = sin(angle->x / 2);
@@ -184,7 +184,7 @@ inline CAngleToQuaternion(const struct Vector3* angle, struct Quaternion* out)
 };
 
 // 给定角度和轴创建四元数
-inline CAnxiToQuaternion(struct Vector3 anxi, const float angle, struct Quaternion* out)
+void CAnxiToQuaternion(struct Vector3 anxi, const float angle, struct Quaternion* out)
 {
     struct Vector3 t;
     t.x = anxi.x;
@@ -200,7 +200,7 @@ inline CAnxiToQuaternion(struct Vector3 anxi, const float angle, struct Quaterni
 };
 
 // 由旋转四元数推导出矩阵
-inline void GetMatrixLH(struct Quaternion* in, float ret[4][4])
+void GetMatrixLH(struct Quaternion* in, float ret[4][4])
 {
     float xx = in->x * in->x;
     float yy = in->y * in->y;
@@ -232,7 +232,7 @@ inline void GetMatrixLH(struct Quaternion* in, float ret[4][4])
     ret[4][3] = 0.0f;
     ret[4][4] = 1.0f;
 };
-inline void GetMatrixRH(struct Quaternion* in, float ret[4][4])
+void GetMatrixRH(struct Quaternion* in, float ret[4][4])
 {
     float xx = in->x * in->x;
     float yy = in->y * in->y;

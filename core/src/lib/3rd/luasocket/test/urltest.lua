@@ -61,7 +61,7 @@ end
 local check_absolute_url = function(base, relative, absolute)
     local res = socket.url.absolute(base, relative)
     if res ~= absolute then 
-        io.write("absolute: In test for base='", base, "', rel='", relative, "' expected '", 
+        io.write("absolute: In test for '", relative, "' expected '", 
             absolute, "' but got '", res, "'\n")
         os.exit()
     end
@@ -90,75 +90,6 @@ local check_parse_url = function(gaba)
 end
 
 print("testing URL parsing")
-check_parse_url{
-    url = "scheme://user:pass$%?#wd@host:port/path;params?query#fragment",
-    scheme = "scheme", 
-    authority = "user:pass$%?#wd@host:port", 
-    host = "host",
-    port = "port",
-    userinfo = "user:pass$%?#wd",
-    password = "pass$%?#wd",
-    user = "user",
-    path = "/path",
-    params = "params",
-    query = "query",
-    fragment = "fragment"
-}
-check_parse_url{
-    url = "scheme://user:pass?#wd@host:port/path;params?query#fragment",
-    scheme = "scheme", 
-    authority = "user:pass?#wd@host:port", 
-    host = "host",
-    port = "port",
-    userinfo = "user:pass?#wd",
-    password = "pass?#wd",
-    user = "user",
-    path = "/path",
-    params = "params",
-    query = "query",
-    fragment = "fragment"
-}
-check_parse_url{
-    url = "scheme://user:pass-wd@host:port/path;params?query#fragment",
-    scheme = "scheme", 
-    authority = "user:pass-wd@host:port", 
-    host = "host",
-    port = "port",
-    userinfo = "user:pass-wd",
-    password = "pass-wd",
-    user = "user",
-    path = "/path",
-    params = "params",
-    query = "query",
-    fragment = "fragment"
-}
-check_parse_url{
-    url = "scheme://user:pass#wd@host:port/path;params?query#fragment",
-    scheme = "scheme", 
-    authority = "user:pass#wd@host:port", 
-    host = "host",
-    port = "port",
-    userinfo = "user:pass#wd",
-    password = "pass#wd",
-    user = "user",
-    path = "/path",
-    params = "params",
-    query = "query",
-    fragment = "fragment"
-}
-check_parse_url{
-    url = "scheme://user:pass#wd@host:port/path;params?query",
-    scheme = "scheme", 
-    authority = "user:pass#wd@host:port", 
-    host = "host",
-    port = "port",
-    userinfo = "user:pass#wd",
-    password = "pass#wd",
-    user = "user",
-    path = "/path",
-    params = "params",
-    query = "query",
-}
 check_parse_url{
     url = "scheme://userinfo@host:port/path;params?query#fragment",
     scheme = "scheme", 
@@ -627,37 +558,25 @@ check_absolute_url("http://a/b/c/d;p?q#f", "/g", "http://a/g")
 check_absolute_url("http://a/b/c/d;p?q#f", "//g", "http://g")
 check_absolute_url("http://a/b/c/d;p?q#f", "?y", "http://a/b/c/d;p?y")
 check_absolute_url("http://a/b/c/d;p?q#f", "g?y", "http://a/b/c/g?y")
-check_absolute_url("http://a/b/c/d;p?q#f", "g?y/./x", "http://a/b/c/g?y/x")
+check_absolute_url("http://a/b/c/d;p?q#f", "g?y/./x", "http://a/b/c/g?y/./x")
 check_absolute_url("http://a/b/c/d;p?q#f", "#s", "http://a/b/c/d;p?q#s")
 check_absolute_url("http://a/b/c/d;p?q#f", "g#s", "http://a/b/c/g#s")
-check_absolute_url("http://a/b/c/d;p?q#f", "g#s/./x", "http://a/b/c/g#s/x")
+check_absolute_url("http://a/b/c/d;p?q#f", "g#s/./x", "http://a/b/c/g#s/./x")
 check_absolute_url("http://a/b/c/d;p?q#f", "g?y#s", "http://a/b/c/g?y#s")
 check_absolute_url("http://a/b/c/d;p?q#f", ";x", "http://a/b/c/d;x")
 check_absolute_url("http://a/b/c/d;p?q#f", "g;x", "http://a/b/c/g;x")
 check_absolute_url("http://a/b/c/d;p?q#f", "g;x?y#s", "http://a/b/c/g;x?y#s")
 check_absolute_url("http://a/b/c/d;p?q#f", ".", "http://a/b/c/")
 check_absolute_url("http://a/b/c/d;p?q#f", "./", "http://a/b/c/")
-check_absolute_url("http://a/b/c/d;p?q#f", "./g", "http://a/b/c/g")
-check_absolute_url("http://a/b/c/d;p?q#f", "./g/", "http://a/b/c/g/")
-check_absolute_url("http://a/b/c/d;p?q#f", "././g", "http://a/b/c/g")
-check_absolute_url("http://a/b/c/d;p?q#f", "././g/", "http://a/b/c/g/")
-check_absolute_url("http://a/b/c/d;p?q#f", "g/.", "http://a/b/c/g/")
-check_absolute_url("http://a/b/c/d;p?q#f", "g/./", "http://a/b/c/g/")
-check_absolute_url("http://a/b/c/d;p?q#f", "g/./.", "http://a/b/c/g/")
-check_absolute_url("http://a/b/c/d;p?q#f", "g/././", "http://a/b/c/g/")
-check_absolute_url("http://a/b/c/d;p?q#f", "./.", "http://a/b/c/")
-check_absolute_url("http://a/b/c/d;p?q#f", "././.", "http://a/b/c/")
-check_absolute_url("http://a/b/c/d;p?q#f", "././g/./.", "http://a/b/c/g/")
 check_absolute_url("http://a/b/c/d;p?q#f", "..", "http://a/b/")
 check_absolute_url("http://a/b/c/d;p?q#f", "../", "http://a/b/")
 check_absolute_url("http://a/b/c/d;p?q#f", "../g", "http://a/b/g")
 check_absolute_url("http://a/b/c/d;p?q#f", "../..", "http://a/")
 check_absolute_url("http://a/b/c/d;p?q#f", "../../", "http://a/")
 check_absolute_url("http://a/b/c/d;p?q#f", "../../g", "http://a/g")
-check_absolute_url("http://a/b/c/d;p?q#f", "../../../g", "http://a/g")
 check_absolute_url("http://a/b/c/d;p?q#f", "", "http://a/b/c/d;p?q#f")
-check_absolute_url("http://a/b/c/d;p?q#f", "/./g", "http://a/g")
-check_absolute_url("http://a/b/c/d;p?q#f", "/../g", "http://a/g")
+check_absolute_url("http://a/b/c/d;p?q#f", "/./g", "http://a/./g")
+check_absolute_url("http://a/b/c/d;p?q#f", "/../g", "http://a/../g")
 check_absolute_url("http://a/b/c/d;p?q#f", "g.", "http://a/b/c/g.")
 check_absolute_url("http://a/b/c/d;p?q#f", ".g", "http://a/b/c/.g")
 check_absolute_url("http://a/b/c/d;p?q#f", "g..", "http://a/b/c/g..")
@@ -667,17 +586,6 @@ check_absolute_url("http://a/b/c/d;p?q#f", "./g/.", "http://a/b/c/g/")
 check_absolute_url("http://a/b/c/d;p?q#f", "g/./h", "http://a/b/c/g/h")
 check_absolute_url("http://a/b/c/d;p?q#f", "g/../h", "http://a/b/c/h")
 
-check_absolute_url("http://a/b/c/d:p?q#f/", "../g/", "http://a/b/g/")
-check_absolute_url("http://a/b/c/d:p?q#f/", "../g", "http://a/b/g")
-check_absolute_url("http://a/b/c/d:p?q#f/", "../.g/", "http://a/b/.g/")
-check_absolute_url("http://a/b/c/d:p?q#f/", "../.g", "http://a/b/.g")
-check_absolute_url("http://a/b/c/d:p?q#f/", "../.g.h/", "http://a/b/.g.h/")
-check_absolute_url("http://a/b/c/d:p?q#f/", "../.g.h", "http://a/b/.g.h")
-
-check_absolute_url("http://a/b/c/d:p?q#f/", "g.h/", "http://a/b/c/g.h/")
-check_absolute_url("http://a/b/c/d:p?q#f/", "../g.h/", "http://a/b/g.h/")
-check_absolute_url("http://a/", "../g.h/", "http://a/g.h/")
-
 -- extra tests
 check_absolute_url("//a/b/c/d;p?q#f", "d/e/f", "//a/b/c/d/e/f")
 check_absolute_url("/a/b/c/d;p?q#f", "d/e/f", "/a/b/c/d/e/f")
@@ -685,17 +593,6 @@ check_absolute_url("a/b/c/d", "d/e/f", "a/b/c/d/e/f")
 check_absolute_url("a/b/c/d/../", "d/e/f", "a/b/c/d/e/f")
 check_absolute_url("http://velox.telemar.com.br", "/dashboard/index.html", 
    "http://velox.telemar.com.br/dashboard/index.html")
-check_absolute_url("http://example.com/", "../.badhost.com/", "http://example.com/.badhost.com/")
-check_absolute_url("http://example.com/", "...badhost.com/", "http://example.com/...badhost.com/")
-check_absolute_url("http://example.com/a/b/c/d/", "../q", "http://example.com/a/b/c/q")
-check_absolute_url("http://example.com/a/b/c/d/", "../../q", "http://example.com/a/b/q")
-check_absolute_url("http://example.com/a/b/c/d/", "../../../q", "http://example.com/a/q")
-check_absolute_url("http://example.com", ".badhost.com", "http://example.com/.badhost.com")
-check_absolute_url("http://example.com/a/b/c/d/", "..//../../../q", "http://example.com/a/q")
-check_absolute_url("http://example.com/a/b/c/d/", "..//a/../../../../q", "http://example.com/a/q")
-check_absolute_url("http://example.com/a/b/c/d/", "..//a/..//../../../q", "http://example.com/a/b/q")
-check_absolute_url("http://example.com/a/b/c/d/", "..//a/..///../../../../q", "http://example.com/a/b/q")
-check_absolute_url("http://example.com/a/b/c/d/", "../x/a/../y/z/../../../../q", "http://example.com/a/b/q")
 
 print("testing path parsing and composition")
 check_parse_path("/eu/tu/ele", { "eu", "tu", "ele"; is_absolute = 1 })
@@ -711,9 +608,9 @@ check_parse_path("eu/tu", { "eu", "tu" })
 print("testing path protection")
 check_protect({ "eu", "-_.!~*'():@&=+$,", "tu" }, "eu/-_.!~*'():@&=+$,/tu")
 check_protect({ "eu ", "~diego" }, "eu%20/~diego")
-check_protect({ "/eu>", "<diego?" }, "%2Feu%3E/%3Cdiego%3F")
-check_protect({ "\\eu]", "[diego`" }, "%5Ceu%5D/%5Bdiego%60")
-check_protect({ "{eu}", "|diego\127" }, "%7Beu%7D/%7Cdiego%7F")
+check_protect({ "/eu>", "<diego?" }, "%2feu%3e/%3cdiego%3f")
+check_protect({ "\\eu]", "[diego`" }, "%5ceu%5d/%5bdiego%60")
+check_protect({ "{eu}", "|diego\127" }, "%7beu%7d/%7cdiego%7f")
 check_protect({ "eu ", "~diego" }, "eu /~diego", 1)
 check_protect({ "/eu>", "<diego?" }, "/eu>/<diego?", 1)
 check_protect({ "\\eu]", "[diego`" }, "\\eu]/[diego`", 1)

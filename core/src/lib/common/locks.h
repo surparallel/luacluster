@@ -29,10 +29,10 @@ enum _LockLevel
 	LockLevel_3,
 	LockLevel_4
 };
-void _LocksCreate();
-void _LocksDestroy();
-char _LocksEntry(void* pSafeMutex);
-char _LocksLeave(void* pSafeMutex);
+void LevelLocksCreate();
+void LevelLocksDestroy();
+char LevelLocksEntry(void* pSafeMutex);
+char LevelLocksLeave(void* pSafeMutex);
 
 void* MutexCreateHandle(unsigned int rank);
 void MutexDestroyHandle(void* pSafeMutex);
@@ -42,14 +42,14 @@ void MutexThreadDestroy();
 
 
 #define MutexLock(lockObj, lockName) do {\
-if(0==_LocksEntry(lockObj)){\
+if(0==LevelLocksEntry(lockObj)){\
 		sds x = sdscatprintf(sdsempty(),"entry mutex %p %s!", lockObj, lockName);\
 		sdsfree(x);}else {\
 	_MutexLock(lockObj);}\
 } while (0)
 
 #define MutexUnlock(lockObj, lockName) do {\
-if(0==_LocksLeave(lockObj)){\
+if(0==LevelLocksLeave(lockObj)){\
 		sds x = sdscatprintf(sdsempty(),"leave mutex %p %s!", lockObj, lockName);\
 		sdsfree(x);}else{\
 	_MutexUnlock(lockObj);}\

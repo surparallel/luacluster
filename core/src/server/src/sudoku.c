@@ -48,6 +48,23 @@
 #include "rtreehelp.h"
 #include "3dmathapi.h"
 
+//
+// 假设场景内有1万人在一个格子中，排队跨过格子边界。
+// 从第一个开始，所发送封包的总数量为1*n，n为当前已经跨过格子的数量。
+// 接收封包的数量也为1*n。哪么每帧也就是1秒，所有处理封包的总数为n+n。
+// 当最有一个玩家跨过格子，所要处理的封包数量达到巅峰，为1万*1万。
+// 其中1万个封包可以分摊到所有其他对象所在的服务器。
+// 另1万个封包需要目标对象来进行处理。 哪么最极端情况下万人同屏每秒需要处理1万~2万的进入数据。
+// 
+// 这里上限的瓶颈是发送给自己的1万个可见目标。因为服务器的单核cpu处理是有上限的。
+// 但这1万个发给自己的数据并不是必须的。因为人脑也不能一下处理1万个可见目标。
+// 这1万个目标是可以删减优化的。除非1/4概率两边都没有发送会导致目标完全不可见。
+// 
+// 如果是1/4概率两边都没有发送导致不可见。哪么有没有补救的方法呢？
+// 对玩家当前格子内的数据要完整处理，对于外围的8个格子可以随机处理。
+// 
+// 任何曲线都可以折算成对应减速的直线。所以有方向和起点速度的向量可以近似模拟任何活动路径。
+//
 enum entity_status {
 	entity_normal = 0,
 	entity_limite = 2,
@@ -59,7 +76,7 @@ typedef struct _Entity {
 	unsigned long long entityid;
 	listNode* listNode;
 	listNode* girdNode;//网格grid_entity的node为了快速查找和删除node
-	list* entityview;//dict-list 某个时间点进入视角的玩家列表
+	//list* entityview;//dict-list 某个时间点进入视角的玩家列表
 	struct BasicTransform transform;
 	struct Vector3 nowPosition;
 	float velocity;//速度
@@ -118,12 +135,12 @@ unsigned int GirdDirId(PSudoku pSudoku, enum SudokuDir dir, unsigned int centre)
 	case up:
 		ret = centre + pSudoku->linex;
 		if (ret > pSudoku->maxid) {
-			ret = MAXUINT32;
+			ret = UINT_MAX;
 		}
 		break;
 	case down:
 		if (centre <= pSudoku->linex)
-			ret = MAXUINT32;
+			ret = UINT_MAX;
 		else
 			ret = centre - pSudoku->linex;
 		break;
@@ -131,35 +148,35 @@ unsigned int GirdDirId(PSudoku pSudoku, enum SudokuDir dir, unsigned int centre)
 		if (floor(centre / pSudoku->linex) == floor((centre - 1) / pSudoku->linex))
 			ret = centre - 1;
 		else
-			ret = MAXUINT32;
+			ret = UINT_MAX;
 		break;
 	case right:
 		if (floor(centre / pSudoku->linex) == floor((centre + 1 - 0.001) / pSudoku->linex))
 			ret = centre + 1;
 		else
-			ret = MAXUINT32;
+			ret = UINT_MAX;
 		break;
 	case upleft:
-		if (MAXUINT32 == GirdDirId(pSudoku, up, centre) || MAXUINT32 == GirdDirId(pSudoku, left, centre))
-			ret = MAXUINT32;
+		if (UINT_MAX == GirdDirId(pSudoku, up, centre) || UINT_MAX == GirdDirId(pSudoku, left, centre))
+			ret = UINT_MAX;
 		else
 			ret = centre + pSudoku->linex - 1;
 		break;
 	case upright:
-		if (MAXUINT32 == GirdDirId(pSudoku, up, centre) || MAXUINT32 == GirdDirId(pSudoku, right, centre))
-			ret = MAXUINT32;
+		if (UINT_MAX == GirdDirId(pSudoku, up, centre) || UINT_MAX == GirdDirId(pSudoku, right, centre))
+			ret = UINT_MAX;
 		else
 			ret = centre + pSudoku->linex + 1;
 		break;
 	case downleft:
-		if (MAXUINT32 == GirdDirId(pSudoku, down, centre) || MAXUINT32 == GirdDirId(pSudoku, left, centre))
-			ret = MAXUINT32;
+		if (UINT_MAX == GirdDirId(pSudoku, down, centre) || UINT_MAX == GirdDirId(pSudoku, left, centre))
+			ret = UINT_MAX;
 		else
 			ret = centre - pSudoku->linex - 1;
 		break;
 	case downright:
-		if (MAXUINT32 == GirdDirId(pSudoku, down, centre) || MAXUINT32 == GirdDirId(pSudoku, right, centre))
-			ret = MAXUINT32;
+		if (UINT_MAX == GirdDirId(pSudoku, down, centre) || UINT_MAX == GirdDirId(pSudoku, right, centre))
+			ret = UINT_MAX;
 		else
 			ret = centre - pSudoku->linex + 1;
 		break;
@@ -307,8 +324,6 @@ void SudokuLeave(void* pSudoku, unsigned long long id) {
 	if (listLength(girdlist) == 0) {
 		dictDelete(s->grid_entity, &pEntity->oldGird);
 	}
-
-	listRelease(pEntity->entityview);
 	free(pEntity);
 }
 
@@ -358,8 +373,6 @@ void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position,
 	}
 
 	pEntity->entityid = id;
-	pEntity->entityview = listCreate();
-
 	//position
 	pEntity->transform.position.x = position.x;
 	pEntity->transform.position.z = position.z;
@@ -431,10 +444,28 @@ static int luaB_Entry(lua_State* L) {
 	return 0;
 }
 
+void SendAddView(PEntity pEntity, PEntity pViewEntity) {
+	mp_buf* pmp_buf = mp_buf_new();
+	const char ptr[] = "OnAddView";
+	mp_encode_bytes(pmp_buf, ptr, sizeof(ptr));
+
+	mp_encode_array(pmp_buf, 6);
+	mp_encode_double(pmp_buf, u642double(pViewEntity->entityid));
+	mp_encode_double(pmp_buf, pViewEntity->transform.position.x);
+	mp_encode_double(pmp_buf, pViewEntity->transform.position.z);
+	mp_encode_double(pmp_buf, pViewEntity->transform.rotation.y);
+	mp_encode_double(pmp_buf, pViewEntity->velocity);
+	mp_encode_int(pmp_buf, pViewEntity->stamp);
+	mp_encode_int(pmp_buf, pViewEntity->stampStop);
+
+	DockerSend(pEntity->entityid, pmp_buf->b, pmp_buf->len);
+	mp_buf_free(pmp_buf);
+}
+
 void FillView(PSudoku s, enum SudokuDir dir, unsigned int centre, PEntity pEntityEntry) {
 
 	unsigned int viewgird = GirdDirId(s, dir, centre);
-	if (MAXUINT32 == viewgird) {
+	if (UINT_MAX == viewgird) {
 		//s_error("FillView not GirdDirId gird %i", viewgird);
 		return;
 	}
@@ -453,7 +484,7 @@ void FillView(PSudoku s, enum SudokuDir dir, unsigned int centre, PEntity pEntit
 
 			if (pEntity->entityid != pEntityEntry->entityid) {
 				if(!(s->isBigWorld && (pEntityEntry->status & entity_ghost) && (pEntity->status & entity_limite) || (pEntity->status & entity_outside) || (pEntityEntry->status & entity_outside)))
-					listAddNodeTail(pEntityEntry->entityview, pEntity);
+					SendAddView(pEntityEntry, pEntity);
 			}
 				
 			if (pEntity->update != 0)
@@ -461,7 +492,7 @@ void FillView(PSudoku s, enum SudokuDir dir, unsigned int centre, PEntity pEntit
 
 			if (pEntity->entityid != pEntityEntry->entityid) {
 				if (!(s->isBigWorld && (pEntity->status & entity_ghost) && (pEntityEntry->status & entity_limite) || (pEntity->status & entity_outside) || (pEntityEntry->status & entity_outside)))
-					listAddNodeTail(pEntity->entityview, pEntityEntry);
+					SendAddView(pEntity, pEntityEntry);
 			}
 		}
 	}
@@ -739,34 +770,6 @@ void SudokuUpdate(void* pSudoku) {
 	iter = listGetIterator(s->entitiesList, AL_START_HEAD);
 	while ((node = listNext(iter)) != NULL) {
 		PEntity pEntity = listNodeValue(node);
-		if (listLength(pEntity->entityview) != 0) {
-			mp_buf* pmp_buf = mp_buf_new();
-			const char ptr[] = "OnAddView";
-			mp_encode_bytes(pmp_buf, ptr, sizeof(ptr));
-			mp_encode_array(pmp_buf, listLength(pEntity->entityview));
-
-			listIter* viewiter = listGetIterator(pEntity->entityview, AL_START_HEAD);
-			listNode* viewnode;
-			while ((viewnode = listNext(viewiter)) != NULL) {
-				// 发送并清空listview到客户端
-				PEntity pViewEntity = listNodeValue(viewnode);
-
-				mp_encode_array(pmp_buf, 6);
-				mp_encode_double(pmp_buf, u642double(pViewEntity->entityid));
-				mp_encode_double(pmp_buf, pViewEntity->transform.position.x);
-				mp_encode_double(pmp_buf, pViewEntity->transform.position.z);
-				mp_encode_double(pmp_buf, pViewEntity->transform.rotation.y);
-				mp_encode_double(pmp_buf, pViewEntity->velocity);
-				mp_encode_int(pmp_buf, pViewEntity->stamp);
-				mp_encode_int(pmp_buf, pViewEntity->stampStop);
-
-				listDelNode(pEntity->entityview, viewnode);
-			}
-			listReleaseIterator(viewiter);
-
-			DockerSend(pEntity->entityid, pmp_buf->b, pmp_buf->len);
-			mp_buf_free(pmp_buf);
-		}
 
 		//删除已经超过60秒离开边界的对象
 		if (pEntity->status & entity_outside && pEntity->outingStamp && (GetCurrentSec() - pEntity->outingStamp) > s->outsideSec) {
@@ -871,7 +874,6 @@ static int luaB_Create(lua_State* L) {
 static void DestroyFun(void* value) {
 
 	PEntity pEntity = value;
-	listRelease(pEntity->entityview);
 	free(pEntity);
 }
 

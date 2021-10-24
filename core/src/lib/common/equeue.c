@@ -17,24 +17,18 @@
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
 
+#include "semwarp.h"
 #include "plateform.h"
-#include <pthread.h>
 #include "adlist.h"
 #include "equeue.h"
 #include "sds.h"
 #include "locks.h"
 
-#ifdef __APPLE__
-#include "psemaphore.h"
-#else
-#include <semaphore.h>
-#endif
-
 typedef struct _EventQueue
 {
 	void* mutexHandle;
 	sds objecName;
-	sem_t semaphore;
+	semwarp_t semaphore;
 	list* listQueue;
 } *PEventQueue, EventQueue;
 
@@ -42,7 +36,8 @@ void* EqCreate() {
 	PEventQueue pEventQueue = malloc(sizeof(EventQueue));
 	pEventQueue->mutexHandle = MutexCreateHandle(LockLevel_4);
 
-	if (sem_init(&pEventQueue->semaphore, PTHREAD_PROCESS_PRIVATE, 0) != 0) {
+	int r = semwarp_init(&pEventQueue->semaphore, 0);
+	if (r != 0) {
 		free(pEventQueue);
 		return 0;
 	}
@@ -53,20 +48,20 @@ void* EqCreate() {
 
 int EqIfNoPush(void* pvEventQueue, void* value, unsigned int maxQueue) {
 
-	unsigned r = 0;
+	size_t r = 0;
 	PEventQueue pEventQueue = pvEventQueue;
 	MutexLock(pEventQueue->mutexHandle, pEventQueue->objecName);
 	if (maxQueue && listLength(pEventQueue->listQueue) > maxQueue) {
 	} else {
-		r = 1;
 		listAddNodeHead(pEventQueue->listQueue, value);
+		r = listLength(pEventQueue->listQueue);
+
+		if (r == 1) {
+			semwarp_post(&pEventQueue->semaphore);
+		}
 	}
 	MutexUnlock(pEventQueue->mutexHandle, pEventQueue->objecName);
-
-	if (r && sem_post(&pEventQueue->semaphore) != 0) {
-		return r;
-	}
-	return r;
+	return (int)r;
 }
 
 void EqPush(void* pvEventQueue, void* value) {
@@ -74,25 +69,22 @@ void EqPush(void* pvEventQueue, void* value) {
 	PEventQueue pEventQueue = pvEventQueue;
 	MutexLock(pEventQueue->mutexHandle, pEventQueue->objecName);
 	listAddNodeHead(pEventQueue->listQueue, value);
-	MutexUnlock(pEventQueue->mutexHandle, pEventQueue->objecName);
-
-	if (sem_post(&pEventQueue->semaphore) != 0) {
-		return;
+	size_t r = listLength(pEventQueue->listQueue);
+	if (r == 1) {
+		semwarp_post(&pEventQueue->semaphore);
 	}
+	MutexUnlock(pEventQueue->mutexHandle, pEventQueue->objecName);
 }
 
-int EqTimeWait(void* pvEventQueue, long long sec, long long nsec) {
+int EqTimeWait(void* pvEventQueue, unsigned long long milliseconds) {
 
 	PEventQueue pEventQueue = pvEventQueue;
-	struct timespec ts;
-	ts.tv_sec = sec;
-	ts.tv_nsec =  (long)nsec;
-	return sem_timedwait(&pEventQueue->semaphore, &ts);
+	return semwarp_timedwait(&pEventQueue->semaphore, milliseconds);
 }
 
 int EqWait(void* pvEventQueue) {
 	PEventQueue pEventQueue = pvEventQueue;
-	return sem_wait(&pEventQueue->semaphore);
+	return semwarp_wait(&pEventQueue->semaphore);
 }
 
 void* EqPop(void* pvEventQueue) {
@@ -140,7 +132,7 @@ void EqDestory(void* pvEventQueue, QueuerDestroyFun fun) {
 	listSetFreeMethod(pEventQueue->listQueue, fun);
 	listRelease(pEventQueue->listQueue);
 
-	sem_destroy(&pEventQueue->semaphore);
+	semwarp_destroy(&pEventQueue->semaphore);
 	MutexDestroyHandle(pEventQueue->mutexHandle);
 	free(pEventQueue);
 }

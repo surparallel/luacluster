@@ -31,15 +31,15 @@ function entityMng.RegistryObj(obj)
 end
 
 function entityMng.NewEntity(name, arg)
-    
+
     local e = require(name).New()
     if e ~= nil then
-        
+
         e:CopyArg(arg)
         e:EntityClass(name)
 
         entityMng.RegistryObj(e)
-        
+
         local myid = tostring(int64.new_unsigned(e.id))
         elog.details(string.format("New::id::%s",myid))
 
@@ -51,6 +51,18 @@ function entityMng.NewEntity(name, arg)
 
         if type(e.Init) == "function" then
             e:DoInheritFun(e, "Init")
+        end
+
+        --注册DNS
+        if arg["DNS"] ~= nil then
+            redishelp:hset("DNS",arg["DNS"],myid)
+        end
+
+        --注册一个负载均衡
+        if arg["BALANCE"] ~= nil then
+            redishelp:select(1)
+            redishelp:lpush(arg["BALANCE"],myid)
+            redishelp:select(0)
         end
     else
         elog.error(string.format("main::proto_rpc_create:: New error::%s",name))

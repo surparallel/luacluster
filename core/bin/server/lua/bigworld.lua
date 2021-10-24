@@ -1,4 +1,4 @@
---space_sudoku
+--bigworld
 local sc = require 'sc'
 local entity = require("entity")
 local entitymng = require("entitymng")

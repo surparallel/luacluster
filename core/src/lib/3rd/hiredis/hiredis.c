@@ -974,6 +974,7 @@ int redisBufferWrite(redisContext *c, int *done) {
     if (c->err)
         return REDIS_ERR;
 
+    int s = sdslen(c->obuf);
     if (sdslen(c->obuf) > 0) {
         ssize_t nwritten = c->funcs->write(c);
         if (nwritten < 0) {

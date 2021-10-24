@@ -35,10 +35,7 @@ enum OutPutCategory
 	ctg_null = 0,
 	ctg_node,//整个节点管理器的日志
 	ctg_dock,//每个线程容器的日志
-	ctg_entity,//对象行为的日志
 	ctg_script,//脚本的日志
-	ctg_login,//登录服务的日志
-	ctg_space,//空间服务的日志
 };
 
 enum PacketCmd
@@ -77,36 +74,38 @@ size_t LogGetFileLine();
 	size_t fileLine = __LINE__;\
 	if (LogGetFileName() != NULL && strstr(LogGetFileName(), fileName) == NULL) break;\
 	if (LogGetFileLine() != 0 && LogGetFileLine() == fileLine) break;\
-	char* sdsDescribe = LogFormatDescribe(describe, ##__VA_ARGS__);\
-	LogTo(level, category, sdsDescribe, fileName, fileLine);}\
+	char* sdsDescribe = LogFormatDescribe( describe , ##__VA_ARGS__ );\
+	LogTo(level, category, sdsDescribe, fileName, fileLine);\
+	}\
 } while (0);
 
-#define elog_error(category, describe, ...) elog(log_error, category, describe, __VA_ARGS__)
-#define elog_warn(category, describe, ...) elog(log_warn, category, describe, __VA_ARGS__)
-#define elog_stat(category, describe, ...) elog(log_stat, category, describe, __VA_ARGS__)
-#define elog_fun(category, describe, ...) elog(log_fun, category, describe, __VA_ARGS__)
-#define elog_details(category, describe, ...) elog(log_details, category, describe, __VA_ARGS__)
+
+#define elog_error(category, describe, ...) elog(log_error, category, describe, ##__VA_ARGS__)
+#define elog_warn(category, describe, ...) elog(log_warn, category, describe, ##__VA_ARGS__)
+#define elog_stat(category, describe, ...) elog(log_stat, category, describe, ##__VA_ARGS__)
+#define elog_fun(category, describe, ...) elog(log_fun, category, describe, ##__VA_ARGS__)
+#define elog_details(category, describe, ...) elog(log_details, category, describe, ##__VA_ARGS__)
 
 //null
-#define e_error(describe, ...) elog(log_error, ctg_null, describe, __VA_ARGS__)
-#define e_warn(describe, ...) elog(log_warn, ctg_null, describe, __VA_ARGS__)
-#define e_stat(describe, ...) elog(log_stat, ctg_null, describe, __VA_ARGS__)
-#define e_fun(describe, ...) elog(log_fun, ctg_null, describe, __VA_ARGS__)
-#define e_details(describe, ...) elog(log_details, ctg_null, describe, __VA_ARGS__)
+#define e_error(describe, ...) elog(log_error, ctg_null, describe, ##__VA_ARGS__)
+#define e_warn(describe, ...) elog(log_warn, ctg_null, describe, ##__VA_ARGS__)
+#define e_stat(describe, ...) elog(log_stat, ctg_null, describe, ##__VA_ARGS__)
+#define e_fun(describe, ...) elog(log_fun, ctg_null, describe, ##__VA_ARGS__)
+#define e_details(describe, ...) elog(log_details, ctg_null, describe, ##__VA_ARGS__)
 
 //ctg_node
-#define n_error(describe, ...) elog(log_error, ctg_node, describe, __VA_ARGS__)
-#define n_warn(describe, ...) elog(log_warn, ctg_node, describe, __VA_ARGS__)
-#define n_stat(describe, ...) elog(log_stat, ctg_node, describe, __VA_ARGS__)
-#define n_fun(describe, ...) elog(log_fun, ctg_node, describe, __VA_ARGS__)
-#define n_details(describe, ...) elog(log_details, ctg_node, describe, __VA_ARGS__)
+#define n_error(describe, ...) elog(log_error, ctg_node, describe, ##__VA_ARGS__)
+#define n_warn(describe, ...) elog(log_warn, ctg_node, describe, ##__VA_ARGS__)
+#define n_stat(describe, ...) elog(log_stat, ctg_node, describe, ##__VA_ARGS__)
+#define n_fun(describe, ...) elog(log_fun, ctg_node, describe, ##__VA_ARGS__)
+#define n_details(describe, ...) elog(log_details, ctg_node, describe, ##__VA_ARGS__)
 
 //ctg_script
-#define s_error(describe, ...) elog(log_error, ctg_script, describe, __VA_ARGS__)
-#define s_warn(describe, ...) elog(log_warn, ctg_script, describe, __VA_ARGS__)
-#define s_stat(describe, ...) elog(log_stat, ctg_script, describe, __VA_ARGS__)
-#define s_fun(describe, ...) elog(log_fun, ctg_script, describe, __VA_ARGS__)
-#define s_details(describe, ...) elog(log_details, ctg_script, describe, __VA_ARGS__)
+#define s_error(describe, ...) elog(log_error, ctg_script, describe, ##__VA_ARGS__)
+#define s_warn(describe, ...) elog(log_warn, ctg_script, describe, ##__VA_ARGS__)
+#define s_stat(describe, ...) elog(log_stat, ctg_script, describe, ##__VA_ARGS__)
+#define s_fun(describe, ...) elog(log_fun, ctg_script, describe, ##__VA_ARGS__)
+#define s_details(describe, ...) elog(log_details, ctg_script, describe, ##__VA_ARGS__)
 #endif
 
 

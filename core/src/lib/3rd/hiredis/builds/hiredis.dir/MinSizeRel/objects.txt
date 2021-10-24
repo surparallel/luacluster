@@ -1,8 +1,0 @@
-D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/MinSizeRel/alloc.obj
-D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/MinSizeRel/async.obj
-D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/MinSizeRel/dict.obj
-D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/MinSizeRel/hiredis.obj
-D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/MinSizeRel/net.obj
-D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/MinSizeRel/read.obj
-D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/MinSizeRel/sds.obj
-D:/workround/grypania/core/src/lib/3rd/hiredis/builds/hiredis.dir/MinSizeRel/sockcompat.obj

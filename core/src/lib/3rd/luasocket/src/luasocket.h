@@ -6,8 +6,9 @@
 * Diego Nehab
 * 9/11/1999
 \*=========================================================================*/
+#include "lua.h"
 
-/*-------------------------------------------------------------------------* \
+/*-------------------------------------------------------------------------*\
 * Current socket library version
 \*-------------------------------------------------------------------------*/
 #define LUASOCKET_VERSION    "LuaSocket 3.0-rc1"
@@ -17,16 +18,8 @@
 * This macro prefixes all exported API functions
 \*-------------------------------------------------------------------------*/
 #ifndef LUASOCKET_API
-#ifdef _WIN32
-#define LUASOCKET_API __declspec(dllexport)
-#else
-#define LUASOCKET_API __attribute__ ((visibility ("default")))
+#define LUASOCKET_API extern
 #endif
-#endif
-
-#include "lua.h"
-#include "lauxlib.h"
-#include "compat.h"
 
 /*-------------------------------------------------------------------------*\
 * Initializes the library.

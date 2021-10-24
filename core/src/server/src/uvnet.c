@@ -40,6 +40,9 @@
 #define _TCP_SOCKET (1<<1)
 #define _TCP_CONNECT (1<<2)
 
+#define _TCP4_SOCKET (1<<0)      /* Client is in Pub/Sub mode. */
+#define _TCP6_SOCKET (1<<1)
+
 typedef struct _NetServer {
     int hz;
     unsigned int maxclients;               /* Max number of simultaneous clients */
@@ -80,6 +83,8 @@ typedef struct _NetServer {
     void* sendBufMutexHandle;
 
     uv_timer_t once;
+
+    unsigned int bindListenIp; //指定默认绑定的地址类型4 or 6
 } *PNetServer, NetServer;
 
 typedef struct _NetClient {
@@ -229,7 +234,7 @@ static void RecvCallback(PNetClient c, char* buf, size_t buffsize) {
                     wr->buf = uv_buf_init(s, buffsize);
                     wr->req.data = s;
                     int r = uv_write(&wr->req, pNetClient->stream, &wr->buf, 1, after_write);
-                    if (r) {
+                    if (r < 0) {
                         n_error("RecvCallback::proto_route_call failed error %s %s", uv_err_name(r), uv_strerror(r));
                     }
                 }
@@ -484,16 +489,16 @@ static void doJsonParseFile(PNetServer pNetServer, char* config)
     FILE* f; size_t len; char* data;
     cJSON* json;
 
-    f = fopen(config, "rb");
+    f = fopen_t(config, "rb");
 
     if (f == NULL) {
-        //printf("Error Open File: [%s]\n", filename);
+        printf("Error Open File: [%s]\n", config);
         return;
     }
 
-    fseek(f, 0, SEEK_END);
-    len = ftell(f);
-    fseek(f, 0, SEEK_SET);
+    fseek_t(f, 0, SEEK_END);
+    len = ftell_t(f);
+    fseek_t(f, 0, SEEK_SET);
     data = (char*)malloc(len + 1);
     fread(data, 1, len, f);
     fclose(f);
@@ -549,7 +554,13 @@ static void doJsonParseFile(PNetServer pNetServer, char* config)
                 sdsfree(pNetServer->botsObj);
                 pNetServer->botsObj = sdsnew(cJSON_GetStringValue(item));
             }
-
+            else if (strcmp(item->string, "bindListenIp") == 0) {
+                unsigned short r = (unsigned short)cJSON_GetNumberValue(item);
+                if (r == 4)
+                    pNetServer->botsObj = _TCP4_SOCKET;
+                else if (r == 6)
+                    pNetServer->botsObj = _TCP6_SOCKET;
+            }
             item = item->next;
         }
     }
@@ -721,7 +732,7 @@ static void SendLoop(PNetServer pNetServer) {
             wr->buf = uv_buf_init(pProtoSendToClient->buf, nread);
             wr->req.data = value;
             r = uv_write(&wr->req, c->stream, &wr->buf, 1, after_write);
-            if (r) {
+            if (r < 0) {
                 n_error("async_cb::uv_write failed error %s %s", uv_err_name(r), uv_strerror(r));
             }
         }
@@ -751,6 +762,7 @@ static void SendLoop(PNetServer pNetServer) {
             }
         }
         else if (pProtoHead->proto == proto_ctr_cancel) {
+            sdsfree(value);
             uv_stop(pNetServer->loop);
         }
     }
@@ -768,43 +780,51 @@ static int listenToPort(PNetServer pNetServer, int port) {
 
     /* Force binding of 0.0.0.0 if no bind address is specified, always
      * entering the loop if j == 0. */
-    if (pNetServer->bindaddr_count == 0) pNetServer->bindaddr[0] = NULL;
-    for (j = 0; j < pNetServer->bindaddr_count || j == 0; j++) {
-        if (pNetServer->bindaddr[j] == NULL) {
-            /* Bind * for both IPv6 and IPv4, we enter here only if
-             * server.bindaddr_count == 0. */
-            pNetServer->tcp6_handle[pNetServer->tcp6_handle_count] = tcp6_start(pNetServer->loop, "0:0:0:0:0:0:0:0", port);
-            if (pNetServer->tcp6_handle[pNetServer->tcp6_handle_count] == 0) {
-                n_error(
-                    "Creating Server TCP listening socket %s:%i:",
-                    pNetServer->bindaddr[j] ? pNetServer->bindaddr[j] : "*",
-                    port);
-            }
-            else {
-                pNetServer->tcp6_handle_count++;
-            }
-            
-
+    if (pNetServer->bindaddr_count == 0) {
+        pNetServer->bindaddr[0] = NULL;
+        if (pNetServer->bindListenIp & _TCP4_SOCKET) {
             pNetServer->tcp4_handle[pNetServer->tcp4_handle_count] = tcp4_start(pNetServer->loop, "0.0.0.0", port);
             if (pNetServer->tcp4_handle[pNetServer->tcp4_handle_count] == 0) {
                 n_error(
-                    "Creating Server TCP listening socket %s:%i:",
+                    "Creating Server TCP4 listening socket %s:%i:",
                     pNetServer->bindaddr[j] ? pNetServer->bindaddr[j] : "*",
                     port);
-                continue;
+                return 0;
             }
             else {
                 pNetServer->tcp4_handle_count++;
             }
- 
-            if (pNetServer->tcp4_handle_count || pNetServer->tcp6_handle_count) break;
+        }
+        
+        if (pNetServer->bindListenIp & _TCP6_SOCKET) {
+            pNetServer->tcp6_handle[pNetServer->tcp6_handle_count] = tcp6_start(pNetServer->loop, "0:0:0:0:0:0:0:0", port);
+            if (pNetServer->tcp6_handle[pNetServer->tcp6_handle_count] == 0) {
+                n_error(
+                    "Creating Server TCP6 listening socket %s:%i:",
+                    pNetServer->bindaddr[j] ? pNetServer->bindaddr[j] : "*",
+                    port);
+
+                return 0;
+            }
+            else {
+                pNetServer->tcp6_handle_count++;
+            }
+        }
+        return 1;
+    }
+
+    for (j = 0; j < pNetServer->bindaddr_count || j == 0; j++) {
+        if (pNetServer->bindaddr[j] == NULL) {
+            /* Bind * for both IPv6 and IPv4, we enter here only if
+             * server.bindaddr_count == 0. */
+            continue;
         }
         else if (strchr(pNetServer->bindaddr[j], ':')) {
             /* Bind IPv6 address. */
             pNetServer->tcp6_handle[pNetServer->tcp4_handle_count] = tcp6_start(pNetServer->loop, pNetServer->bindaddr[j], port);
             if (pNetServer->tcp6_handle[pNetServer->tcp6_handle_count] == 0) {
                 n_error(
-                    "Creating Server TCP listening socket %s:%i:",
+                    "Creating Server TCP6 bindaddr listening socket %s:%i:",
                     pNetServer->bindaddr[j] ? pNetServer->bindaddr[j] : "*",
                     port);
                 continue;
@@ -819,7 +839,7 @@ static int listenToPort(PNetServer pNetServer, int port) {
             pNetServer->tcp4_handle[pNetServer->tcp4_handle_count] = tcp4_start(pNetServer->loop, pNetServer->bindaddr[j], port);
             if (pNetServer->tcp4_handle[pNetServer->tcp4_handle_count] == 0) {
                 n_error(
-                    "Creating Server TCP listening socket %s:%i:",
+                    "Creating Server TCP4 bindaddr listening socket %s:%i:",
                     pNetServer->bindaddr[j] ? pNetServer->bindaddr[j] : "*",
                     port);
                 continue;
@@ -897,7 +917,7 @@ static uv_udp_t* udp4_start(uv_loop_t* loop, char* ip, int port) {
     PNetClient pNetClient = malloc(sizeof(NetClient));
     pNetClient->id = pNetServer->allClientID++;
     pNetClient->pNetServer = uv_loop_get_data(loop);
-    uv_handle_set_data((uv_handle_t*)udpServer, pNetClient->pNetServer);
+    uv_handle_set_data((uv_handle_t*)udpServer, pNetClient);
     pNetClient->flags = _UDP_SOCKET;
 
     r = uv_udp_recv_start(udpServer, slab_alloc, udp_read);
@@ -940,6 +960,12 @@ void* NetCreate(int nodetype, unsigned short listentcp) {
     _pNetServer->sendBuf = listCreate();
     _pNetServer->sendBufMutexHandle = MutexCreateHandle(LockLevel_4);
 
+#ifdef _WIN32
+    _pNetServer->bindListenIp = _TCP4_SOCKET | _TCP6_SOCKET;
+#else
+    _pNetServer->bindListenIp = _TCP4_SOCKET;
+#endif // _WIN32 
+
     doJsonParseFile(_pNetServer, NULL);
  
     _pNetServer->loop = uv_default_loop();
@@ -971,14 +997,14 @@ void* NetCreate(int nodetype, unsigned short listentcp) {
                     n_error("InitServer:: udp_ip or udp_port is empty! ip:%i port:%i", _pNetServer->udp_ip, _pNetServer->udp_port);
                 }
             }
-            else {
-                if (_pNetServer->nodetype) {
-                    SetUpdIPAndPortToInside(_pNetServer->udp_ip, _pNetServer->udp_port);
-                }
-                else {
-                    SetUpdIPAndPortToOutside(_pNetServer->udp_ip, _pNetServer->udp_port);
-                }
+
+            if (_pNetServer->nodetype) {
+                SetUpdIPAndPortToInside(_pNetServer->udp_ip, _pNetServer->udp_port);
             }
+            else {
+                SetUpdIPAndPortToOutside(_pNetServer->udp_ip, _pNetServer->udp_port);
+            }
+
             break;
         }
     }
@@ -1109,6 +1135,11 @@ void NetSendToNode(char* ip, unsigned short port, unsigned char* b, unsigned sho
     uv_buf_t buf;
     int r;
 
+    if (s > PACKET_MAX_SIZE_UDP) {
+        n_error("NetSendToNode::NetSendToNode error Length greater than limit PACKET_MAX_SIZE_UDP %i", s);
+        return;
+    }
+
     r = uv_ip4_addr(ip, port, &server_addr);
     
     if (r) {
@@ -1119,7 +1150,7 @@ void NetSendToNode(char* ip, unsigned short port, unsigned char* b, unsigned sho
     buf = uv_buf_init(b, s);
     r = uv_udp_try_send(&_pNetServer->sendUdp, &buf, 1, (const struct sockaddr*)&server_addr);
 
-    if (r) {
+    if (r < 0) {
         n_error("NetSendToNode::uv_udp_try_send error %s %s", uv_err_name(r), uv_strerror(r));
     }
 }
@@ -1129,14 +1160,20 @@ void NetSendToNodeWithUINT(unsigned int ip, unsigned short port, unsigned char* 
     uv_buf_t buf;
     int r;
 
+    if (s > PACKET_MAX_SIZE_UDP) {
+        n_error("NetSendToNode::NetSendToNode error Length greater than limit PACKET_MAX_SIZE_UDP %i", s);
+        return;
+    }
+
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(port);
-    server_addr.sin_addr.S_un.S_addr = htonl(ip);
+    unsigned int out_ip = htonl(ip);
+    memcpy(&(server_addr.sin_addr.s_addr), &out_ip, sizeof(unsigned int));
 
     buf = uv_buf_init(b, s);
     r = uv_udp_try_send(&_pNetServer->sendUdp, &buf, 1, (const struct sockaddr*)&server_addr);
 
-    if (r) {
+    if (r < 0) {
         n_error("NetSendToNode::uv_udp_try_send error %s %s", uv_err_name(r), uv_strerror(r));
     }
 }

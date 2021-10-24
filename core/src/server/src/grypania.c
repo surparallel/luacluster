@@ -29,11 +29,13 @@
 #include "lua_cmsgpack.h"
 #include "redishelp.h"
 #include "cJSON.h"
-#include "redis.h"
+#include "hiredis.h"
 #include "filesys.h"
 #include "3dmath.h"
 #include "space.h"
 #include "uvnet.h"
+#include "locks.h"
+#include "redis.h"
 
 static const char* assetsPath = 0;
 static unsigned int dockerid = 0;
@@ -97,7 +99,6 @@ int IssueCommand(int argc, char** argv, int noFind) {
 		mp_encode_bytes(pmp_buf, argv[2], strlen(argv[2]));
 
 		if ((argc - 2) % 2 != 0) {
-
 			return 1;
 		}
 
@@ -108,7 +109,7 @@ int IssueCommand(int argc, char** argv, int noFind) {
 			}
 		}
 
-		DockerCreateEntity(NULL, atoll(argv[1]), pmp_buf->b, pmp_buf->len);
+		DockerCreateEntity(NULL, atoi(argv[1]), pmp_buf->b, pmp_buf->len);
 		mp_buf_free(pmp_buf);
 	}
 	else if (!strcasecmp(command, "call")) {
@@ -122,6 +123,8 @@ int IssueCommand(int argc, char** argv, int noFind) {
 		for (int i = 2; i < argc; i++) {
 			mp_encode_bytes(pmp_buf, argv[i], strlen(argv[i]));
 		}
+
+		unsigned long long id = strtoull(argv[1], NULL, 0);
 
 		DockerSend(strtoull(argv[1], NULL, 0), pmp_buf->b, pmp_buf->len);
 		mp_buf_free(pmp_buf);
@@ -298,16 +301,16 @@ static void doJsonParseFile(char* config)
 	FILE* f; size_t len; char* data;
 	cJSON* json;
 
-	f = fopen(config, "rb");
+	f = fopen_t(config, "rb");
 
 	if (f == NULL) {
-		//printf("Error Open File: [%s]\n", filename);
+		printf("Error Open File: [%s]\n", config);
 		return;
 	}
 
-	fseek(f, 0, SEEK_END);
-	len = ftell(f);
-	fseek(f, 0, SEEK_SET);
+	fseek_t(f, 0, SEEK_END);
+	len = ftell_t(f);
+	fseek_t(f, 0, SEEK_SET);
 	data = (char*)malloc(len + 1);
 	fread(data, 1, len, f);
 	fclose(f);
@@ -341,6 +344,8 @@ int main(int argc, char** argv) {
 
 	srand(time(0));
 	LogInit(NULL);
+	LevelLocksCreate();
+
 	//这里有需要输入参数的，指定要绑定的地址之类的
 	n_details("********************************************");
 	n_details("*              hello grypania!             *");
@@ -364,17 +369,12 @@ int main(int argc, char** argv) {
 		DocksCreate(ip, uportOffset, uport, assetsPath, dockerSize, nodetype);
 
 		ret = ArgsInteractive(IssueCommand);
-		DocksDestory();
-		NetDestory();
-		LogDestroy();
-		FreeRedisHelp();
-		return ret;
 	}
-	else {
-		DocksDestory();
-		NetDestory();
-		LogDestroy();
-		FreeRedisHelp();
-		return ret;
-	}
+
+	DocksDestory();
+	NetDestory();
+	LogDestroy();
+	FreeRedisHelp();
+	LevelLocksDestroy();
+	return ret;
 }

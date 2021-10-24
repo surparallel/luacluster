@@ -112,15 +112,12 @@ the HTTP module:
 </p>
 
 <ul>
-<li> <tt>PROXY</tt>: default proxy used for connections;
+<li> <tt>PORT</tt>: default port used for connections; 
+<li> <tt>PROXY</tt>: default proxy used for connections; 
 <li> <tt>TIMEOUT</tt>: sets the timeout for all I/O operations;
 <li> <tt>USERAGENT</tt>: default user agent reported to server.
 </ul>
 
-<p class=note id="post">
-Note: These constants are global. Changing them will also
-change the behavior other code that might be using LuaSocket.
-</p>
 
 <!-- http.request ++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
 
@@ -135,8 +132,7 @@ http.<b>request{</b><br>
 &nbsp;&nbsp;[step = <i>LTN12 pump step</i>,]<br>
 &nbsp;&nbsp;[proxy = <i>string</i>,]<br>
 &nbsp;&nbsp;[redirect = <i>boolean</i>,]<br>
-&nbsp;&nbsp;[create = <i>function</i>,]<br>
-&nbsp;&nbsp;[maxredirects = <i>number</i>]<br>
+&nbsp;&nbsp;[create = <i>function</i>]<br>
 <b>}</b>
 </p>
 
@@ -186,7 +182,6 @@ Defaults to the LTN12 <tt>pump.step</tt> function.
 function from  automatically following 301 or 302 server redirect messages; 
 <li><tt>create</tt>: An optional function to be used instead of
 <a href=tcp.html#socket.tcp><tt>socket.tcp</tt></a> when the communications socket is created. 
-<li><tt>maxredirects</tt>: An optional number specifying the maximum number of redirects to follow.  Defaults to <tt>5</tt> if not specified.  A boolean <tt>false</tt> value means no maximum (unlimited).
 </ul>
 
 <p class=return>
@@ -326,8 +321,8 @@ r, c = http.request {
 </p>
 <p>
 <small>
-Last modified by Eric Westbrook on <br>
-Sat Feb 23 19:09:42 UTC 2019
+Last modified by Diego Nehab on <br>
+Thu Apr 20 00:25:26 EDT 2006
 </small>
 </p>
 </center>

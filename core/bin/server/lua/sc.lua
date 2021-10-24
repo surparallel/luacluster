@@ -47,7 +47,7 @@ sc.cluster = {}
 sc.cluster.serves = {"space","bigworld"}--集群启动时要启动的服务列表
 sc.cluster.expire = 15 --集群关键key的过期时间秒
 sc.cluster.nodeSize = 1 --集群的数量
-sc.cluster.nodeStar = 60 --集群服务的启动延迟时间
+sc.cluster.nodeStar = 5 --集群服务的启动延迟时间
 
 sc.sudoku = {}
 sc.sudoku.girdx = 10

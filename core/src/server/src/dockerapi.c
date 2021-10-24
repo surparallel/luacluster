@@ -92,7 +92,7 @@ static int luaB_Wait(lua_State* L) {
 	//s_fun("Docker::Wait %U", msec);
 
 	if (msec == 0)
-		msec = INFINITE;
+		msec = ULLONG_MAX;
 
 	return DockerLoop(pVoid, L, msec);
 }

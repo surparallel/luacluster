@@ -24,7 +24,7 @@ typedef void(*QueuerDestroyFun)(void* value);
 void* EqCreate();
 void EqPush(void* pEventQueue, void* value);
 int EqIfNoPush(void* pvEventQueue, void* value, unsigned int maxQueue);
-int EqTimeWait(void* pEventQueue, long long sec, long long nsec);
+int EqTimeWait(void* pEventQueue, unsigned long long milliseconds);
 int EqWait(void* pEventQueue);
 void* EqPop(void* pEventQueue);
 void EqEmpty(void* pvEventQueue, QueuerDestroyFun fun);

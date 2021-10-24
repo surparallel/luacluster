@@ -55,13 +55,13 @@ static void doJsonParseFile(char* config)
     f = fopen(config, "rb");
 
     if (f == NULL) {
-        //printf("Error Open File: [%s]\n", filename);
+        printf("Error Open File: [%s]\n", config);
         return;
     }
 
-    fseek(f, 0, SEEK_END);
-    len = ftell(f);
-    fseek(f, 0, SEEK_SET);
+    fseek_t(f, 0, SEEK_END);
+    len = ftell_t(f);
+    fseek_t(f, 0, SEEK_SET);
     data = (char*)malloc(len + 1);
     fread(data, 1, len, f);
     fclose(f);
@@ -112,13 +112,13 @@ void SetUpdToAll(redisContext* c, unsigned int ip, unsigned short port) {
 
 	if (NULL == r)
 	{
-		n_error("Execut command failure\n");
+		n_error("Execut command failure");
 		return;
 	}
 
 	if (r->type == REDIS_REPLY_INTEGER && r->integer != 1)
 	{
-		n_warn("Failed to execute command[%s]\n", command);
+		n_warn("Failed to execute command[%s]", command);
 		freeReplyObject(r);
 		return;
 	}
@@ -140,14 +140,14 @@ void GetUpdFromAll(unsigned int* ip, unsigned short* port) {
 
 	if (NULL == r)
 	{
-		n_error("Execut command failure\n");
+		n_error("Execut command failure");
 		redisFree(c);
 		return;
 	}
 
-	if (r->type != REDIS_REPLY_ARRAY && r->elements == 0)
+	if (r->type != REDIS_REPLY_ARRAY || (r->type == REDIS_REPLY_ARRAY && r->elements == 0))
 	{
-		n_error("Failed to execute command[%s]", command);
+		n_warn("Failed to execute command[%s]", command);
 		freeReplyObject(r);
 		redisFree(c);
 		return;
@@ -173,7 +173,7 @@ void SetUpdIPAndPortToOutside(unsigned int ip, unsigned short port) {
 	if (c->err)
 	{
 		redisFree(c);
-		n_error("Connect to redisServer faile\n");
+		n_error("Connect to redisServer faile");
 		return;
 	}
 
@@ -184,14 +184,14 @@ void SetUpdIPAndPortToOutside(unsigned int ip, unsigned short port) {
 
 	if (NULL == r)
 	{
-		n_error("Execut command failure\n");
+		n_error("Execut command failure");
 		redisFree(c);
 		return;
 	}
 
 	if (r->type == REDIS_REPLY_INTEGER && r->integer != 1)
 	{
-		n_warn("Failed to execute command[%s]\n", command);
+		n_warn("Failed to execute command[%s]", command);
 		freeReplyObject(r);
 		redisFree(c);
 		return;
@@ -219,7 +219,7 @@ void SetUpdIPAndPortToInside(unsigned int ip, unsigned short port) {
 
 	if (NULL == r)
 	{
-		n_error("Execut command failure\n");
+		n_error("Execut command failure");
 		redisFree(c);
 		return;
 	}
@@ -250,7 +250,7 @@ void GetUpdInside(unsigned int* ip, unsigned short* port) {
 
 	if (NULL == r)
 	{
-		n_error("Execut command failure\n");
+		n_error("Execut command failure");
 		redisFree(c);
 		return;
 	}
@@ -293,7 +293,7 @@ void GetUpdOutside(unsigned int* ip, unsigned short* port) {
 
 	if (NULL == r)
 	{
-		n_error("Execut command failure\n");
+		n_error("Execut command failure");
 		redisFree(c);
 		return;
 	}

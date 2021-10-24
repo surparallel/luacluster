@@ -159,52 +159,53 @@ void mp_decode_type(mp_cur* c, int* type) {
     case 0xcd:  /* uint 16 */
     case 0xce:  /* uint 32 */
     case 0xcf:  /* uint 64 */
-        *type = 7;
+        *type = code_unint;
         break;
     case 0xd0:  /* int 8 */
     case 0xd1:  /* int 16 */
     case 0xd2:  /* int 32 */
     case 0xd3:  /* int 64 */
-        *type = 1;
+        *type = code_int;
         break;
     case 0xc0:  /* nil */
+        *type = code_nil;
         break;
     case 0xc3:  /* true */
     case 0xc2:  /* false */
-        *type = 2;
+        *type = code_bool;
         break;
     case 0xca:  /* float */
     case 0xcb:  /* double */
-        *type = 3;
+        *type = code_double;
         break;
     case 0xd9:  /* raw 8 */
     case 0xda:  /* raw 16 */
     case 0xdb:  /* raw 32 */
-        *type = 4;
+        *type = code_byte;
         break;
     case 0xdc:  /* array 16 */
     case 0xdd:  /* array 32 */
-        *type = 5;
+        *type = code_array;
         break;
     case 0xde:  /* map 16 */
     case 0xdf:  /* map 32 */
-        *type = 6;
+        *type = code_map;
         break;
     default:    /* types that can't be idenitified by first byte value. */
         if ((c->p[0] & 0x80) == 0) {   /* positive fixnum */
-            *type = 7;
+            *type = code_unint;
         }
         else if ((c->p[0] & 0xe0) == 0xe0) {  /* negative fixnum */
-            *type = 1;
+            *type = code_int;
         }
         else if ((c->p[0] & 0xe0) == 0xa0) {  /* fix raw */
-            *type = 4;
+            *type = code_byte;
         }
-        else if ((c->p[0] & 0xf0) == 0x90) {  /* fix map */
-            *type = 5;
+        else if ((c->p[0] & 0xf0) == 0x90) {  /* fix arrary */
+            *type = code_array;
         }
         else if ((c->p[0] & 0xf0) == 0x80) {  /* fix map */
-            *type = 6;
+            *type = code_map;
         }
         else {
             c->err = MP_CUR_ERROR_BADFMT;
@@ -413,7 +414,7 @@ void mp_decode_array(mp_cur* c, size_t* n) {
         }
         break;
     default:    /* types that can't be idenitified by first byte value. */
-        if ((c->p[0] & 0xf0) == 0x90) {  /* fix map */
+        if ((c->p[0] & 0xf0) == 0x90) {  /* fix arrary */
             size_t l = c->p[0] & 0xf;
             mp_cur_consume(c, 1);
             *n = l;
@@ -457,6 +458,22 @@ void mp_decode_map(mp_cur* c, size_t* n) {
         }
     }
 }
+void mp_decode_bool(mp_cur* c, int* n) {
+    mp_cur_need(c, 1);
+    switch (c->p[0]) {
+
+    case 0xc3:  /* true */
+        *n = 1;
+        mp_cur_consume(c, 1);
+        break;
+    case 0xc2:  /* false */
+        *n = 0;
+        mp_cur_consume(c, 1);
+        break;
+    }
+}
+
+
 /* ------------------------- Low level MP encoding -------------------------- */
 
 void mp_encode_bytes(mp_buf *buf, const unsigned char *s, size_t len) {
@@ -622,6 +639,11 @@ void mp_encode_map(mp_buf *buf, size_t n) {
         enclen = 5;
     }
     mp_buf_append(buf,b,enclen);
+}
+
+void mp_encode_bool(mp_buf* buf, unsigned int to) {
+    unsigned char b = to ? 0xc3 : 0xc2;
+    mp_buf_append(buf, &b, 1);
 }
 
 /* --------------------------- Lua types encoding --------------------------- */
@@ -1064,7 +1086,7 @@ void mp_decode_to_lua_type(lua_State *L, mp_cur *c) {
             mp_cur_need(c,1+l);
             lua_pushlstring(L,(char*)c->p+1,l);
             mp_cur_consume(c,1+l);
-        } else if ((c->p[0] & 0xf0) == 0x90) {  /* fix map */
+        } else if ((c->p[0] & 0xf0) == 0x90) {  /* fix arrary */
             size_t l = c->p[0] & 0xf;
             mp_cur_consume(c,1);
             mp_decode_to_lua_array(L,c,l);

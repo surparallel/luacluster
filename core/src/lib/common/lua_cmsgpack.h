@@ -34,6 +34,17 @@ typedef struct mp_buf {
     size_t len, free;
 } mp_buf;
 
+enum CODE_TYPE {
+    code_byte,
+    code_double,
+    code_unint,
+    code_int,
+    code_array,
+    code_map,
+    code_bool,
+    code_nil
+};
+
 LUALIB_API int luaopen_cmsgpack(lua_State* L);
 
 mp_buf* mp_buf_new();
@@ -43,6 +54,7 @@ void mp_encode_double(mp_buf* buf, double d);
 void mp_encode_int(mp_buf* buf, size_t n);
 void mp_encode_array(mp_buf* buf, size_t n);
 void mp_encode_map(mp_buf* buf, size_t n);
+void mp_encode_bool(mp_buf* buf, unsigned int to);
 
 void mp_cur_init(mp_cur* cursor, const unsigned char* s, size_t len);
 void mp_decode_type(mp_cur* c, int* type);
@@ -52,7 +64,7 @@ void mp_decode_unint(mp_cur* c, unsigned long long* n);
 void mp_decode_int(mp_cur* c, signed long long* n);
 void mp_decode_array(mp_cur* c, size_t* n);
 void mp_decode_map(mp_cur* c, size_t* n);
-
+void mp_decode_bool(mp_cur* c, int* n);
 
 /*
 -- lua_cmsgpack.c lib tests

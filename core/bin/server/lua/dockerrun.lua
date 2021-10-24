@@ -6,6 +6,7 @@ local docker = require("docker")
 local elog = require("elog")
 local try = require("try-catch-finally")
 local cluster = require("cluster")
+local int64 = require("int64")
 
 function main()
 
@@ -24,9 +25,7 @@ function main()
         elseif ret[1] == sc.proto.proto_rpc_create then
             try(function()
                 arg = {cmsgpack.unpack(ret[2])}
-
-               entitymng.NewEntity(arg[1], arg[2])
-
+                entitymng.NewEntity(arg[1], arg[2])
             end).catch(function (ex)
                 elog.error(ex)
             end)
@@ -42,7 +41,8 @@ function main()
                     --管理器销毁
                     entitymng.UnRegistryObj(ret[2])
                 else
-                    elog.error(string.format("main::proto_rpc_destory:: not find obj: %u" ,ret[2]))
+                    local myid = tostring(int64.new_unsigned(ret[2]))
+                    elog.error(string.format("main::proto_rpc_destory:: not find obj: %s" ,myid))
                 end
             end).catch(function (ex)
                 elog.error(ex)
@@ -60,7 +60,8 @@ function main()
                         elog.error(string.format("main::proto_rpc_call:: not find:%s.%s",obj.__class,funName))
                     end
                 else
-                    elog.error(string.format("main::proto_rpc_call:: not find obj:%u" ,ret[2]))
+                    local myid = tostring(int64.new_unsigned(ret[2]))
+                    elog.error(string.format("main::proto_rpc_call:: not find obj:%s" ,myid))
                 end
             end).catch(function (ex)
                 elog.error(ex)

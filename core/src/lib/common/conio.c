@@ -35,7 +35,7 @@ void ClrScr() {
 	system("cls");
 #else
 	if (system("clear") == -1) {
-		elog(log_error, "faile cmd clear");
+		printf("faile cmd clear");
 	}
 #endif
 }

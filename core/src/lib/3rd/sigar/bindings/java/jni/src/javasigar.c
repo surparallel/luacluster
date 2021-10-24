@@ -1,0 +1,5139 @@
+/*
+ * Copyright (c) 2004-2008 Hyperic, Inc.
+ * Copyright (c) 2009 SpringSource, Inc.
+ * Copyright (c) 2010 VMware, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <jni.h>
+#include "javasigar.h"
+#include "sigar_fileinfo.h"
+#include "sigar_log.h"
+#include "sigar_private.h"
+#include "sigar_ptql.h"
+#include "sigar_util.h"
+#include "sigar_os.h"
+#include "sigar_format.h"
+
+#include <string.h>
+#include <assert.h>
+
+#ifndef _WIN32
+#include <errno.h>
+#include <sys/types.h>
+#include <stdlib.h>
+#include <unistd.h>
+#  ifdef __FreeBSD__
+#    include <sys/param.h>
+#    if (__FreeBSD_version < 700000)
+#      include <sys/time.h>
+#    endif
+#  else
+#    include <sys/time.h>
+#  endif
+#include <sys/resource.h>
+#endif
+
+#define JSIGAR_FIELDS_UPTIME 0
+#   define JSIGAR_FIELDS_UPTIME_UPTIME 0
+#   define JSIGAR_FIELDS_UPTIME_MAX 1
+#define JSIGAR_FIELDS_PROCMEM 1
+#   define JSIGAR_FIELDS_PROCMEM_SIZE 0
+#   define JSIGAR_FIELDS_PROCMEM_RESIDENT 1
+#   define JSIGAR_FIELDS_PROCMEM_SHARE 2
+#   define JSIGAR_FIELDS_PROCMEM_MINOR_FAULTS 3
+#   define JSIGAR_FIELDS_PROCMEM_MAJOR_FAULTS 4
+#   define JSIGAR_FIELDS_PROCMEM_PAGE_FAULTS 5
+#   define JSIGAR_FIELDS_PROCMEM_MAX 6
+#define JSIGAR_FIELDS_PROCCPU 2
+#   define JSIGAR_FIELDS_PROCCPU_PERCENT 0
+#   define JSIGAR_FIELDS_PROCCPU_LAST_TIME 1
+#   define JSIGAR_FIELDS_PROCCPU_START_TIME 2
+#   define JSIGAR_FIELDS_PROCCPU_USER 3
+#   define JSIGAR_FIELDS_PROCCPU_SYS 4
+#   define JSIGAR_FIELDS_PROCCPU_TOTAL 5
+#   define JSIGAR_FIELDS_PROCCPU_MAX 6
+#define JSIGAR_FIELDS_PROCCRED 3
+#   define JSIGAR_FIELDS_PROCCRED_UID 0
+#   define JSIGAR_FIELDS_PROCCRED_GID 1
+#   define JSIGAR_FIELDS_PROCCRED_EUID 2
+#   define JSIGAR_FIELDS_PROCCRED_EGID 3
+#   define JSIGAR_FIELDS_PROCCRED_MAX 4
+#define JSIGAR_FIELDS_THREADCPU 4
+#   define JSIGAR_FIELDS_THREADCPU_USER 0
+#   define JSIGAR_FIELDS_THREADCPU_SYS 1
+#   define JSIGAR_FIELDS_THREADCPU_TOTAL 2
+#   define JSIGAR_FIELDS_THREADCPU_MAX 3
+#define JSIGAR_FIELDS_FILEATTRS 5
+#   define JSIGAR_FIELDS_FILEATTRS_PERMISSIONS 0
+#   define JSIGAR_FIELDS_FILEATTRS_TYPE 1
+#   define JSIGAR_FIELDS_FILEATTRS_UID 2
+#   define JSIGAR_FIELDS_FILEATTRS_GID 3
+#   define JSIGAR_FIELDS_FILEATTRS_INODE 4
+#   define JSIGAR_FIELDS_FILEATTRS_DEVICE 5
+#   define JSIGAR_FIELDS_FILEATTRS_NLINK 6
+#   define JSIGAR_FIELDS_FILEATTRS_SIZE 7
+#   define JSIGAR_FIELDS_FILEATTRS_ATIME 8
+#   define JSIGAR_FIELDS_FILEATTRS_CTIME 9
+#   define JSIGAR_FIELDS_FILEATTRS_MTIME 10
+#   define JSIGAR_FIELDS_FILEATTRS_MAX 11
+#define JSIGAR_FIELDS_NFSSERVERV2 6
+#   define JSIGAR_FIELDS_NFSSERVERV2_NULL 0
+#   define JSIGAR_FIELDS_NFSSERVERV2_GETATTR 1
+#   define JSIGAR_FIELDS_NFSSERVERV2_SETATTR 2
+#   define JSIGAR_FIELDS_NFSSERVERV2_ROOT 3
+#   define JSIGAR_FIELDS_NFSSERVERV2_LOOKUP 4
+#   define JSIGAR_FIELDS_NFSSERVERV2_READLINK 5
+#   define JSIGAR_FIELDS_NFSSERVERV2_READ 6
+#   define JSIGAR_FIELDS_NFSSERVERV2_WRITECACHE 7
+#   define JSIGAR_FIELDS_NFSSERVERV2_WRITE 8
+#   define JSIGAR_FIELDS_NFSSERVERV2_CREATE 9
+#   define JSIGAR_FIELDS_NFSSERVERV2_REMOVE 10
+#   define JSIGAR_FIELDS_NFSSERVERV2_RENAME 11
+#   define JSIGAR_FIELDS_NFSSERVERV2_LINK 12
+#   define JSIGAR_FIELDS_NFSSERVERV2_SYMLINK 13
+#   define JSIGAR_FIELDS_NFSSERVERV2_MKDIR 14
+#   define JSIGAR_FIELDS_NFSSERVERV2_RMDIR 15
+#   define JSIGAR_FIELDS_NFSSERVERV2_READDIR 16
+#   define JSIGAR_FIELDS_NFSSERVERV2_FSSTAT 17
+#   define JSIGAR_FIELDS_NFSSERVERV2_MAX 18
+#define JSIGAR_FIELDS_PROCDISKIO 7
+#   define JSIGAR_FIELDS_PROCDISKIO_BYTES_READ 0
+#   define JSIGAR_FIELDS_PROCDISKIO_BYTES_WRITTEN 1
+#   define JSIGAR_FIELDS_PROCDISKIO_BYTES_TOTAL 2
+#   define JSIGAR_FIELDS_PROCDISKIO_MAX 3
+#define JSIGAR_FIELDS_WHO 8
+#   define JSIGAR_FIELDS_WHO_USER 0
+#   define JSIGAR_FIELDS_WHO_DEVICE 1
+#   define JSIGAR_FIELDS_WHO_HOST 2
+#   define JSIGAR_FIELDS_WHO_TIME 3
+#   define JSIGAR_FIELDS_WHO_MAX 4
+#define JSIGAR_FIELDS_PROCSTATE 9
+#   define JSIGAR_FIELDS_PROCSTATE_STATE 0
+#   define JSIGAR_FIELDS_PROCSTATE_NAME 1
+#   define JSIGAR_FIELDS_PROCSTATE_PPID 2
+#   define JSIGAR_FIELDS_PROCSTATE_TTY 3
+#   define JSIGAR_FIELDS_PROCSTATE_NICE 4
+#   define JSIGAR_FIELDS_PROCSTATE_PRIORITY 5
+#   define JSIGAR_FIELDS_PROCSTATE_THREADS 6
+#   define JSIGAR_FIELDS_PROCSTATE_PROCESSOR 7
+#   define JSIGAR_FIELDS_PROCSTATE_MAX 8
+#define JSIGAR_FIELDS_CPU 10
+#   define JSIGAR_FIELDS_CPU_USER 0
+#   define JSIGAR_FIELDS_CPU_SYS 1
+#   define JSIGAR_FIELDS_CPU_NICE 2
+#   define JSIGAR_FIELDS_CPU_IDLE 3
+#   define JSIGAR_FIELDS_CPU_WAIT 4
+#   define JSIGAR_FIELDS_CPU_IRQ 5
+#   define JSIGAR_FIELDS_CPU_SOFT_IRQ 6
+#   define JSIGAR_FIELDS_CPU_STOLEN 7
+#   define JSIGAR_FIELDS_CPU_TOTAL 8
+#   define JSIGAR_FIELDS_CPU_MAX 9
+#define JSIGAR_FIELDS_NFSCLIENTV2 11
+#   define JSIGAR_FIELDS_NFSCLIENTV2_NULL 0
+#   define JSIGAR_FIELDS_NFSCLIENTV2_GETATTR 1
+#   define JSIGAR_FIELDS_NFSCLIENTV2_SETATTR 2
+#   define JSIGAR_FIELDS_NFSCLIENTV2_ROOT 3
+#   define JSIGAR_FIELDS_NFSCLIENTV2_LOOKUP 4
+#   define JSIGAR_FIELDS_NFSCLIENTV2_READLINK 5
+#   define JSIGAR_FIELDS_NFSCLIENTV2_READ 6
+#   define JSIGAR_FIELDS_NFSCLIENTV2_WRITECACHE 7
+#   define JSIGAR_FIELDS_NFSCLIENTV2_WRITE 8
+#   define JSIGAR_FIELDS_NFSCLIENTV2_CREATE 9
+#   define JSIGAR_FIELDS_NFSCLIENTV2_REMOVE 10
+#   define JSIGAR_FIELDS_NFSCLIENTV2_RENAME 11
+#   define JSIGAR_FIELDS_NFSCLIENTV2_LINK 12
+#   define JSIGAR_FIELDS_NFSCLIENTV2_SYMLINK 13
+#   define JSIGAR_FIELDS_NFSCLIENTV2_MKDIR 14
+#   define JSIGAR_FIELDS_NFSCLIENTV2_RMDIR 15
+#   define JSIGAR_FIELDS_NFSCLIENTV2_READDIR 16
+#   define JSIGAR_FIELDS_NFSCLIENTV2_FSSTAT 17
+#   define JSIGAR_FIELDS_NFSCLIENTV2_MAX 18
+#define JSIGAR_FIELDS_PROCSTAT 12
+#   define JSIGAR_FIELDS_PROCSTAT_TOTAL 0
+#   define JSIGAR_FIELDS_PROCSTAT_IDLE 1
+#   define JSIGAR_FIELDS_PROCSTAT_RUNNING 2
+#   define JSIGAR_FIELDS_PROCSTAT_SLEEPING 3
+#   define JSIGAR_FIELDS_PROCSTAT_STOPPED 4
+#   define JSIGAR_FIELDS_PROCSTAT_ZOMBIE 5
+#   define JSIGAR_FIELDS_PROCSTAT_THREADS 6
+#   define JSIGAR_FIELDS_PROCSTAT_MAX 7
+#define JSIGAR_FIELDS_PROCTIME 13
+#   define JSIGAR_FIELDS_PROCTIME_START_TIME 0
+#   define JSIGAR_FIELDS_PROCTIME_USER 1
+#   define JSIGAR_FIELDS_PROCTIME_SYS 2
+#   define JSIGAR_FIELDS_PROCTIME_TOTAL 3
+#   define JSIGAR_FIELDS_PROCTIME_MAX 4
+#define JSIGAR_FIELDS_PROCEXE 14
+#   define JSIGAR_FIELDS_PROCEXE_NAME 0
+#   define JSIGAR_FIELDS_PROCEXE_CWD 1
+#   define JSIGAR_FIELDS_PROCEXE_MAX 2
+#define JSIGAR_FIELDS_DIRUSAGE 15
+#   define JSIGAR_FIELDS_DIRUSAGE_TOTAL 0
+#   define JSIGAR_FIELDS_DIRUSAGE_FILES 1
+#   define JSIGAR_FIELDS_DIRUSAGE_SUBDIRS 2
+#   define JSIGAR_FIELDS_DIRUSAGE_SYMLINKS 3
+#   define JSIGAR_FIELDS_DIRUSAGE_CHRDEVS 4
+#   define JSIGAR_FIELDS_DIRUSAGE_BLKDEVS 5
+#   define JSIGAR_FIELDS_DIRUSAGE_SOCKETS 6
+#   define JSIGAR_FIELDS_DIRUSAGE_DISK_USAGE 7
+#   define JSIGAR_FIELDS_DIRUSAGE_MAX 8
+#define JSIGAR_FIELDS_DISKUSAGE 16
+#   define JSIGAR_FIELDS_DISKUSAGE_READS 0
+#   define JSIGAR_FIELDS_DISKUSAGE_WRITES 1
+#   define JSIGAR_FIELDS_DISKUSAGE_READ_BYTES 2
+#   define JSIGAR_FIELDS_DISKUSAGE_WRITE_BYTES 3
+#   define JSIGAR_FIELDS_DISKUSAGE_QUEUE 4
+#   define JSIGAR_FIELDS_DISKUSAGE_SERVICE_TIME 5
+#   define JSIGAR_FIELDS_DISKUSAGE_MAX 6
+#define JSIGAR_FIELDS_NETCONNECTION 17
+#   define JSIGAR_FIELDS_NETCONNECTION_LOCAL_PORT 0
+#   define JSIGAR_FIELDS_NETCONNECTION_LOCAL_ADDRESS 1
+#   define JSIGAR_FIELDS_NETCONNECTION_REMOTE_PORT 2
+#   define JSIGAR_FIELDS_NETCONNECTION_REMOTE_ADDRESS 3
+#   define JSIGAR_FIELDS_NETCONNECTION_TYPE 4
+#   define JSIGAR_FIELDS_NETCONNECTION_STATE 5
+#   define JSIGAR_FIELDS_NETCONNECTION_SEND_QUEUE 6
+#   define JSIGAR_FIELDS_NETCONNECTION_RECEIVE_QUEUE 7
+#   define JSIGAR_FIELDS_NETCONNECTION_MAX 8
+#define JSIGAR_FIELDS_FILESYSTEMUSAGE 18
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_TOTAL 0
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_FREE 1
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_USED 2
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_AVAIL 3
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_FILES 4
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_FREE_FILES 5
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_READS 6
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_WRITES 7
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_READ_BYTES 8
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_WRITE_BYTES 9
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_QUEUE 10
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_SERVICE_TIME 11
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_USE_PERCENT 12
+#   define JSIGAR_FIELDS_FILESYSTEMUSAGE_MAX 13
+#define JSIGAR_FIELDS_PROCCREDNAME 19
+#   define JSIGAR_FIELDS_PROCCREDNAME_USER 0
+#   define JSIGAR_FIELDS_PROCCREDNAME_GROUP 1
+#   define JSIGAR_FIELDS_PROCCREDNAME_MAX 2
+#define JSIGAR_FIELDS_MEM 20
+#   define JSIGAR_FIELDS_MEM_TOTAL 0
+#   define JSIGAR_FIELDS_MEM_RAM 1
+#   define JSIGAR_FIELDS_MEM_USED 2
+#   define JSIGAR_FIELDS_MEM_FREE 3
+#   define JSIGAR_FIELDS_MEM_ACTUAL_USED 4
+#   define JSIGAR_FIELDS_MEM_ACTUAL_FREE 5
+#   define JSIGAR_FIELDS_MEM_USED_PERCENT 6
+#   define JSIGAR_FIELDS_MEM_FREE_PERCENT 7
+#   define JSIGAR_FIELDS_MEM_MAX 8
+#define JSIGAR_FIELDS_SYSINFO 21
+#   define JSIGAR_FIELDS_SYSINFO_NAME 0
+#   define JSIGAR_FIELDS_SYSINFO_VERSION 1
+#   define JSIGAR_FIELDS_SYSINFO_ARCH 2
+#   define JSIGAR_FIELDS_SYSINFO_MACHINE 3
+#   define JSIGAR_FIELDS_SYSINFO_DESCRIPTION 4
+#   define JSIGAR_FIELDS_SYSINFO_PATCH_LEVEL 5
+#   define JSIGAR_FIELDS_SYSINFO_VENDOR 6
+#   define JSIGAR_FIELDS_SYSINFO_VENDOR_VERSION 7
+#   define JSIGAR_FIELDS_SYSINFO_VENDOR_NAME 8
+#   define JSIGAR_FIELDS_SYSINFO_VENDOR_CODE_NAME 9
+#   define JSIGAR_FIELDS_SYSINFO_MAX 10
+#define JSIGAR_FIELDS_CPUINFO 22
+#   define JSIGAR_FIELDS_CPUINFO_VENDOR 0
+#   define JSIGAR_FIELDS_CPUINFO_MODEL 1
+#   define JSIGAR_FIELDS_CPUINFO_MHZ 2
+#   define JSIGAR_FIELDS_CPUINFO_MHZ_MAX 3
+#   define JSIGAR_FIELDS_CPUINFO_MHZ_MIN 4
+#   define JSIGAR_FIELDS_CPUINFO_CACHE_SIZE 5
+#   define JSIGAR_FIELDS_CPUINFO_TOTAL_CORES 6
+#   define JSIGAR_FIELDS_CPUINFO_TOTAL_SOCKETS 7
+#   define JSIGAR_FIELDS_CPUINFO_CORES_PER_SOCKET 8
+#   define JSIGAR_FIELDS_CPUINFO_MAX 9
+#define JSIGAR_FIELDS_NETINFO 23
+#   define JSIGAR_FIELDS_NETINFO_DEFAULT_GATEWAY 0
+#   define JSIGAR_FIELDS_NETINFO_DEFAULT_GATEWAY_INTERFACE 1
+#   define JSIGAR_FIELDS_NETINFO_HOST_NAME 2
+#   define JSIGAR_FIELDS_NETINFO_DOMAIN_NAME 3
+#   define JSIGAR_FIELDS_NETINFO_PRIMARY_DNS 4
+#   define JSIGAR_FIELDS_NETINFO_SECONDARY_DNS 5
+#   define JSIGAR_FIELDS_NETINFO_MAX 6
+#define JSIGAR_FIELDS_ARP 24
+#   define JSIGAR_FIELDS_ARP_IFNAME 0
+#   define JSIGAR_FIELDS_ARP_HWADDR 1
+#   define JSIGAR_FIELDS_ARP_TYPE 2
+#   define JSIGAR_FIELDS_ARP_ADDRESS 3
+#   define JSIGAR_FIELDS_ARP_FLAGS 4
+#   define JSIGAR_FIELDS_ARP_MAX 5
+#define JSIGAR_FIELDS_NFSCLIENTV3 25
+#   define JSIGAR_FIELDS_NFSCLIENTV3_NULL 0
+#   define JSIGAR_FIELDS_NFSCLIENTV3_GETATTR 1
+#   define JSIGAR_FIELDS_NFSCLIENTV3_SETATTR 2
+#   define JSIGAR_FIELDS_NFSCLIENTV3_LOOKUP 3
+#   define JSIGAR_FIELDS_NFSCLIENTV3_ACCESS 4
+#   define JSIGAR_FIELDS_NFSCLIENTV3_READLINK 5
+#   define JSIGAR_FIELDS_NFSCLIENTV3_READ 6
+#   define JSIGAR_FIELDS_NFSCLIENTV3_WRITE 7
+#   define JSIGAR_FIELDS_NFSCLIENTV3_CREATE 8
+#   define JSIGAR_FIELDS_NFSCLIENTV3_MKDIR 9
+#   define JSIGAR_FIELDS_NFSCLIENTV3_SYMLINK 10
+#   define JSIGAR_FIELDS_NFSCLIENTV3_MKNOD 11
+#   define JSIGAR_FIELDS_NFSCLIENTV3_REMOVE 12
+#   define JSIGAR_FIELDS_NFSCLIENTV3_RMDIR 13
+#   define JSIGAR_FIELDS_NFSCLIENTV3_RENAME 14
+#   define JSIGAR_FIELDS_NFSCLIENTV3_LINK 15
+#   define JSIGAR_FIELDS_NFSCLIENTV3_READDIR 16
+#   define JSIGAR_FIELDS_NFSCLIENTV3_READDIRPLUS 17
+#   define JSIGAR_FIELDS_NFSCLIENTV3_FSSTAT 18
+#   define JSIGAR_FIELDS_NFSCLIENTV3_FSINFO 19
+#   define JSIGAR_FIELDS_NFSCLIENTV3_PATHCONF 20
+#   define JSIGAR_FIELDS_NFSCLIENTV3_COMMIT 21
+#   define JSIGAR_FIELDS_NFSCLIENTV3_MAX 22
+#define JSIGAR_FIELDS_RESOURCELIMIT 26
+#   define JSIGAR_FIELDS_RESOURCELIMIT_CPU_CUR 0
+#   define JSIGAR_FIELDS_RESOURCELIMIT_CPU_MAX 1
+#   define JSIGAR_FIELDS_RESOURCELIMIT_FILE_SIZE_CUR 2
+#   define JSIGAR_FIELDS_RESOURCELIMIT_FILE_SIZE_MAX 3
+#   define JSIGAR_FIELDS_RESOURCELIMIT_PIPE_SIZE_MAX 4
+#   define JSIGAR_FIELDS_RESOURCELIMIT_PIPE_SIZE_CUR 5
+#   define JSIGAR_FIELDS_RESOURCELIMIT_DATA_CUR 6
+#   define JSIGAR_FIELDS_RESOURCELIMIT_DATA_MAX 7
+#   define JSIGAR_FIELDS_RESOURCELIMIT_STACK_CUR 8
+#   define JSIGAR_FIELDS_RESOURCELIMIT_STACK_MAX 9
+#   define JSIGAR_FIELDS_RESOURCELIMIT_CORE_CUR 10
+#   define JSIGAR_FIELDS_RESOURCELIMIT_CORE_MAX 11
+#   define JSIGAR_FIELDS_RESOURCELIMIT_MEMORY_CUR 12
+#   define JSIGAR_FIELDS_RESOURCELIMIT_MEMORY_MAX 13
+#   define JSIGAR_FIELDS_RESOURCELIMIT_PROCESSES_CUR 14
+#   define JSIGAR_FIELDS_RESOURCELIMIT_PROCESSES_MAX 15
+#   define JSIGAR_FIELDS_RESOURCELIMIT_OPEN_FILES_CUR 16
+#   define JSIGAR_FIELDS_RESOURCELIMIT_OPEN_FILES_MAX 17
+#   define JSIGAR_FIELDS_RESOURCELIMIT_VIRTUAL_MEMORY_CUR 18
+#   define JSIGAR_FIELDS_RESOURCELIMIT_VIRTUAL_MEMORY_MAX 19
+#   define JSIGAR_FIELDS_RESOURCELIMIT_MAX 20
+#define JSIGAR_FIELDS_FILESYSTEM 27
+#   define JSIGAR_FIELDS_FILESYSTEM_DIR_NAME 0
+#   define JSIGAR_FIELDS_FILESYSTEM_DEV_NAME 1
+#   define JSIGAR_FIELDS_FILESYSTEM_TYPE_NAME 2
+#   define JSIGAR_FIELDS_FILESYSTEM_SYS_TYPE_NAME 3
+#   define JSIGAR_FIELDS_FILESYSTEM_OPTIONS 4
+#   define JSIGAR_FIELDS_FILESYSTEM_TYPE 5
+#   define JSIGAR_FIELDS_FILESYSTEM_FLAGS 6
+#   define JSIGAR_FIELDS_FILESYSTEM_MAX 7
+#define JSIGAR_FIELDS_DIRSTAT 28
+#   define JSIGAR_FIELDS_DIRSTAT_TOTAL 0
+#   define JSIGAR_FIELDS_DIRSTAT_FILES 1
+#   define JSIGAR_FIELDS_DIRSTAT_SUBDIRS 2
+#   define JSIGAR_FIELDS_DIRSTAT_SYMLINKS 3
+#   define JSIGAR_FIELDS_DIRSTAT_CHRDEVS 4
+#   define JSIGAR_FIELDS_DIRSTAT_BLKDEVS 5
+#   define JSIGAR_FIELDS_DIRSTAT_SOCKETS 6
+#   define JSIGAR_FIELDS_DIRSTAT_DISK_USAGE 7
+#   define JSIGAR_FIELDS_DIRSTAT_MAX 8
+#define JSIGAR_FIELDS_PROCFD 29
+#   define JSIGAR_FIELDS_PROCFD_TOTAL 0
+#   define JSIGAR_FIELDS_PROCFD_MAX 1
+#define JSIGAR_FIELDS_NETINTERFACESTAT 30
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_RX_BYTES 0
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_RX_PACKETS 1
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_RX_ERRORS 2
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_RX_DROPPED 3
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_RX_OVERRUNS 4
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_RX_FRAME 5
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_TX_BYTES 6
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_TX_PACKETS 7
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_TX_ERRORS 8
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_TX_DROPPED 9
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_TX_OVERRUNS 10
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_TX_COLLISIONS 11
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_TX_CARRIER 12
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_SPEED 13
+#   define JSIGAR_FIELDS_NETINTERFACESTAT_MAX 14
+#define JSIGAR_FIELDS_DUMPPIDCACHE 31
+#   define JSIGAR_FIELDS_DUMPPIDCACHE_DUMMY 0
+#   define JSIGAR_FIELDS_DUMPPIDCACHE_MAX 1
+#define JSIGAR_FIELDS_NFSSERVERV3 32
+#   define JSIGAR_FIELDS_NFSSERVERV3_NULL 0
+#   define JSIGAR_FIELDS_NFSSERVERV3_GETATTR 1
+#   define JSIGAR_FIELDS_NFSSERVERV3_SETATTR 2
+#   define JSIGAR_FIELDS_NFSSERVERV3_LOOKUP 3
+#   define JSIGAR_FIELDS_NFSSERVERV3_ACCESS 4
+#   define JSIGAR_FIELDS_NFSSERVERV3_READLINK 5
+#   define JSIGAR_FIELDS_NFSSERVERV3_READ 6
+#   define JSIGAR_FIELDS_NFSSERVERV3_WRITE 7
+#   define JSIGAR_FIELDS_NFSSERVERV3_CREATE 8
+#   define JSIGAR_FIELDS_NFSSERVERV3_MKDIR 9
+#   define JSIGAR_FIELDS_NFSSERVERV3_SYMLINK 10
+#   define JSIGAR_FIELDS_NFSSERVERV3_MKNOD 11
+#   define JSIGAR_FIELDS_NFSSERVERV3_REMOVE 12
+#   define JSIGAR_FIELDS_NFSSERVERV3_RMDIR 13
+#   define JSIGAR_FIELDS_NFSSERVERV3_RENAME 14
+#   define JSIGAR_FIELDS_NFSSERVERV3_LINK 15
+#   define JSIGAR_FIELDS_NFSSERVERV3_READDIR 16
+#   define JSIGAR_FIELDS_NFSSERVERV3_READDIRPLUS 17
+#   define JSIGAR_FIELDS_NFSSERVERV3_FSSTAT 18
+#   define JSIGAR_FIELDS_NFSSERVERV3_FSINFO 19
+#   define JSIGAR_FIELDS_NFSSERVERV3_PATHCONF 20
+#   define JSIGAR_FIELDS_NFSSERVERV3_COMMIT 21
+#   define JSIGAR_FIELDS_NFSSERVERV3_MAX 22
+#define JSIGAR_FIELDS_TCP 33
+#   define JSIGAR_FIELDS_TCP_ACTIVE_OPENS 0
+#   define JSIGAR_FIELDS_TCP_PASSIVE_OPENS 1
+#   define JSIGAR_FIELDS_TCP_ATTEMPT_FAILS 2
+#   define JSIGAR_FIELDS_TCP_ESTAB_RESETS 3
+#   define JSIGAR_FIELDS_TCP_CURR_ESTAB 4
+#   define JSIGAR_FIELDS_TCP_IN_SEGS 5
+#   define JSIGAR_FIELDS_TCP_OUT_SEGS 6
+#   define JSIGAR_FIELDS_TCP_RETRANS_SEGS 7
+#   define JSIGAR_FIELDS_TCP_IN_ERRS 8
+#   define JSIGAR_FIELDS_TCP_OUT_RSTS 9
+#   define JSIGAR_FIELDS_TCP_MAX 10
+#define JSIGAR_FIELDS_CPUPERC 34
+#   define JSIGAR_FIELDS_CPUPERC_USER 0
+#   define JSIGAR_FIELDS_CPUPERC_SYS 1
+#   define JSIGAR_FIELDS_CPUPERC_NICE 2
+#   define JSIGAR_FIELDS_CPUPERC_IDLE 3
+#   define JSIGAR_FIELDS_CPUPERC_WAIT 4
+#   define JSIGAR_FIELDS_CPUPERC_IRQ 5
+#   define JSIGAR_FIELDS_CPUPERC_SOFT_IRQ 6
+#   define JSIGAR_FIELDS_CPUPERC_STOLEN 7
+#   define JSIGAR_FIELDS_CPUPERC_COMBINED 8
+#   define JSIGAR_FIELDS_CPUPERC_MAX 9
+#define JSIGAR_FIELDS_NETSTAT 35
+#   define JSIGAR_FIELDS_NETSTAT_TCP_INBOUND_TOTAL 0
+#   define JSIGAR_FIELDS_NETSTAT_TCP_OUTBOUND_TOTAL 1
+#   define JSIGAR_FIELDS_NETSTAT_ALL_INBOUND_TOTAL 2
+#   define JSIGAR_FIELDS_NETSTAT_ALL_OUTBOUND_TOTAL 3
+#   define JSIGAR_FIELDS_NETSTAT_MAX 4
+#define JSIGAR_FIELDS_NETINTERFACECONFIG 36
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_NAME 0
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_HWADDR 1
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_TYPE 2
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_DESCRIPTION 3
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_ADDRESS 4
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_ADDRESS6 5
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_PREFIX6_LENGTH 6
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_SCOPE6 7
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_DESTINATION 8
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_BROADCAST 9
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_NETMASK 10
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_FLAGS 11
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_MTU 12
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_METRIC 13
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_TX_QUEUE_LEN 14
+#   define JSIGAR_FIELDS_NETINTERFACECONFIG_MAX 15
+#define JSIGAR_FIELDS_SWAP 37
+#   define JSIGAR_FIELDS_SWAP_TOTAL 0
+#   define JSIGAR_FIELDS_SWAP_USED 1
+#   define JSIGAR_FIELDS_SWAP_FREE 2
+#   define JSIGAR_FIELDS_SWAP_PAGE_IN 3
+#   define JSIGAR_FIELDS_SWAP_PAGE_OUT 4
+#   define JSIGAR_FIELDS_SWAP_MAX 5
+#define JSIGAR_FIELDS_PROCCUMULATIVEDISKIO 38
+#   define JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_BYTES_READ 0
+#   define JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_BYTES_WRITTEN 1
+#   define JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_BYTES_TOTAL 2
+#   define JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_MAX 3
+#define JSIGAR_FIELDS_NETROUTE 39
+#   define JSIGAR_FIELDS_NETROUTE_DESTINATION 0
+#   define JSIGAR_FIELDS_NETROUTE_GATEWAY 1
+#   define JSIGAR_FIELDS_NETROUTE_FLAGS 2
+#   define JSIGAR_FIELDS_NETROUTE_REFCNT 3
+#   define JSIGAR_FIELDS_NETROUTE_USE 4
+#   define JSIGAR_FIELDS_NETROUTE_METRIC 5
+#   define JSIGAR_FIELDS_NETROUTE_MASK 6
+#   define JSIGAR_FIELDS_NETROUTE_MTU 7
+#   define JSIGAR_FIELDS_NETROUTE_WINDOW 8
+#   define JSIGAR_FIELDS_NETROUTE_IRTT 9
+#   define JSIGAR_FIELDS_NETROUTE_IFNAME 10
+#   define JSIGAR_FIELDS_NETROUTE_MAX 11
+#define JSIGAR_FIELDS_MAX 40
+#define JAVA_SIGAR_INIT_FIELDS_UPTIME(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_UPTIME]) { \
+        jsigar->fields[JSIGAR_FIELDS_UPTIME] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_UPTIME])); \
+        jsigar->fields[JSIGAR_FIELDS_UPTIME]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_UPTIME]->ids =  \
+            malloc(JSIGAR_FIELDS_UPTIME_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_UPTIME]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_UPTIME]->ids[JSIGAR_FIELDS_UPTIME_UPTIME] =  \
+            JENV->GetFieldID(env, cls, "uptime", "D"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_UPTIME(cls, obj, s) \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_UPTIME]->ids[JSIGAR_FIELDS_UPTIME_UPTIME], s.uptime);
+
+#define JAVA_SIGAR_GET_FIELDS_UPTIME(obj, s) \
+    s.uptime = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_UPTIME]->ids[JSIGAR_FIELDS_UPTIME_UPTIME]);
+
+#define JAVA_SIGAR_INIT_FIELDS_PROCMEM(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_PROCMEM]) { \
+        jsigar->fields[JSIGAR_FIELDS_PROCMEM] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCMEM])); \
+        jsigar->fields[JSIGAR_FIELDS_PROCMEM]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids =  \
+            malloc(JSIGAR_FIELDS_PROCMEM_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_SIZE] =  \
+            JENV->GetFieldID(env, cls, "size", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_RESIDENT] =  \
+            JENV->GetFieldID(env, cls, "resident", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_SHARE] =  \
+            JENV->GetFieldID(env, cls, "share", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_MINOR_FAULTS] =  \
+            JENV->GetFieldID(env, cls, "minorFaults", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_MAJOR_FAULTS] =  \
+            JENV->GetFieldID(env, cls, "majorFaults", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_PAGE_FAULTS] =  \
+            JENV->GetFieldID(env, cls, "pageFaults", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_PROCMEM(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_SIZE], s.size); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_RESIDENT], s.resident); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_SHARE], s.share); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_MINOR_FAULTS], s.minor_faults); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_MAJOR_FAULTS], s.major_faults); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_PAGE_FAULTS], s.page_faults);
+
+#define JAVA_SIGAR_GET_FIELDS_PROCMEM(obj, s) \
+    s.size = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_SIZE]); \
+    s.resident = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_RESIDENT]); \
+    s.share = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_SHARE]); \
+    s.minor_faults = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_MINOR_FAULTS]); \
+    s.major_faults = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_MAJOR_FAULTS]); \
+    s.page_faults = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCMEM]->ids[JSIGAR_FIELDS_PROCMEM_PAGE_FAULTS]);
+
+#define JAVA_SIGAR_INIT_FIELDS_PROCCPU(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_PROCCPU]) { \
+        jsigar->fields[JSIGAR_FIELDS_PROCCPU] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCCPU])); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCPU]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids =  \
+            malloc(JSIGAR_FIELDS_PROCCPU_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_PERCENT] =  \
+            JENV->GetFieldID(env, cls, "percent", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_LAST_TIME] =  \
+            JENV->GetFieldID(env, cls, "lastTime", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_START_TIME] =  \
+            JENV->GetFieldID(env, cls, "startTime", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_USER] =  \
+            JENV->GetFieldID(env, cls, "user", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_SYS] =  \
+            JENV->GetFieldID(env, cls, "sys", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "total", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_PROCCPU(cls, obj, s) \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_PERCENT], s.percent); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_LAST_TIME], s.last_time); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_START_TIME], s.start_time); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_USER], s.user); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_SYS], s.sys); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_TOTAL], s.total);
+
+#define JAVA_SIGAR_GET_FIELDS_PROCCPU(obj, s) \
+    s.percent = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_PERCENT]); \
+    s.last_time = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_LAST_TIME]); \
+    s.start_time = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_START_TIME]); \
+    s.user = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_USER]); \
+    s.sys = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_SYS]); \
+    s.total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCPU]->ids[JSIGAR_FIELDS_PROCCPU_TOTAL]);
+
+#define JAVA_SIGAR_INIT_FIELDS_PROCCRED(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_PROCCRED]) { \
+        jsigar->fields[JSIGAR_FIELDS_PROCCRED] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCCRED])); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCRED]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids =  \
+            malloc(JSIGAR_FIELDS_PROCCRED_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids[JSIGAR_FIELDS_PROCCRED_UID] =  \
+            JENV->GetFieldID(env, cls, "uid", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids[JSIGAR_FIELDS_PROCCRED_GID] =  \
+            JENV->GetFieldID(env, cls, "gid", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids[JSIGAR_FIELDS_PROCCRED_EUID] =  \
+            JENV->GetFieldID(env, cls, "euid", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids[JSIGAR_FIELDS_PROCCRED_EGID] =  \
+            JENV->GetFieldID(env, cls, "egid", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_PROCCRED(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids[JSIGAR_FIELDS_PROCCRED_UID], s.uid); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids[JSIGAR_FIELDS_PROCCRED_GID], s.gid); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids[JSIGAR_FIELDS_PROCCRED_EUID], s.euid); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids[JSIGAR_FIELDS_PROCCRED_EGID], s.egid);
+
+#define JAVA_SIGAR_GET_FIELDS_PROCCRED(obj, s) \
+    s.uid = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids[JSIGAR_FIELDS_PROCCRED_UID]); \
+    s.gid = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids[JSIGAR_FIELDS_PROCCRED_GID]); \
+    s.euid = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids[JSIGAR_FIELDS_PROCCRED_EUID]); \
+    s.egid = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCRED]->ids[JSIGAR_FIELDS_PROCCRED_EGID]);
+
+#define JAVA_SIGAR_INIT_FIELDS_THREADCPU(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_THREADCPU]) { \
+        jsigar->fields[JSIGAR_FIELDS_THREADCPU] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_THREADCPU])); \
+        jsigar->fields[JSIGAR_FIELDS_THREADCPU]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_THREADCPU]->ids =  \
+            malloc(JSIGAR_FIELDS_THREADCPU_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_THREADCPU]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_THREADCPU]->ids[JSIGAR_FIELDS_THREADCPU_USER] =  \
+            JENV->GetFieldID(env, cls, "user", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_THREADCPU]->ids[JSIGAR_FIELDS_THREADCPU_SYS] =  \
+            JENV->GetFieldID(env, cls, "sys", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_THREADCPU]->ids[JSIGAR_FIELDS_THREADCPU_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "total", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_THREADCPU(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_THREADCPU]->ids[JSIGAR_FIELDS_THREADCPU_USER], s.user); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_THREADCPU]->ids[JSIGAR_FIELDS_THREADCPU_SYS], s.sys); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_THREADCPU]->ids[JSIGAR_FIELDS_THREADCPU_TOTAL], s.total);
+
+#define JAVA_SIGAR_GET_FIELDS_THREADCPU(obj, s) \
+    s.user = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_THREADCPU]->ids[JSIGAR_FIELDS_THREADCPU_USER]); \
+    s.sys = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_THREADCPU]->ids[JSIGAR_FIELDS_THREADCPU_SYS]); \
+    s.total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_THREADCPU]->ids[JSIGAR_FIELDS_THREADCPU_TOTAL]);
+
+#define JAVA_SIGAR_INIT_FIELDS_FILEATTRS(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_FILEATTRS]) { \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_FILEATTRS])); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids =  \
+            malloc(JSIGAR_FIELDS_FILEATTRS_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_PERMISSIONS] =  \
+            JENV->GetFieldID(env, cls, "permissions", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_TYPE] =  \
+            JENV->GetFieldID(env, cls, "type", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_UID] =  \
+            JENV->GetFieldID(env, cls, "uid", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_GID] =  \
+            JENV->GetFieldID(env, cls, "gid", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_INODE] =  \
+            JENV->GetFieldID(env, cls, "inode", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_DEVICE] =  \
+            JENV->GetFieldID(env, cls, "device", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_NLINK] =  \
+            JENV->GetFieldID(env, cls, "nlink", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_SIZE] =  \
+            JENV->GetFieldID(env, cls, "size", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_ATIME] =  \
+            JENV->GetFieldID(env, cls, "atime", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_CTIME] =  \
+            JENV->GetFieldID(env, cls, "ctime", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_MTIME] =  \
+            JENV->GetFieldID(env, cls, "mtime", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_FILEATTRS(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_PERMISSIONS], s.permissions); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_TYPE], s.type); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_UID], s.uid); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_GID], s.gid); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_INODE], s.inode); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_DEVICE], s.device); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_NLINK], s.nlink); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_SIZE], s.size); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_ATIME], s.atime); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_CTIME], s.ctime); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_MTIME], s.mtime);
+
+#define JAVA_SIGAR_GET_FIELDS_FILEATTRS(obj, s) \
+    s.permissions = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_PERMISSIONS]); \
+    s.type = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_TYPE]); \
+    s.uid = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_UID]); \
+    s.gid = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_GID]); \
+    s.inode = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_INODE]); \
+    s.device = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_DEVICE]); \
+    s.nlink = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_NLINK]); \
+    s.size = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_SIZE]); \
+    s.atime = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_ATIME]); \
+    s.ctime = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_CTIME]); \
+    s.mtime = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILEATTRS]->ids[JSIGAR_FIELDS_FILEATTRS_MTIME]);
+
+#define JAVA_SIGAR_INIT_FIELDS_NFSSERVERV2(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]) { \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2])); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids =  \
+            malloc(JSIGAR_FIELDS_NFSSERVERV2_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_NULL] =  \
+            JENV->GetFieldID(env, cls, "_null", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_GETATTR] =  \
+            JENV->GetFieldID(env, cls, "getattr", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_SETATTR] =  \
+            JENV->GetFieldID(env, cls, "setattr", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_ROOT] =  \
+            JENV->GetFieldID(env, cls, "root", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_LOOKUP] =  \
+            JENV->GetFieldID(env, cls, "lookup", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_READLINK] =  \
+            JENV->GetFieldID(env, cls, "readlink", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_READ] =  \
+            JENV->GetFieldID(env, cls, "read", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_WRITECACHE] =  \
+            JENV->GetFieldID(env, cls, "writecache", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_WRITE] =  \
+            JENV->GetFieldID(env, cls, "write", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_CREATE] =  \
+            JENV->GetFieldID(env, cls, "create", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_REMOVE] =  \
+            JENV->GetFieldID(env, cls, "remove", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_RENAME] =  \
+            JENV->GetFieldID(env, cls, "rename", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_LINK] =  \
+            JENV->GetFieldID(env, cls, "link", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_SYMLINK] =  \
+            JENV->GetFieldID(env, cls, "symlink", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_MKDIR] =  \
+            JENV->GetFieldID(env, cls, "mkdir", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_RMDIR] =  \
+            JENV->GetFieldID(env, cls, "rmdir", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_READDIR] =  \
+            JENV->GetFieldID(env, cls, "readdir", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_FSSTAT] =  \
+            JENV->GetFieldID(env, cls, "fsstat", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_NFSSERVERV2(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_NULL], s.null); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_GETATTR], s.getattr); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_SETATTR], s.setattr); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_ROOT], s.root); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_LOOKUP], s.lookup); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_READLINK], s.readlink); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_READ], s.read); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_WRITECACHE], s.writecache); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_WRITE], s.write); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_CREATE], s.create); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_REMOVE], s.remove); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_RENAME], s.rename); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_LINK], s.link); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_SYMLINK], s.symlink); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_MKDIR], s.mkdir); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_RMDIR], s.rmdir); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_READDIR], s.readdir); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_FSSTAT], s.fsstat);
+
+#define JAVA_SIGAR_GET_FIELDS_NFSSERVERV2(obj, s) \
+    s.null = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_NULL]); \
+    s.getattr = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_GETATTR]); \
+    s.setattr = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_SETATTR]); \
+    s.root = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_ROOT]); \
+    s.lookup = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_LOOKUP]); \
+    s.readlink = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_READLINK]); \
+    s.read = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_READ]); \
+    s.writecache = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_WRITECACHE]); \
+    s.write = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_WRITE]); \
+    s.create = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_CREATE]); \
+    s.remove = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_REMOVE]); \
+    s.rename = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_RENAME]); \
+    s.link = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_LINK]); \
+    s.symlink = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_SYMLINK]); \
+    s.mkdir = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_MKDIR]); \
+    s.rmdir = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_RMDIR]); \
+    s.readdir = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_READDIR]); \
+    s.fsstat = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV2]->ids[JSIGAR_FIELDS_NFSSERVERV2_FSSTAT]);
+
+#define JAVA_SIGAR_INIT_FIELDS_PROCDISKIO(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]) { \
+        jsigar->fields[JSIGAR_FIELDS_PROCDISKIO] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCDISKIO])); \
+        jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]->ids =  \
+            malloc(JSIGAR_FIELDS_PROCDISKIO_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]->ids[JSIGAR_FIELDS_PROCDISKIO_BYTES_READ] =  \
+            JENV->GetFieldID(env, cls, "bytesRead", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]->ids[JSIGAR_FIELDS_PROCDISKIO_BYTES_WRITTEN] =  \
+            JENV->GetFieldID(env, cls, "bytesWritten", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]->ids[JSIGAR_FIELDS_PROCDISKIO_BYTES_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "bytesTotal", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_PROCDISKIO(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]->ids[JSIGAR_FIELDS_PROCDISKIO_BYTES_READ], s.bytes_read); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]->ids[JSIGAR_FIELDS_PROCDISKIO_BYTES_WRITTEN], s.bytes_written); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]->ids[JSIGAR_FIELDS_PROCDISKIO_BYTES_TOTAL], s.bytes_total);
+
+#define JAVA_SIGAR_GET_FIELDS_PROCDISKIO(obj, s) \
+    s.bytes_read = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]->ids[JSIGAR_FIELDS_PROCDISKIO_BYTES_READ]); \
+    s.bytes_written = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]->ids[JSIGAR_FIELDS_PROCDISKIO_BYTES_WRITTEN]); \
+    s.bytes_total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCDISKIO]->ids[JSIGAR_FIELDS_PROCDISKIO_BYTES_TOTAL]);
+
+#define JAVA_SIGAR_INIT_FIELDS_WHO(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_WHO]) { \
+        jsigar->fields[JSIGAR_FIELDS_WHO] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_WHO])); \
+        jsigar->fields[JSIGAR_FIELDS_WHO]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_WHO]->ids =  \
+            malloc(JSIGAR_FIELDS_WHO_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_WHO]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_WHO]->ids[JSIGAR_FIELDS_WHO_USER] =  \
+            JENV->GetFieldID(env, cls, "user", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_WHO]->ids[JSIGAR_FIELDS_WHO_DEVICE] =  \
+            JENV->GetFieldID(env, cls, "device", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_WHO]->ids[JSIGAR_FIELDS_WHO_HOST] =  \
+            JENV->GetFieldID(env, cls, "host", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_WHO]->ids[JSIGAR_FIELDS_WHO_TIME] =  \
+            JENV->GetFieldID(env, cls, "time", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_WHO(cls, obj, s) \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_WHO]->ids[JSIGAR_FIELDS_WHO_USER], s.user); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_WHO]->ids[JSIGAR_FIELDS_WHO_DEVICE], s.device); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_WHO]->ids[JSIGAR_FIELDS_WHO_HOST], s.host); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_WHO]->ids[JSIGAR_FIELDS_WHO_TIME], s.time);
+
+#define JAVA_SIGAR_GET_FIELDS_WHO(obj, s) \
+    s.user = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_WHO]->ids[JSIGAR_FIELDS_WHO_USER]); \
+    s.device = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_WHO]->ids[JSIGAR_FIELDS_WHO_DEVICE]); \
+    s.host = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_WHO]->ids[JSIGAR_FIELDS_WHO_HOST]); \
+    s.time = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_WHO]->ids[JSIGAR_FIELDS_WHO_TIME]);
+
+#define JAVA_SIGAR_INIT_FIELDS_PROCSTATE(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_PROCSTATE]) { \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTATE] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCSTATE])); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids =  \
+            malloc(JSIGAR_FIELDS_PROCSTATE_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_STATE] =  \
+            JENV->GetFieldID(env, cls, "state", "C"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_NAME] =  \
+            JENV->GetFieldID(env, cls, "name", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_PPID] =  \
+            JENV->GetFieldID(env, cls, "ppid", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_TTY] =  \
+            JENV->GetFieldID(env, cls, "tty", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_NICE] =  \
+            JENV->GetFieldID(env, cls, "nice", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_PRIORITY] =  \
+            JENV->GetFieldID(env, cls, "priority", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_THREADS] =  \
+            JENV->GetFieldID(env, cls, "threads", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_PROCESSOR] =  \
+            JENV->GetFieldID(env, cls, "processor", "I"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_PROCSTATE(cls, obj, s) \
+    JENV->SetCharField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_STATE], s.state); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_NAME], s.name); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_PPID], s.ppid); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_TTY], s.tty); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_NICE], s.nice); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_PRIORITY], s.priority); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_THREADS], s.threads); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_PROCESSOR], s.processor);
+
+#define JAVA_SIGAR_GET_FIELDS_PROCSTATE(obj, s) \
+    s.state = JENV->GetCharField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_STATE]); \
+    s.name = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_NAME]); \
+    s.ppid = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_PPID]); \
+    s.tty = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_TTY]); \
+    s.nice = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_NICE]); \
+    s.priority = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_PRIORITY]); \
+    s.threads = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_THREADS]); \
+    s.processor = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTATE]->ids[JSIGAR_FIELDS_PROCSTATE_PROCESSOR]);
+
+#define JAVA_SIGAR_INIT_FIELDS_CPU(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_CPU]) { \
+        jsigar->fields[JSIGAR_FIELDS_CPU] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_CPU])); \
+        jsigar->fields[JSIGAR_FIELDS_CPU]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_CPU]->ids =  \
+            malloc(JSIGAR_FIELDS_CPU_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_CPU]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_USER] =  \
+            JENV->GetFieldID(env, cls, "user", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_SYS] =  \
+            JENV->GetFieldID(env, cls, "sys", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_NICE] =  \
+            JENV->GetFieldID(env, cls, "nice", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_IDLE] =  \
+            JENV->GetFieldID(env, cls, "idle", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_WAIT] =  \
+            JENV->GetFieldID(env, cls, "wait", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_IRQ] =  \
+            JENV->GetFieldID(env, cls, "irq", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_SOFT_IRQ] =  \
+            JENV->GetFieldID(env, cls, "softIrq", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_STOLEN] =  \
+            JENV->GetFieldID(env, cls, "stolen", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "total", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_CPU(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_USER], s.user); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_SYS], s.sys); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_NICE], s.nice); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_IDLE], s.idle); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_WAIT], s.wait); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_IRQ], s.irq); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_SOFT_IRQ], s.soft_irq); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_STOLEN], s.stolen); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_TOTAL], s.total);
+
+#define JAVA_SIGAR_GET_FIELDS_CPU(obj, s) \
+    s.user = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_USER]); \
+    s.sys = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_SYS]); \
+    s.nice = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_NICE]); \
+    s.idle = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_IDLE]); \
+    s.wait = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_WAIT]); \
+    s.irq = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_IRQ]); \
+    s.soft_irq = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_SOFT_IRQ]); \
+    s.stolen = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_STOLEN]); \
+    s.total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPU]->ids[JSIGAR_FIELDS_CPU_TOTAL]);
+
+#define JAVA_SIGAR_INIT_FIELDS_NFSCLIENTV2(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]) { \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2])); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids =  \
+            malloc(JSIGAR_FIELDS_NFSCLIENTV2_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_NULL] =  \
+            JENV->GetFieldID(env, cls, "_null", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_GETATTR] =  \
+            JENV->GetFieldID(env, cls, "getattr", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_SETATTR] =  \
+            JENV->GetFieldID(env, cls, "setattr", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_ROOT] =  \
+            JENV->GetFieldID(env, cls, "root", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_LOOKUP] =  \
+            JENV->GetFieldID(env, cls, "lookup", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_READLINK] =  \
+            JENV->GetFieldID(env, cls, "readlink", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_READ] =  \
+            JENV->GetFieldID(env, cls, "read", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_WRITECACHE] =  \
+            JENV->GetFieldID(env, cls, "writecache", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_WRITE] =  \
+            JENV->GetFieldID(env, cls, "write", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_CREATE] =  \
+            JENV->GetFieldID(env, cls, "create", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_REMOVE] =  \
+            JENV->GetFieldID(env, cls, "remove", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_RENAME] =  \
+            JENV->GetFieldID(env, cls, "rename", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_LINK] =  \
+            JENV->GetFieldID(env, cls, "link", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_SYMLINK] =  \
+            JENV->GetFieldID(env, cls, "symlink", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_MKDIR] =  \
+            JENV->GetFieldID(env, cls, "mkdir", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_RMDIR] =  \
+            JENV->GetFieldID(env, cls, "rmdir", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_READDIR] =  \
+            JENV->GetFieldID(env, cls, "readdir", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_FSSTAT] =  \
+            JENV->GetFieldID(env, cls, "fsstat", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_NFSCLIENTV2(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_NULL], s.null); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_GETATTR], s.getattr); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_SETATTR], s.setattr); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_ROOT], s.root); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_LOOKUP], s.lookup); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_READLINK], s.readlink); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_READ], s.read); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_WRITECACHE], s.writecache); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_WRITE], s.write); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_CREATE], s.create); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_REMOVE], s.remove); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_RENAME], s.rename); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_LINK], s.link); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_SYMLINK], s.symlink); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_MKDIR], s.mkdir); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_RMDIR], s.rmdir); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_READDIR], s.readdir); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_FSSTAT], s.fsstat);
+
+#define JAVA_SIGAR_GET_FIELDS_NFSCLIENTV2(obj, s) \
+    s.null = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_NULL]); \
+    s.getattr = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_GETATTR]); \
+    s.setattr = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_SETATTR]); \
+    s.root = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_ROOT]); \
+    s.lookup = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_LOOKUP]); \
+    s.readlink = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_READLINK]); \
+    s.read = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_READ]); \
+    s.writecache = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_WRITECACHE]); \
+    s.write = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_WRITE]); \
+    s.create = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_CREATE]); \
+    s.remove = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_REMOVE]); \
+    s.rename = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_RENAME]); \
+    s.link = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_LINK]); \
+    s.symlink = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_SYMLINK]); \
+    s.mkdir = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_MKDIR]); \
+    s.rmdir = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_RMDIR]); \
+    s.readdir = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_READDIR]); \
+    s.fsstat = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV2]->ids[JSIGAR_FIELDS_NFSCLIENTV2_FSSTAT]);
+
+#define JAVA_SIGAR_INIT_FIELDS_PROCSTAT(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_PROCSTAT]) { \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTAT] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCSTAT])); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids =  \
+            malloc(JSIGAR_FIELDS_PROCSTAT_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "total", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_IDLE] =  \
+            JENV->GetFieldID(env, cls, "idle", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_RUNNING] =  \
+            JENV->GetFieldID(env, cls, "running", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_SLEEPING] =  \
+            JENV->GetFieldID(env, cls, "sleeping", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_STOPPED] =  \
+            JENV->GetFieldID(env, cls, "stopped", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_ZOMBIE] =  \
+            JENV->GetFieldID(env, cls, "zombie", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_THREADS] =  \
+            JENV->GetFieldID(env, cls, "threads", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_PROCSTAT(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_TOTAL], s.total); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_IDLE], s.idle); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_RUNNING], s.running); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_SLEEPING], s.sleeping); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_STOPPED], s.stopped); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_ZOMBIE], s.zombie); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_THREADS], s.threads);
+
+#define JAVA_SIGAR_GET_FIELDS_PROCSTAT(obj, s) \
+    s.total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_TOTAL]); \
+    s.idle = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_IDLE]); \
+    s.running = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_RUNNING]); \
+    s.sleeping = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_SLEEPING]); \
+    s.stopped = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_STOPPED]); \
+    s.zombie = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_ZOMBIE]); \
+    s.threads = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCSTAT]->ids[JSIGAR_FIELDS_PROCSTAT_THREADS]);
+
+#define JAVA_SIGAR_INIT_FIELDS_PROCTIME(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_PROCTIME]) { \
+        jsigar->fields[JSIGAR_FIELDS_PROCTIME] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCTIME])); \
+        jsigar->fields[JSIGAR_FIELDS_PROCTIME]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids =  \
+            malloc(JSIGAR_FIELDS_PROCTIME_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids[JSIGAR_FIELDS_PROCTIME_START_TIME] =  \
+            JENV->GetFieldID(env, cls, "startTime", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids[JSIGAR_FIELDS_PROCTIME_USER] =  \
+            JENV->GetFieldID(env, cls, "user", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids[JSIGAR_FIELDS_PROCTIME_SYS] =  \
+            JENV->GetFieldID(env, cls, "sys", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids[JSIGAR_FIELDS_PROCTIME_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "total", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_PROCTIME(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids[JSIGAR_FIELDS_PROCTIME_START_TIME], s.start_time); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids[JSIGAR_FIELDS_PROCTIME_USER], s.user); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids[JSIGAR_FIELDS_PROCTIME_SYS], s.sys); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids[JSIGAR_FIELDS_PROCTIME_TOTAL], s.total);
+
+#define JAVA_SIGAR_GET_FIELDS_PROCTIME(obj, s) \
+    s.start_time = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids[JSIGAR_FIELDS_PROCTIME_START_TIME]); \
+    s.user = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids[JSIGAR_FIELDS_PROCTIME_USER]); \
+    s.sys = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids[JSIGAR_FIELDS_PROCTIME_SYS]); \
+    s.total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCTIME]->ids[JSIGAR_FIELDS_PROCTIME_TOTAL]);
+
+#define JAVA_SIGAR_INIT_FIELDS_PROCEXE(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_PROCEXE]) { \
+        jsigar->fields[JSIGAR_FIELDS_PROCEXE] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCEXE])); \
+        jsigar->fields[JSIGAR_FIELDS_PROCEXE]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_PROCEXE]->ids =  \
+            malloc(JSIGAR_FIELDS_PROCEXE_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCEXE]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_PROCEXE]->ids[JSIGAR_FIELDS_PROCEXE_NAME] =  \
+            JENV->GetFieldID(env, cls, "name", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCEXE]->ids[JSIGAR_FIELDS_PROCEXE_CWD] =  \
+            JENV->GetFieldID(env, cls, "cwd", "Ljava/lang/String;"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_PROCEXE(cls, obj, s) \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCEXE]->ids[JSIGAR_FIELDS_PROCEXE_NAME], s.name); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCEXE]->ids[JSIGAR_FIELDS_PROCEXE_CWD], s.cwd);
+
+#define JAVA_SIGAR_GET_FIELDS_PROCEXE(obj, s) \
+    s.name = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCEXE]->ids[JSIGAR_FIELDS_PROCEXE_NAME]); \
+    s.cwd = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCEXE]->ids[JSIGAR_FIELDS_PROCEXE_CWD]);
+
+#define JAVA_SIGAR_INIT_FIELDS_DIRUSAGE(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]) { \
+        jsigar->fields[JSIGAR_FIELDS_DIRUSAGE] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_DIRUSAGE])); \
+        jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids =  \
+            malloc(JSIGAR_FIELDS_DIRUSAGE_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "total", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_FILES] =  \
+            JENV->GetFieldID(env, cls, "files", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_SUBDIRS] =  \
+            JENV->GetFieldID(env, cls, "subdirs", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_SYMLINKS] =  \
+            JENV->GetFieldID(env, cls, "symlinks", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_CHRDEVS] =  \
+            JENV->GetFieldID(env, cls, "chrdevs", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_BLKDEVS] =  \
+            JENV->GetFieldID(env, cls, "blkdevs", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_SOCKETS] =  \
+            JENV->GetFieldID(env, cls, "sockets", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_DISK_USAGE] =  \
+            JENV->GetFieldID(env, cls, "diskUsage", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_DIRUSAGE(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_TOTAL], s.total); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_FILES], s.files); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_SUBDIRS], s.subdirs); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_SYMLINKS], s.symlinks); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_CHRDEVS], s.chrdevs); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_BLKDEVS], s.blkdevs); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_SOCKETS], s.sockets); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_DISK_USAGE], s.disk_usage);
+
+#define JAVA_SIGAR_GET_FIELDS_DIRUSAGE(obj, s) \
+    s.total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_TOTAL]); \
+    s.files = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_FILES]); \
+    s.subdirs = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_SUBDIRS]); \
+    s.symlinks = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_SYMLINKS]); \
+    s.chrdevs = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_CHRDEVS]); \
+    s.blkdevs = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_BLKDEVS]); \
+    s.sockets = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_SOCKETS]); \
+    s.disk_usage = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRUSAGE]->ids[JSIGAR_FIELDS_DIRUSAGE_DISK_USAGE]);
+
+#define JAVA_SIGAR_INIT_FIELDS_DISKUSAGE(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]) { \
+        jsigar->fields[JSIGAR_FIELDS_DISKUSAGE] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_DISKUSAGE])); \
+        jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids =  \
+            malloc(JSIGAR_FIELDS_DISKUSAGE_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_READS] =  \
+            JENV->GetFieldID(env, cls, "reads", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_WRITES] =  \
+            JENV->GetFieldID(env, cls, "writes", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_READ_BYTES] =  \
+            JENV->GetFieldID(env, cls, "readBytes", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_WRITE_BYTES] =  \
+            JENV->GetFieldID(env, cls, "writeBytes", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_QUEUE] =  \
+            JENV->GetFieldID(env, cls, "queue", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_SERVICE_TIME] =  \
+            JENV->GetFieldID(env, cls, "serviceTime", "D"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_DISKUSAGE(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_READS], s.reads); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_WRITES], s.writes); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_READ_BYTES], s.read_bytes); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_WRITE_BYTES], s.write_bytes); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_QUEUE], s.queue); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_SERVICE_TIME], s.service_time);
+
+#define JAVA_SIGAR_GET_FIELDS_DISKUSAGE(obj, s) \
+    s.reads = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_READS]); \
+    s.writes = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_WRITES]); \
+    s.read_bytes = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_READ_BYTES]); \
+    s.write_bytes = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_WRITE_BYTES]); \
+    s.queue = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_QUEUE]); \
+    s.service_time = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_DISKUSAGE]->ids[JSIGAR_FIELDS_DISKUSAGE_SERVICE_TIME]);
+
+#define JAVA_SIGAR_INIT_FIELDS_NETCONNECTION(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]) { \
+        jsigar->fields[JSIGAR_FIELDS_NETCONNECTION] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_NETCONNECTION])); \
+        jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids =  \
+            malloc(JSIGAR_FIELDS_NETCONNECTION_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_LOCAL_PORT] =  \
+            JENV->GetFieldID(env, cls, "localPort", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_LOCAL_ADDRESS] =  \
+            JENV->GetFieldID(env, cls, "localAddress", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_REMOTE_PORT] =  \
+            JENV->GetFieldID(env, cls, "remotePort", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_REMOTE_ADDRESS] =  \
+            JENV->GetFieldID(env, cls, "remoteAddress", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_TYPE] =  \
+            JENV->GetFieldID(env, cls, "type", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_STATE] =  \
+            JENV->GetFieldID(env, cls, "state", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_SEND_QUEUE] =  \
+            JENV->GetFieldID(env, cls, "sendQueue", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_RECEIVE_QUEUE] =  \
+            JENV->GetFieldID(env, cls, "receiveQueue", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_NETCONNECTION(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_LOCAL_PORT], s.local_port); \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_LOCAL_ADDRESS], s.local_address); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_REMOTE_PORT], s.remote_port); \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_REMOTE_ADDRESS], s.remote_address); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_TYPE], s.type); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_STATE], s.state); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_SEND_QUEUE], s.send_queue); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_RECEIVE_QUEUE], s.receive_queue);
+
+#define JAVA_SIGAR_GET_FIELDS_NETCONNECTION(obj, s) \
+    s.local_port = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_LOCAL_PORT]); \
+    s.local_address = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_LOCAL_ADDRESS]); \
+    s.remote_port = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_REMOTE_PORT]); \
+    s.remote_address = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_REMOTE_ADDRESS]); \
+    s.type = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_TYPE]); \
+    s.state = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_STATE]); \
+    s.send_queue = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_SEND_QUEUE]); \
+    s.receive_queue = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETCONNECTION]->ids[JSIGAR_FIELDS_NETCONNECTION_RECEIVE_QUEUE]);
+
+#define JAVA_SIGAR_INIT_FIELDS_FILESYSTEMUSAGE(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]) { \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE])); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids =  \
+            malloc(JSIGAR_FIELDS_FILESYSTEMUSAGE_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "total", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_FREE] =  \
+            JENV->GetFieldID(env, cls, "free", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_USED] =  \
+            JENV->GetFieldID(env, cls, "used", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_AVAIL] =  \
+            JENV->GetFieldID(env, cls, "avail", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_FILES] =  \
+            JENV->GetFieldID(env, cls, "files", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_FREE_FILES] =  \
+            JENV->GetFieldID(env, cls, "freeFiles", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_READS] =  \
+            JENV->GetFieldID(env, cls, "diskReads", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_WRITES] =  \
+            JENV->GetFieldID(env, cls, "diskWrites", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_READ_BYTES] =  \
+            JENV->GetFieldID(env, cls, "diskReadBytes", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_WRITE_BYTES] =  \
+            JENV->GetFieldID(env, cls, "diskWriteBytes", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_QUEUE] =  \
+            JENV->GetFieldID(env, cls, "diskQueue", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_SERVICE_TIME] =  \
+            JENV->GetFieldID(env, cls, "diskServiceTime", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_USE_PERCENT] =  \
+            JENV->GetFieldID(env, cls, "usePercent", "D"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_FILESYSTEMUSAGE(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_TOTAL], s.total); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_FREE], s.free); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_USED], s.used); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_AVAIL], s.avail); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_FILES], s.files); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_FREE_FILES], s.free_files); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_READS], s.disk_reads); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_WRITES], s.disk_writes); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_READ_BYTES], s.disk_read_bytes); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_WRITE_BYTES], s.disk_write_bytes); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_QUEUE], s.disk_queue); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_SERVICE_TIME], s.disk_service_time); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_USE_PERCENT], s.use_percent);
+
+#define JAVA_SIGAR_GET_FIELDS_FILESYSTEMUSAGE(obj, s) \
+    s.total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_TOTAL]); \
+    s.free = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_FREE]); \
+    s.used = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_USED]); \
+    s.avail = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_AVAIL]); \
+    s.files = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_FILES]); \
+    s.free_files = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_FREE_FILES]); \
+    s.disk_reads = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_READS]); \
+    s.disk_writes = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_WRITES]); \
+    s.disk_read_bytes = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_READ_BYTES]); \
+    s.disk_write_bytes = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_WRITE_BYTES]); \
+    s.disk_queue = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_QUEUE]); \
+    s.disk_service_time = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_DISK_SERVICE_TIME]); \
+    s.use_percent = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEMUSAGE]->ids[JSIGAR_FIELDS_FILESYSTEMUSAGE_USE_PERCENT]);
+
+#define JAVA_SIGAR_INIT_FIELDS_PROCCREDNAME(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_PROCCREDNAME]) { \
+        jsigar->fields[JSIGAR_FIELDS_PROCCREDNAME] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCCREDNAME])); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCREDNAME]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCREDNAME]->ids =  \
+            malloc(JSIGAR_FIELDS_PROCCREDNAME_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCCREDNAME]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCREDNAME]->ids[JSIGAR_FIELDS_PROCCREDNAME_USER] =  \
+            JENV->GetFieldID(env, cls, "user", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCREDNAME]->ids[JSIGAR_FIELDS_PROCCREDNAME_GROUP] =  \
+            JENV->GetFieldID(env, cls, "group", "Ljava/lang/String;"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_PROCCREDNAME(cls, obj, s) \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCREDNAME]->ids[JSIGAR_FIELDS_PROCCREDNAME_USER], s.user); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCREDNAME]->ids[JSIGAR_FIELDS_PROCCREDNAME_GROUP], s.group);
+
+#define JAVA_SIGAR_GET_FIELDS_PROCCREDNAME(obj, s) \
+    s.user = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCREDNAME]->ids[JSIGAR_FIELDS_PROCCREDNAME_USER]); \
+    s.group = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCREDNAME]->ids[JSIGAR_FIELDS_PROCCREDNAME_GROUP]);
+
+#define JAVA_SIGAR_INIT_FIELDS_MEM(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_MEM]) { \
+        jsigar->fields[JSIGAR_FIELDS_MEM] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_MEM])); \
+        jsigar->fields[JSIGAR_FIELDS_MEM]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_MEM]->ids =  \
+            malloc(JSIGAR_FIELDS_MEM_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_MEM]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "total", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_RAM] =  \
+            JENV->GetFieldID(env, cls, "ram", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_USED] =  \
+            JENV->GetFieldID(env, cls, "used", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_FREE] =  \
+            JENV->GetFieldID(env, cls, "free", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_ACTUAL_USED] =  \
+            JENV->GetFieldID(env, cls, "actualUsed", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_ACTUAL_FREE] =  \
+            JENV->GetFieldID(env, cls, "actualFree", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_USED_PERCENT] =  \
+            JENV->GetFieldID(env, cls, "usedPercent", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_FREE_PERCENT] =  \
+            JENV->GetFieldID(env, cls, "freePercent", "D"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_MEM(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_TOTAL], s.total); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_RAM], s.ram); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_USED], s.used); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_FREE], s.free); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_ACTUAL_USED], s.actual_used); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_ACTUAL_FREE], s.actual_free); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_USED_PERCENT], s.used_percent); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_FREE_PERCENT], s.free_percent);
+
+#define JAVA_SIGAR_GET_FIELDS_MEM(obj, s) \
+    s.total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_TOTAL]); \
+    s.ram = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_RAM]); \
+    s.used = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_USED]); \
+    s.free = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_FREE]); \
+    s.actual_used = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_ACTUAL_USED]); \
+    s.actual_free = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_ACTUAL_FREE]); \
+    s.used_percent = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_USED_PERCENT]); \
+    s.free_percent = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_MEM]->ids[JSIGAR_FIELDS_MEM_FREE_PERCENT]);
+
+#define JAVA_SIGAR_INIT_FIELDS_SYSINFO(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_SYSINFO]) { \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_SYSINFO])); \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids =  \
+            malloc(JSIGAR_FIELDS_SYSINFO_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_NAME] =  \
+            JENV->GetFieldID(env, cls, "name", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VERSION] =  \
+            JENV->GetFieldID(env, cls, "version", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_ARCH] =  \
+            JENV->GetFieldID(env, cls, "arch", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_MACHINE] =  \
+            JENV->GetFieldID(env, cls, "machine", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_DESCRIPTION] =  \
+            JENV->GetFieldID(env, cls, "description", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_PATCH_LEVEL] =  \
+            JENV->GetFieldID(env, cls, "patchLevel", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VENDOR] =  \
+            JENV->GetFieldID(env, cls, "vendor", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VENDOR_VERSION] =  \
+            JENV->GetFieldID(env, cls, "vendorVersion", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VENDOR_NAME] =  \
+            JENV->GetFieldID(env, cls, "vendorName", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VENDOR_CODE_NAME] =  \
+            JENV->GetFieldID(env, cls, "vendorCodeName", "Ljava/lang/String;"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_SYSINFO(cls, obj, s) \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_NAME], s.name); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VERSION], s.version); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_ARCH], s.arch); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_MACHINE], s.machine); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_DESCRIPTION], s.description); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_PATCH_LEVEL], s.patch_level); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VENDOR], s.vendor); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VENDOR_VERSION], s.vendor_version); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VENDOR_NAME], s.vendor_name); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VENDOR_CODE_NAME], s.vendor_code_name);
+
+#define JAVA_SIGAR_GET_FIELDS_SYSINFO(obj, s) \
+    s.name = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_NAME]); \
+    s.version = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VERSION]); \
+    s.arch = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_ARCH]); \
+    s.machine = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_MACHINE]); \
+    s.description = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_DESCRIPTION]); \
+    s.patch_level = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_PATCH_LEVEL]); \
+    s.vendor = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VENDOR]); \
+    s.vendor_version = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VENDOR_VERSION]); \
+    s.vendor_name = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VENDOR_NAME]); \
+    s.vendor_code_name = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_SYSINFO]->ids[JSIGAR_FIELDS_SYSINFO_VENDOR_CODE_NAME]);
+
+#define JAVA_SIGAR_INIT_FIELDS_CPUINFO(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_CPUINFO]) { \
+        jsigar->fields[JSIGAR_FIELDS_CPUINFO] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_CPUINFO])); \
+        jsigar->fields[JSIGAR_FIELDS_CPUINFO]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids =  \
+            malloc(JSIGAR_FIELDS_CPUINFO_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_VENDOR] =  \
+            JENV->GetFieldID(env, cls, "vendor", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_MODEL] =  \
+            JENV->GetFieldID(env, cls, "model", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_MHZ] =  \
+            JENV->GetFieldID(env, cls, "mhz", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_MHZ_MAX] =  \
+            JENV->GetFieldID(env, cls, "mhzMax", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_MHZ_MIN] =  \
+            JENV->GetFieldID(env, cls, "mhzMin", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_CACHE_SIZE] =  \
+            JENV->GetFieldID(env, cls, "cacheSize", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_TOTAL_CORES] =  \
+            JENV->GetFieldID(env, cls, "totalCores", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_TOTAL_SOCKETS] =  \
+            JENV->GetFieldID(env, cls, "totalSockets", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_CORES_PER_SOCKET] =  \
+            JENV->GetFieldID(env, cls, "coresPerSocket", "I"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_CPUINFO(cls, obj, s) \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_VENDOR], s.vendor); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_MODEL], s.model); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_MHZ], s.mhz); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_MHZ_MAX], s.mhz_max); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_MHZ_MIN], s.mhz_min); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_CACHE_SIZE], s.cache_size); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_TOTAL_CORES], s.total_cores); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_TOTAL_SOCKETS], s.total_sockets); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_CORES_PER_SOCKET], s.cores_per_socket);
+
+#define JAVA_SIGAR_GET_FIELDS_CPUINFO(obj, s) \
+    s.vendor = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_VENDOR]); \
+    s.model = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_MODEL]); \
+    s.mhz = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_MHZ]); \
+    s.mhz_max = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_MHZ_MAX]); \
+    s.mhz_min = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_MHZ_MIN]); \
+    s.cache_size = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_CACHE_SIZE]); \
+    s.total_cores = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_TOTAL_CORES]); \
+    s.total_sockets = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_TOTAL_SOCKETS]); \
+    s.cores_per_socket = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUINFO]->ids[JSIGAR_FIELDS_CPUINFO_CORES_PER_SOCKET]);
+
+#define JAVA_SIGAR_INIT_FIELDS_NETINFO(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_NETINFO]) { \
+        jsigar->fields[JSIGAR_FIELDS_NETINFO] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_NETINFO])); \
+        jsigar->fields[JSIGAR_FIELDS_NETINFO]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids =  \
+            malloc(JSIGAR_FIELDS_NETINFO_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_DEFAULT_GATEWAY] =  \
+            JENV->GetFieldID(env, cls, "defaultGateway", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_DEFAULT_GATEWAY_INTERFACE] =  \
+            JENV->GetFieldID(env, cls, "defaultGatewayInterface", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_HOST_NAME] =  \
+            JENV->GetFieldID(env, cls, "hostName", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_DOMAIN_NAME] =  \
+            JENV->GetFieldID(env, cls, "domainName", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_PRIMARY_DNS] =  \
+            JENV->GetFieldID(env, cls, "primaryDns", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_SECONDARY_DNS] =  \
+            JENV->GetFieldID(env, cls, "secondaryDns", "Ljava/lang/String;"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_NETINFO(cls, obj, s) \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_DEFAULT_GATEWAY], s.default_gateway); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_DEFAULT_GATEWAY_INTERFACE], s.default_gateway_interface); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_HOST_NAME], s.host_name); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_DOMAIN_NAME], s.domain_name); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_PRIMARY_DNS], s.primary_dns); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_SECONDARY_DNS], s.secondary_dns);
+
+#define JAVA_SIGAR_GET_FIELDS_NETINFO(obj, s) \
+    s.default_gateway = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_DEFAULT_GATEWAY]); \
+    s.default_gateway_interface = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_DEFAULT_GATEWAY_INTERFACE]); \
+    s.host_name = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_HOST_NAME]); \
+    s.domain_name = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_DOMAIN_NAME]); \
+    s.primary_dns = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_PRIMARY_DNS]); \
+    s.secondary_dns = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINFO]->ids[JSIGAR_FIELDS_NETINFO_SECONDARY_DNS]);
+
+#define JAVA_SIGAR_INIT_FIELDS_ARP(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_ARP]) { \
+        jsigar->fields[JSIGAR_FIELDS_ARP] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_ARP])); \
+        jsigar->fields[JSIGAR_FIELDS_ARP]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_ARP]->ids =  \
+            malloc(JSIGAR_FIELDS_ARP_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_ARP]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_IFNAME] =  \
+            JENV->GetFieldID(env, cls, "ifname", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_HWADDR] =  \
+            JENV->GetFieldID(env, cls, "hwaddr", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_TYPE] =  \
+            JENV->GetFieldID(env, cls, "type", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_ADDRESS] =  \
+            JENV->GetFieldID(env, cls, "address", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_FLAGS] =  \
+            JENV->GetFieldID(env, cls, "flags", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_ARP(cls, obj, s) \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_IFNAME], s.ifname); \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_HWADDR], s.hwaddr); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_TYPE], s.type); \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_ADDRESS], s.address); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_FLAGS], s.flags);
+
+#define JAVA_SIGAR_GET_FIELDS_ARP(obj, s) \
+    s.ifname = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_IFNAME]); \
+    s.hwaddr = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_HWADDR]); \
+    s.type = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_TYPE]); \
+    s.address = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_ADDRESS]); \
+    s.flags = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_ARP]->ids[JSIGAR_FIELDS_ARP_FLAGS]);
+
+#define JAVA_SIGAR_INIT_FIELDS_NFSCLIENTV3(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]) { \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3])); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids =  \
+            malloc(JSIGAR_FIELDS_NFSCLIENTV3_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_NULL] =  \
+            JENV->GetFieldID(env, cls, "_null", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_GETATTR] =  \
+            JENV->GetFieldID(env, cls, "getattr", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_SETATTR] =  \
+            JENV->GetFieldID(env, cls, "setattr", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_LOOKUP] =  \
+            JENV->GetFieldID(env, cls, "lookup", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_ACCESS] =  \
+            JENV->GetFieldID(env, cls, "access", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_READLINK] =  \
+            JENV->GetFieldID(env, cls, "readlink", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_READ] =  \
+            JENV->GetFieldID(env, cls, "read", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_WRITE] =  \
+            JENV->GetFieldID(env, cls, "write", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_CREATE] =  \
+            JENV->GetFieldID(env, cls, "create", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_MKDIR] =  \
+            JENV->GetFieldID(env, cls, "mkdir", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_SYMLINK] =  \
+            JENV->GetFieldID(env, cls, "symlink", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_MKNOD] =  \
+            JENV->GetFieldID(env, cls, "mknod", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_REMOVE] =  \
+            JENV->GetFieldID(env, cls, "remove", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_RMDIR] =  \
+            JENV->GetFieldID(env, cls, "rmdir", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_RENAME] =  \
+            JENV->GetFieldID(env, cls, "rename", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_LINK] =  \
+            JENV->GetFieldID(env, cls, "link", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_READDIR] =  \
+            JENV->GetFieldID(env, cls, "readdir", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_READDIRPLUS] =  \
+            JENV->GetFieldID(env, cls, "readdirplus", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_FSSTAT] =  \
+            JENV->GetFieldID(env, cls, "fsstat", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_FSINFO] =  \
+            JENV->GetFieldID(env, cls, "fsinfo", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_PATHCONF] =  \
+            JENV->GetFieldID(env, cls, "pathconf", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_COMMIT] =  \
+            JENV->GetFieldID(env, cls, "commit", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_NFSCLIENTV3(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_NULL], s.null); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_GETATTR], s.getattr); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_SETATTR], s.setattr); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_LOOKUP], s.lookup); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_ACCESS], s.access); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_READLINK], s.readlink); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_READ], s.read); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_WRITE], s.write); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_CREATE], s.create); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_MKDIR], s.mkdir); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_SYMLINK], s.symlink); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_MKNOD], s.mknod); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_REMOVE], s.remove); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_RMDIR], s.rmdir); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_RENAME], s.rename); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_LINK], s.link); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_READDIR], s.readdir); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_READDIRPLUS], s.readdirplus); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_FSSTAT], s.fsstat); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_FSINFO], s.fsinfo); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_PATHCONF], s.pathconf); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_COMMIT], s.commit);
+
+#define JAVA_SIGAR_GET_FIELDS_NFSCLIENTV3(obj, s) \
+    s.null = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_NULL]); \
+    s.getattr = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_GETATTR]); \
+    s.setattr = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_SETATTR]); \
+    s.lookup = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_LOOKUP]); \
+    s.access = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_ACCESS]); \
+    s.readlink = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_READLINK]); \
+    s.read = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_READ]); \
+    s.write = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_WRITE]); \
+    s.create = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_CREATE]); \
+    s.mkdir = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_MKDIR]); \
+    s.symlink = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_SYMLINK]); \
+    s.mknod = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_MKNOD]); \
+    s.remove = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_REMOVE]); \
+    s.rmdir = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_RMDIR]); \
+    s.rename = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_RENAME]); \
+    s.link = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_LINK]); \
+    s.readdir = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_READDIR]); \
+    s.readdirplus = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_READDIRPLUS]); \
+    s.fsstat = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_FSSTAT]); \
+    s.fsinfo = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_FSINFO]); \
+    s.pathconf = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_PATHCONF]); \
+    s.commit = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSCLIENTV3]->ids[JSIGAR_FIELDS_NFSCLIENTV3_COMMIT]);
+
+#define JAVA_SIGAR_INIT_FIELDS_RESOURCELIMIT(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]) { \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT])); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids =  \
+            malloc(JSIGAR_FIELDS_RESOURCELIMIT_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_CPU_CUR] =  \
+            JENV->GetFieldID(env, cls, "cpuCur", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_CPU_MAX] =  \
+            JENV->GetFieldID(env, cls, "cpuMax", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_FILE_SIZE_CUR] =  \
+            JENV->GetFieldID(env, cls, "fileSizeCur", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_FILE_SIZE_MAX] =  \
+            JENV->GetFieldID(env, cls, "fileSizeMax", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_PIPE_SIZE_MAX] =  \
+            JENV->GetFieldID(env, cls, "pipeSizeMax", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_PIPE_SIZE_CUR] =  \
+            JENV->GetFieldID(env, cls, "pipeSizeCur", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_DATA_CUR] =  \
+            JENV->GetFieldID(env, cls, "dataCur", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_DATA_MAX] =  \
+            JENV->GetFieldID(env, cls, "dataMax", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_STACK_CUR] =  \
+            JENV->GetFieldID(env, cls, "stackCur", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_STACK_MAX] =  \
+            JENV->GetFieldID(env, cls, "stackMax", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_CORE_CUR] =  \
+            JENV->GetFieldID(env, cls, "coreCur", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_CORE_MAX] =  \
+            JENV->GetFieldID(env, cls, "coreMax", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_MEMORY_CUR] =  \
+            JENV->GetFieldID(env, cls, "memoryCur", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_MEMORY_MAX] =  \
+            JENV->GetFieldID(env, cls, "memoryMax", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_PROCESSES_CUR] =  \
+            JENV->GetFieldID(env, cls, "processesCur", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_PROCESSES_MAX] =  \
+            JENV->GetFieldID(env, cls, "processesMax", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_OPEN_FILES_CUR] =  \
+            JENV->GetFieldID(env, cls, "openFilesCur", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_OPEN_FILES_MAX] =  \
+            JENV->GetFieldID(env, cls, "openFilesMax", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_VIRTUAL_MEMORY_CUR] =  \
+            JENV->GetFieldID(env, cls, "virtualMemoryCur", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_VIRTUAL_MEMORY_MAX] =  \
+            JENV->GetFieldID(env, cls, "virtualMemoryMax", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_RESOURCELIMIT(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_CPU_CUR], s.cpu_cur); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_CPU_MAX], s.cpu_max); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_FILE_SIZE_CUR], s.file_size_cur); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_FILE_SIZE_MAX], s.file_size_max); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_PIPE_SIZE_MAX], s.pipe_size_max); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_PIPE_SIZE_CUR], s.pipe_size_cur); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_DATA_CUR], s.data_cur); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_DATA_MAX], s.data_max); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_STACK_CUR], s.stack_cur); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_STACK_MAX], s.stack_max); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_CORE_CUR], s.core_cur); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_CORE_MAX], s.core_max); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_MEMORY_CUR], s.memory_cur); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_MEMORY_MAX], s.memory_max); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_PROCESSES_CUR], s.processes_cur); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_PROCESSES_MAX], s.processes_max); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_OPEN_FILES_CUR], s.open_files_cur); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_OPEN_FILES_MAX], s.open_files_max); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_VIRTUAL_MEMORY_CUR], s.virtual_memory_cur); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_VIRTUAL_MEMORY_MAX], s.virtual_memory_max);
+
+#define JAVA_SIGAR_GET_FIELDS_RESOURCELIMIT(obj, s) \
+    s.cpu_cur = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_CPU_CUR]); \
+    s.cpu_max = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_CPU_MAX]); \
+    s.file_size_cur = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_FILE_SIZE_CUR]); \
+    s.file_size_max = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_FILE_SIZE_MAX]); \
+    s.pipe_size_max = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_PIPE_SIZE_MAX]); \
+    s.pipe_size_cur = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_PIPE_SIZE_CUR]); \
+    s.data_cur = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_DATA_CUR]); \
+    s.data_max = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_DATA_MAX]); \
+    s.stack_cur = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_STACK_CUR]); \
+    s.stack_max = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_STACK_MAX]); \
+    s.core_cur = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_CORE_CUR]); \
+    s.core_max = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_CORE_MAX]); \
+    s.memory_cur = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_MEMORY_CUR]); \
+    s.memory_max = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_MEMORY_MAX]); \
+    s.processes_cur = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_PROCESSES_CUR]); \
+    s.processes_max = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_PROCESSES_MAX]); \
+    s.open_files_cur = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_OPEN_FILES_CUR]); \
+    s.open_files_max = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_OPEN_FILES_MAX]); \
+    s.virtual_memory_cur = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_VIRTUAL_MEMORY_CUR]); \
+    s.virtual_memory_max = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_RESOURCELIMIT]->ids[JSIGAR_FIELDS_RESOURCELIMIT_VIRTUAL_MEMORY_MAX]);
+
+#define JAVA_SIGAR_INIT_FIELDS_FILESYSTEM(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]) { \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEM] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_FILESYSTEM])); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids =  \
+            malloc(JSIGAR_FIELDS_FILESYSTEM_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_DIR_NAME] =  \
+            JENV->GetFieldID(env, cls, "dirName", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_DEV_NAME] =  \
+            JENV->GetFieldID(env, cls, "devName", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_TYPE_NAME] =  \
+            JENV->GetFieldID(env, cls, "typeName", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_SYS_TYPE_NAME] =  \
+            JENV->GetFieldID(env, cls, "sysTypeName", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_OPTIONS] =  \
+            JENV->GetFieldID(env, cls, "options", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_TYPE] =  \
+            JENV->GetFieldID(env, cls, "type", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_FLAGS] =  \
+            JENV->GetFieldID(env, cls, "flags", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_FILESYSTEM(cls, obj, s) \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_DIR_NAME], s.dir_name); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_DEV_NAME], s.dev_name); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_TYPE_NAME], s.type_name); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_SYS_TYPE_NAME], s.sys_type_name); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_OPTIONS], s.options); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_TYPE], s.type); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_FLAGS], s.flags);
+
+#define JAVA_SIGAR_GET_FIELDS_FILESYSTEM(obj, s) \
+    s.dir_name = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_DIR_NAME]); \
+    s.dev_name = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_DEV_NAME]); \
+    s.type_name = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_TYPE_NAME]); \
+    s.sys_type_name = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_SYS_TYPE_NAME]); \
+    s.options = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_OPTIONS]); \
+    s.type = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_TYPE]); \
+    s.flags = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_FILESYSTEM]->ids[JSIGAR_FIELDS_FILESYSTEM_FLAGS]);
+
+#define JAVA_SIGAR_INIT_FIELDS_DIRSTAT(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_DIRSTAT]) { \
+        jsigar->fields[JSIGAR_FIELDS_DIRSTAT] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_DIRSTAT])); \
+        jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids =  \
+            malloc(JSIGAR_FIELDS_DIRSTAT_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "total", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_FILES] =  \
+            JENV->GetFieldID(env, cls, "files", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_SUBDIRS] =  \
+            JENV->GetFieldID(env, cls, "subdirs", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_SYMLINKS] =  \
+            JENV->GetFieldID(env, cls, "symlinks", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_CHRDEVS] =  \
+            JENV->GetFieldID(env, cls, "chrdevs", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_BLKDEVS] =  \
+            JENV->GetFieldID(env, cls, "blkdevs", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_SOCKETS] =  \
+            JENV->GetFieldID(env, cls, "sockets", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_DISK_USAGE] =  \
+            JENV->GetFieldID(env, cls, "diskUsage", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_DIRSTAT(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_TOTAL], s.total); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_FILES], s.files); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_SUBDIRS], s.subdirs); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_SYMLINKS], s.symlinks); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_CHRDEVS], s.chrdevs); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_BLKDEVS], s.blkdevs); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_SOCKETS], s.sockets); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_DISK_USAGE], s.disk_usage);
+
+#define JAVA_SIGAR_GET_FIELDS_DIRSTAT(obj, s) \
+    s.total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_TOTAL]); \
+    s.files = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_FILES]); \
+    s.subdirs = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_SUBDIRS]); \
+    s.symlinks = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_SYMLINKS]); \
+    s.chrdevs = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_CHRDEVS]); \
+    s.blkdevs = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_BLKDEVS]); \
+    s.sockets = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_SOCKETS]); \
+    s.disk_usage = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DIRSTAT]->ids[JSIGAR_FIELDS_DIRSTAT_DISK_USAGE]);
+
+#define JAVA_SIGAR_INIT_FIELDS_PROCFD(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_PROCFD]) { \
+        jsigar->fields[JSIGAR_FIELDS_PROCFD] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCFD])); \
+        jsigar->fields[JSIGAR_FIELDS_PROCFD]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_PROCFD]->ids =  \
+            malloc(JSIGAR_FIELDS_PROCFD_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCFD]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_PROCFD]->ids[JSIGAR_FIELDS_PROCFD_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "total", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_PROCFD(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCFD]->ids[JSIGAR_FIELDS_PROCFD_TOTAL], s.total);
+
+#define JAVA_SIGAR_GET_FIELDS_PROCFD(obj, s) \
+    s.total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCFD]->ids[JSIGAR_FIELDS_PROCFD_TOTAL]);
+
+#define JAVA_SIGAR_INIT_FIELDS_NETINTERFACESTAT(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]) { \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT])); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids =  \
+            malloc(JSIGAR_FIELDS_NETINTERFACESTAT_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_BYTES] =  \
+            JENV->GetFieldID(env, cls, "rxBytes", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_PACKETS] =  \
+            JENV->GetFieldID(env, cls, "rxPackets", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_ERRORS] =  \
+            JENV->GetFieldID(env, cls, "rxErrors", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_DROPPED] =  \
+            JENV->GetFieldID(env, cls, "rxDropped", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_OVERRUNS] =  \
+            JENV->GetFieldID(env, cls, "rxOverruns", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_FRAME] =  \
+            JENV->GetFieldID(env, cls, "rxFrame", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_BYTES] =  \
+            JENV->GetFieldID(env, cls, "txBytes", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_PACKETS] =  \
+            JENV->GetFieldID(env, cls, "txPackets", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_ERRORS] =  \
+            JENV->GetFieldID(env, cls, "txErrors", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_DROPPED] =  \
+            JENV->GetFieldID(env, cls, "txDropped", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_OVERRUNS] =  \
+            JENV->GetFieldID(env, cls, "txOverruns", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_COLLISIONS] =  \
+            JENV->GetFieldID(env, cls, "txCollisions", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_CARRIER] =  \
+            JENV->GetFieldID(env, cls, "txCarrier", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_SPEED] =  \
+            JENV->GetFieldID(env, cls, "speed", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_NETINTERFACESTAT(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_BYTES], s.rx_bytes); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_PACKETS], s.rx_packets); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_ERRORS], s.rx_errors); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_DROPPED], s.rx_dropped); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_OVERRUNS], s.rx_overruns); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_FRAME], s.rx_frame); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_BYTES], s.tx_bytes); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_PACKETS], s.tx_packets); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_ERRORS], s.tx_errors); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_DROPPED], s.tx_dropped); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_OVERRUNS], s.tx_overruns); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_COLLISIONS], s.tx_collisions); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_CARRIER], s.tx_carrier); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_SPEED], s.speed);
+
+#define JAVA_SIGAR_GET_FIELDS_NETINTERFACESTAT(obj, s) \
+    s.rx_bytes = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_BYTES]); \
+    s.rx_packets = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_PACKETS]); \
+    s.rx_errors = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_ERRORS]); \
+    s.rx_dropped = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_DROPPED]); \
+    s.rx_overruns = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_OVERRUNS]); \
+    s.rx_frame = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_RX_FRAME]); \
+    s.tx_bytes = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_BYTES]); \
+    s.tx_packets = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_PACKETS]); \
+    s.tx_errors = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_ERRORS]); \
+    s.tx_dropped = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_DROPPED]); \
+    s.tx_overruns = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_OVERRUNS]); \
+    s.tx_collisions = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_COLLISIONS]); \
+    s.tx_carrier = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_TX_CARRIER]); \
+    s.speed = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACESTAT]->ids[JSIGAR_FIELDS_NETINTERFACESTAT_SPEED]);
+
+#define JAVA_SIGAR_INIT_FIELDS_DUMPPIDCACHE(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_DUMPPIDCACHE]) { \
+        jsigar->fields[JSIGAR_FIELDS_DUMPPIDCACHE] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_DUMPPIDCACHE])); \
+        jsigar->fields[JSIGAR_FIELDS_DUMPPIDCACHE]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_DUMPPIDCACHE]->ids =  \
+            malloc(JSIGAR_FIELDS_DUMPPIDCACHE_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_DUMPPIDCACHE]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_DUMPPIDCACHE]->ids[JSIGAR_FIELDS_DUMPPIDCACHE_DUMMY] =  \
+            JENV->GetFieldID(env, cls, "dummy", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_DUMPPIDCACHE(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DUMPPIDCACHE]->ids[JSIGAR_FIELDS_DUMPPIDCACHE_DUMMY], s.dummy);
+
+#define JAVA_SIGAR_GET_FIELDS_DUMPPIDCACHE(obj, s) \
+    s.dummy = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_DUMPPIDCACHE]->ids[JSIGAR_FIELDS_DUMPPIDCACHE_DUMMY]);
+
+#define JAVA_SIGAR_INIT_FIELDS_NFSSERVERV3(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]) { \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3])); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids =  \
+            malloc(JSIGAR_FIELDS_NFSSERVERV3_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_NULL] =  \
+            JENV->GetFieldID(env, cls, "_null", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_GETATTR] =  \
+            JENV->GetFieldID(env, cls, "getattr", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_SETATTR] =  \
+            JENV->GetFieldID(env, cls, "setattr", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_LOOKUP] =  \
+            JENV->GetFieldID(env, cls, "lookup", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_ACCESS] =  \
+            JENV->GetFieldID(env, cls, "access", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_READLINK] =  \
+            JENV->GetFieldID(env, cls, "readlink", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_READ] =  \
+            JENV->GetFieldID(env, cls, "read", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_WRITE] =  \
+            JENV->GetFieldID(env, cls, "write", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_CREATE] =  \
+            JENV->GetFieldID(env, cls, "create", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_MKDIR] =  \
+            JENV->GetFieldID(env, cls, "mkdir", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_SYMLINK] =  \
+            JENV->GetFieldID(env, cls, "symlink", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_MKNOD] =  \
+            JENV->GetFieldID(env, cls, "mknod", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_REMOVE] =  \
+            JENV->GetFieldID(env, cls, "remove", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_RMDIR] =  \
+            JENV->GetFieldID(env, cls, "rmdir", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_RENAME] =  \
+            JENV->GetFieldID(env, cls, "rename", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_LINK] =  \
+            JENV->GetFieldID(env, cls, "link", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_READDIR] =  \
+            JENV->GetFieldID(env, cls, "readdir", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_READDIRPLUS] =  \
+            JENV->GetFieldID(env, cls, "readdirplus", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_FSSTAT] =  \
+            JENV->GetFieldID(env, cls, "fsstat", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_FSINFO] =  \
+            JENV->GetFieldID(env, cls, "fsinfo", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_PATHCONF] =  \
+            JENV->GetFieldID(env, cls, "pathconf", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_COMMIT] =  \
+            JENV->GetFieldID(env, cls, "commit", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_NFSSERVERV3(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_NULL], s.null); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_GETATTR], s.getattr); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_SETATTR], s.setattr); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_LOOKUP], s.lookup); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_ACCESS], s.access); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_READLINK], s.readlink); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_READ], s.read); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_WRITE], s.write); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_CREATE], s.create); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_MKDIR], s.mkdir); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_SYMLINK], s.symlink); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_MKNOD], s.mknod); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_REMOVE], s.remove); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_RMDIR], s.rmdir); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_RENAME], s.rename); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_LINK], s.link); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_READDIR], s.readdir); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_READDIRPLUS], s.readdirplus); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_FSSTAT], s.fsstat); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_FSINFO], s.fsinfo); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_PATHCONF], s.pathconf); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_COMMIT], s.commit);
+
+#define JAVA_SIGAR_GET_FIELDS_NFSSERVERV3(obj, s) \
+    s.null = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_NULL]); \
+    s.getattr = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_GETATTR]); \
+    s.setattr = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_SETATTR]); \
+    s.lookup = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_LOOKUP]); \
+    s.access = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_ACCESS]); \
+    s.readlink = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_READLINK]); \
+    s.read = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_READ]); \
+    s.write = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_WRITE]); \
+    s.create = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_CREATE]); \
+    s.mkdir = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_MKDIR]); \
+    s.symlink = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_SYMLINK]); \
+    s.mknod = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_MKNOD]); \
+    s.remove = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_REMOVE]); \
+    s.rmdir = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_RMDIR]); \
+    s.rename = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_RENAME]); \
+    s.link = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_LINK]); \
+    s.readdir = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_READDIR]); \
+    s.readdirplus = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_READDIRPLUS]); \
+    s.fsstat = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_FSSTAT]); \
+    s.fsinfo = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_FSINFO]); \
+    s.pathconf = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_PATHCONF]); \
+    s.commit = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NFSSERVERV3]->ids[JSIGAR_FIELDS_NFSSERVERV3_COMMIT]);
+
+#define JAVA_SIGAR_INIT_FIELDS_TCP(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_TCP]) { \
+        jsigar->fields[JSIGAR_FIELDS_TCP] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_TCP])); \
+        jsigar->fields[JSIGAR_FIELDS_TCP]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_TCP]->ids =  \
+            malloc(JSIGAR_FIELDS_TCP_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_TCP]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_ACTIVE_OPENS] =  \
+            JENV->GetFieldID(env, cls, "activeOpens", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_PASSIVE_OPENS] =  \
+            JENV->GetFieldID(env, cls, "passiveOpens", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_ATTEMPT_FAILS] =  \
+            JENV->GetFieldID(env, cls, "attemptFails", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_ESTAB_RESETS] =  \
+            JENV->GetFieldID(env, cls, "estabResets", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_CURR_ESTAB] =  \
+            JENV->GetFieldID(env, cls, "currEstab", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_IN_SEGS] =  \
+            JENV->GetFieldID(env, cls, "inSegs", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_OUT_SEGS] =  \
+            JENV->GetFieldID(env, cls, "outSegs", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_RETRANS_SEGS] =  \
+            JENV->GetFieldID(env, cls, "retransSegs", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_IN_ERRS] =  \
+            JENV->GetFieldID(env, cls, "inErrs", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_OUT_RSTS] =  \
+            JENV->GetFieldID(env, cls, "outRsts", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_TCP(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_ACTIVE_OPENS], s.active_opens); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_PASSIVE_OPENS], s.passive_opens); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_ATTEMPT_FAILS], s.attempt_fails); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_ESTAB_RESETS], s.estab_resets); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_CURR_ESTAB], s.curr_estab); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_IN_SEGS], s.in_segs); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_OUT_SEGS], s.out_segs); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_RETRANS_SEGS], s.retrans_segs); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_IN_ERRS], s.in_errs); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_OUT_RSTS], s.out_rsts);
+
+#define JAVA_SIGAR_GET_FIELDS_TCP(obj, s) \
+    s.active_opens = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_ACTIVE_OPENS]); \
+    s.passive_opens = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_PASSIVE_OPENS]); \
+    s.attempt_fails = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_ATTEMPT_FAILS]); \
+    s.estab_resets = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_ESTAB_RESETS]); \
+    s.curr_estab = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_CURR_ESTAB]); \
+    s.in_segs = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_IN_SEGS]); \
+    s.out_segs = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_OUT_SEGS]); \
+    s.retrans_segs = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_RETRANS_SEGS]); \
+    s.in_errs = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_IN_ERRS]); \
+    s.out_rsts = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_TCP]->ids[JSIGAR_FIELDS_TCP_OUT_RSTS]);
+
+#define JAVA_SIGAR_INIT_FIELDS_CPUPERC(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_CPUPERC]) { \
+        jsigar->fields[JSIGAR_FIELDS_CPUPERC] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_CPUPERC])); \
+        jsigar->fields[JSIGAR_FIELDS_CPUPERC]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids =  \
+            malloc(JSIGAR_FIELDS_CPUPERC_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_USER] =  \
+            JENV->GetFieldID(env, cls, "user", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_SYS] =  \
+            JENV->GetFieldID(env, cls, "sys", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_NICE] =  \
+            JENV->GetFieldID(env, cls, "nice", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_IDLE] =  \
+            JENV->GetFieldID(env, cls, "idle", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_WAIT] =  \
+            JENV->GetFieldID(env, cls, "wait", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_IRQ] =  \
+            JENV->GetFieldID(env, cls, "irq", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_SOFT_IRQ] =  \
+            JENV->GetFieldID(env, cls, "softIrq", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_STOLEN] =  \
+            JENV->GetFieldID(env, cls, "stolen", "D"); \
+        jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_COMBINED] =  \
+            JENV->GetFieldID(env, cls, "combined", "D"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_CPUPERC(cls, obj, s) \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_USER], s.user); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_SYS], s.sys); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_NICE], s.nice); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_IDLE], s.idle); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_WAIT], s.wait); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_IRQ], s.irq); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_SOFT_IRQ], s.soft_irq); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_STOLEN], s.stolen); \
+    JENV->SetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_COMBINED], s.combined);
+
+#define JAVA_SIGAR_GET_FIELDS_CPUPERC(obj, s) \
+    s.user = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_USER]); \
+    s.sys = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_SYS]); \
+    s.nice = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_NICE]); \
+    s.idle = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_IDLE]); \
+    s.wait = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_WAIT]); \
+    s.irq = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_IRQ]); \
+    s.soft_irq = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_SOFT_IRQ]); \
+    s.stolen = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_STOLEN]); \
+    s.combined = JENV->GetDoubleField(env, obj, jsigar->fields[JSIGAR_FIELDS_CPUPERC]->ids[JSIGAR_FIELDS_CPUPERC_COMBINED]);
+
+#define JAVA_SIGAR_INIT_FIELDS_NETSTAT(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_NETSTAT]) { \
+        jsigar->fields[JSIGAR_FIELDS_NETSTAT] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_NETSTAT])); \
+        jsigar->fields[JSIGAR_FIELDS_NETSTAT]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids =  \
+            malloc(JSIGAR_FIELDS_NETSTAT_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids[JSIGAR_FIELDS_NETSTAT_TCP_INBOUND_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "tcpInboundTotal", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids[JSIGAR_FIELDS_NETSTAT_TCP_OUTBOUND_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "tcpOutboundTotal", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids[JSIGAR_FIELDS_NETSTAT_ALL_INBOUND_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "allInboundTotal", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids[JSIGAR_FIELDS_NETSTAT_ALL_OUTBOUND_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "allOutboundTotal", "I"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_NETSTAT(cls, obj, s) \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids[JSIGAR_FIELDS_NETSTAT_TCP_INBOUND_TOTAL], s.tcp_inbound_total); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids[JSIGAR_FIELDS_NETSTAT_TCP_OUTBOUND_TOTAL], s.tcp_outbound_total); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids[JSIGAR_FIELDS_NETSTAT_ALL_INBOUND_TOTAL], s.all_inbound_total); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids[JSIGAR_FIELDS_NETSTAT_ALL_OUTBOUND_TOTAL], s.all_outbound_total);
+
+#define JAVA_SIGAR_GET_FIELDS_NETSTAT(obj, s) \
+    s.tcp_inbound_total = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids[JSIGAR_FIELDS_NETSTAT_TCP_INBOUND_TOTAL]); \
+    s.tcp_outbound_total = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids[JSIGAR_FIELDS_NETSTAT_TCP_OUTBOUND_TOTAL]); \
+    s.all_inbound_total = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids[JSIGAR_FIELDS_NETSTAT_ALL_INBOUND_TOTAL]); \
+    s.all_outbound_total = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETSTAT]->ids[JSIGAR_FIELDS_NETSTAT_ALL_OUTBOUND_TOTAL]);
+
+#define JAVA_SIGAR_INIT_FIELDS_NETINTERFACECONFIG(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]) { \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG])); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids =  \
+            malloc(JSIGAR_FIELDS_NETINTERFACECONFIG_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_NAME] =  \
+            JENV->GetFieldID(env, cls, "name", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_HWADDR] =  \
+            JENV->GetFieldID(env, cls, "hwaddr", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_TYPE] =  \
+            JENV->GetFieldID(env, cls, "type", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_DESCRIPTION] =  \
+            JENV->GetFieldID(env, cls, "description", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_ADDRESS] =  \
+            JENV->GetFieldID(env, cls, "address", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_ADDRESS6] =  \
+            JENV->GetFieldID(env, cls, "address6", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_PREFIX6_LENGTH] =  \
+            JENV->GetFieldID(env, cls, "prefix6Length", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_SCOPE6] =  \
+            JENV->GetFieldID(env, cls, "scope6", "I"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_DESTINATION] =  \
+            JENV->GetFieldID(env, cls, "destination", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_BROADCAST] =  \
+            JENV->GetFieldID(env, cls, "broadcast", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_NETMASK] =  \
+            JENV->GetFieldID(env, cls, "netmask", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_FLAGS] =  \
+            JENV->GetFieldID(env, cls, "flags", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_MTU] =  \
+            JENV->GetFieldID(env, cls, "mtu", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_METRIC] =  \
+            JENV->GetFieldID(env, cls, "metric", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_TX_QUEUE_LEN] =  \
+            JENV->GetFieldID(env, cls, "txQueueLen", "I"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_NETINTERFACECONFIG(cls, obj, s) \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_NAME], s.name); \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_HWADDR], s.hwaddr); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_TYPE], s.type); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_DESCRIPTION], s.description); \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_ADDRESS], s.address); \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_ADDRESS6], s.address6); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_PREFIX6_LENGTH], s.prefix6_length); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_SCOPE6], s.scope6); \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_DESTINATION], s.destination); \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_BROADCAST], s.broadcast); \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_NETMASK], s.netmask); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_FLAGS], s.flags); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_MTU], s.mtu); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_METRIC], s.metric); \
+    JENV->SetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_TX_QUEUE_LEN], s.tx_queue_len);
+
+#define JAVA_SIGAR_GET_FIELDS_NETINTERFACECONFIG(obj, s) \
+    s.name = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_NAME]); \
+    s.hwaddr = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_HWADDR]); \
+    s.type = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_TYPE]); \
+    s.description = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_DESCRIPTION]); \
+    s.address = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_ADDRESS]); \
+    s.address6 = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_ADDRESS6]); \
+    s.prefix6_length = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_PREFIX6_LENGTH]); \
+    s.scope6 = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_SCOPE6]); \
+    s.destination = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_DESTINATION]); \
+    s.broadcast = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_BROADCAST]); \
+    s.netmask = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_NETMASK]); \
+    s.flags = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_FLAGS]); \
+    s.mtu = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_MTU]); \
+    s.metric = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_METRIC]); \
+    s.tx_queue_len = JENV->GetIntField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETINTERFACECONFIG]->ids[JSIGAR_FIELDS_NETINTERFACECONFIG_TX_QUEUE_LEN]);
+
+#define JAVA_SIGAR_INIT_FIELDS_SWAP(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_SWAP]) { \
+        jsigar->fields[JSIGAR_FIELDS_SWAP] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_SWAP])); \
+        jsigar->fields[JSIGAR_FIELDS_SWAP]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_SWAP]->ids =  \
+            malloc(JSIGAR_FIELDS_SWAP_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_SWAP]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "total", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_USED] =  \
+            JENV->GetFieldID(env, cls, "used", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_FREE] =  \
+            JENV->GetFieldID(env, cls, "free", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_PAGE_IN] =  \
+            JENV->GetFieldID(env, cls, "pageIn", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_PAGE_OUT] =  \
+            JENV->GetFieldID(env, cls, "pageOut", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_SWAP(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_TOTAL], s.total); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_USED], s.used); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_FREE], s.free); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_PAGE_IN], s.page_in); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_PAGE_OUT], s.page_out);
+
+#define JAVA_SIGAR_GET_FIELDS_SWAP(obj, s) \
+    s.total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_TOTAL]); \
+    s.used = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_USED]); \
+    s.free = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_FREE]); \
+    s.page_in = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_PAGE_IN]); \
+    s.page_out = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_SWAP]->ids[JSIGAR_FIELDS_SWAP_PAGE_OUT]);
+
+#define JAVA_SIGAR_INIT_FIELDS_PROCCUMULATIVEDISKIO(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]) { \
+        jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO])); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]->ids =  \
+            malloc(JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]->ids[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_BYTES_READ] =  \
+            JENV->GetFieldID(env, cls, "bytesRead", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]->ids[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_BYTES_WRITTEN] =  \
+            JENV->GetFieldID(env, cls, "bytesWritten", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]->ids[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_BYTES_TOTAL] =  \
+            JENV->GetFieldID(env, cls, "bytesTotal", "J"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_PROCCUMULATIVEDISKIO(cls, obj, s) \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]->ids[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_BYTES_READ], s.bytes_read); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]->ids[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_BYTES_WRITTEN], s.bytes_written); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]->ids[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_BYTES_TOTAL], s.bytes_total);
+
+#define JAVA_SIGAR_GET_FIELDS_PROCCUMULATIVEDISKIO(obj, s) \
+    s.bytes_read = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]->ids[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_BYTES_READ]); \
+    s.bytes_written = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]->ids[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_BYTES_WRITTEN]); \
+    s.bytes_total = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO]->ids[JSIGAR_FIELDS_PROCCUMULATIVEDISKIO_BYTES_TOTAL]);
+
+#define JAVA_SIGAR_INIT_FIELDS_NETROUTE(cls) \
+    if (!jsigar->fields[JSIGAR_FIELDS_NETROUTE]) { \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE] =  \
+            malloc(sizeof(*jsigar->fields[JSIGAR_FIELDS_NETROUTE])); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->classref =  \
+            (jclass)JENV->NewGlobalRef(env, cls); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids =  \
+            malloc(JSIGAR_FIELDS_NETROUTE_MAX * \
+                   sizeof(*jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids)); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_DESTINATION] =  \
+            JENV->GetFieldID(env, cls, "destination", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_GATEWAY] =  \
+            JENV->GetFieldID(env, cls, "gateway", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_FLAGS] =  \
+            JENV->GetFieldID(env, cls, "flags", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_REFCNT] =  \
+            JENV->GetFieldID(env, cls, "refcnt", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_USE] =  \
+            JENV->GetFieldID(env, cls, "use", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_METRIC] =  \
+            JENV->GetFieldID(env, cls, "metric", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_MASK] =  \
+            JENV->GetFieldID(env, cls, "mask", "Ljava/lang/String;"); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_MTU] =  \
+            JENV->GetFieldID(env, cls, "mtu", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_WINDOW] =  \
+            JENV->GetFieldID(env, cls, "window", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_IRTT] =  \
+            JENV->GetFieldID(env, cls, "irtt", "J"); \
+        jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_IFNAME] =  \
+            JENV->GetFieldID(env, cls, "ifname", "Ljava/lang/String;"); \
+    }
+
+#define JAVA_SIGAR_SET_FIELDS_NETROUTE(cls, obj, s) \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_DESTINATION], s.destination); \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_GATEWAY], s.gateway); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_FLAGS], s.flags); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_REFCNT], s.refcnt); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_USE], s.use); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_METRIC], s.metric); \
+    JENV->SetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_MASK], s.mask); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_MTU], s.mtu); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_WINDOW], s.window); \
+    JENV->SetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_IRTT], s.irtt); \
+    JENV->SetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_IFNAME], s.ifname);
+
+#define JAVA_SIGAR_GET_FIELDS_NETROUTE(obj, s) \
+    s.destination = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_DESTINATION]); \
+    s.gateway = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_GATEWAY]); \
+    s.flags = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_FLAGS]); \
+    s.refcnt = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_REFCNT]); \
+    s.use = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_USE]); \
+    s.metric = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_METRIC]); \
+    s.mask = JENV->GetNetAddressField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_MASK]); \
+    s.mtu = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_MTU]); \
+    s.window = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_WINDOW]); \
+    s.irtt = JENV->GetLongField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_IRTT]); \
+    s.ifname = JENV->GetStringField(env, obj, jsigar->fields[JSIGAR_FIELDS_NETROUTE]->ids[JSIGAR_FIELDS_NETROUTE_IFNAME]);
+
+
+
+
+#ifdef SIGAR_64BIT
+#define SIGAR_POINTER_LONG
+#endif
+
+typedef struct {
+    jclass classref;
+    jfieldID *ids;
+} jsigar_field_cache_t;
+
+typedef struct {
+    JNIEnv *env;
+    jobject logger;
+    sigar_t *sigar;
+    jsigar_field_cache_t *fields[JSIGAR_FIELDS_MAX];
+    int open_status;
+    jthrowable not_impl;
+} jni_sigar_t;
+
+#define dSIGAR_GET \
+    jni_sigar_t *jsigar = sigar_get_jpointer(env, sigar_obj); \
+    sigar_t *sigar
+
+#define dSIGAR_VOID \
+    dSIGAR_GET; \
+    if (!jsigar) return; \
+    sigar = jsigar->sigar; \
+    jsigar->env = env
+
+#define dSIGAR(val) \
+    dSIGAR_GET; \
+    if (!jsigar) return val; \
+    sigar = jsigar->sigar; \
+    jsigar->env = env
+
+JNIEXPORT jint JNICALL
+JNI_OnLoad(JavaVM *vm, void *reserved)
+{
+#ifdef DMALLOC
+    char *options =
+        getenv("DMALLOC_OPTIONS");
+    if (!options) {
+        options = 
+            "debug=0x4f47d03,"
+            "lockon=20,"
+            "log=dmalloc-sigar.log";
+    }
+    dmalloc_debug_setup(options);
+#endif
+    return JNI_VERSION_1_2;
+}
+
+JNIEXPORT void JNICALL
+JNI_OnUnload(JavaVM *vm, void *reserved)
+{
+#ifdef DMALLOC
+    dmalloc_shutdown();
+#endif
+}
+
+static void sigar_throw_exception(JNIEnv *env, char *msg)
+{
+    jclass errorClass = SIGAR_FIND_CLASS("SigarException");
+
+    JENV->ThrowNew(env, errorClass, msg);
+}
+
+#define SIGAR_NOTIMPL_EX "SigarNotImplementedException"
+
+static void sigar_throw_notimpl(JNIEnv *env, char *msg)
+{
+    jclass errorClass = SIGAR_FIND_CLASS(SIGAR_NOTIMPL_EX);
+
+    JENV->ThrowNew(env, errorClass, msg);
+}
+
+static void sigar_throw_ptql_malformed(JNIEnv *env, char *msg)
+{
+    jclass errorClass = SIGAR_FIND_CLASS("ptql/MalformedQueryException");
+
+    JENV->ThrowNew(env, errorClass, msg);
+}
+
+static void sigar_throw_error(JNIEnv *env, jni_sigar_t *jsigar, int err)
+{
+    jclass errorClass;
+    int err_type = err;
+
+    /* 
+     * support:
+     * #define SIGAR_EPERM_KMEM (SIGAR_OS_START_ERROR+EACCES)
+     * this allows for os impl specific message
+     * (e.g. Failed to open /dev/kmem) but still map to the proper
+     * Sigar*Exception
+     */
+    if (err_type > SIGAR_OS_START_ERROR) {
+        err_type -= SIGAR_OS_START_ERROR;
+    }
+
+    switch (err_type) {
+      case SIGAR_ENOENT:
+        errorClass = SIGAR_FIND_CLASS("SigarFileNotFoundException");
+        break;
+
+      case SIGAR_EACCES:
+        errorClass = SIGAR_FIND_CLASS("SigarPermissionDeniedException");
+        break;
+
+      case SIGAR_ENOTIMPL:
+        if (jsigar->not_impl == NULL) {
+            jfieldID id;
+            jthrowable not_impl;
+
+            errorClass = SIGAR_FIND_CLASS(SIGAR_NOTIMPL_EX);
+
+            id = JENV->GetStaticFieldID(env, errorClass,
+                                        "INSTANCE",
+                                        SIGAR_CLASS_SIG(SIGAR_NOTIMPL_EX));
+
+            not_impl = JENV->GetStaticObjectField(env, errorClass, id);
+
+            jsigar->not_impl = JENV->NewGlobalRef(env, not_impl);
+        }
+
+        JENV->Throw(env, jsigar->not_impl);
+        return;
+      default:
+        errorClass = SIGAR_FIND_CLASS("SigarException");
+        break;
+    }
+
+    JENV->ThrowNew(env, errorClass,
+                   sigar_strerror(jsigar->sigar, err));
+}
+
+static void *sigar_get_pointer(JNIEnv *env, jobject obj) {
+    jfieldID pointer_field;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+#ifdef SIGAR_POINTER_LONG
+    pointer_field = JENV->GetFieldID(env, cls, "longSigarWrapper", "J");
+    return (void *)JENV->GetLongField(env, obj, pointer_field);
+#else
+    pointer_field = JENV->GetFieldID(env, cls, "sigarWrapper", "I");
+    return (void *)JENV->GetIntField(env, obj, pointer_field);
+#endif
+}
+
+static jni_sigar_t *sigar_get_jpointer(JNIEnv *env, jobject obj) {
+    jni_sigar_t *jsigar =
+        (jni_sigar_t *)sigar_get_pointer(env, obj);
+
+    if (!jsigar) {
+        sigar_throw_exception(env, "sigar has been closed");
+        return NULL;
+    }
+
+    if (jsigar->open_status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar,
+                          jsigar->open_status);
+        return NULL;
+    }
+
+    return jsigar;
+}
+
+static void sigar_set_pointer(JNIEnv *env, jobject obj, const void *ptr) {
+    jfieldID pointer_field;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+#ifdef SIGAR_POINTER_LONG
+    pointer_field = JENV->GetFieldID(env, cls, "longSigarWrapper", "J");
+    JENV->SetLongField(env, obj, pointer_field, (jlong)ptr);
+#else
+    pointer_field = JENV->GetFieldID(env, cls, "sigarWrapper", "I");
+    JENV->SetIntField(env, obj, pointer_field, (int)ptr);
+#endif
+}
+
+/* for jni/win32 */
+sigar_t *jsigar_get_sigar(JNIEnv *env, jobject sigar_obj)
+{
+    dSIGAR(NULL);
+    return jsigar->sigar;
+}
+
+int jsigar_list_init(JNIEnv *env, jsigar_list_t *obj)
+{
+    jclass listclass =
+        JENV->FindClass(env, "java/util/ArrayList");
+    jmethodID listid =
+        JENV->GetMethodID(env, listclass, "<init>", "()V");
+    jmethodID addid =
+        JENV->GetMethodID(env, listclass, "add",
+                          "(Ljava/lang/Object;)"
+                          "Z");
+
+    obj->env = env;
+    obj->obj = JENV->NewObject(env, listclass, listid);
+    obj->id = addid;
+
+    return JENV->ExceptionCheck(env) ? !SIGAR_OK : SIGAR_OK;
+}
+
+int jsigar_list_add(void *data, char *value, int len)
+{
+    jsigar_list_t *obj = (jsigar_list_t *)data;
+    JNIEnv *env = obj->env;
+
+    JENV->CallBooleanMethod(env, obj->obj, obj->id,  
+                            JENV->NewStringUTF(env, value));
+
+    return JENV->ExceptionCheck(env) ? !SIGAR_OK : SIGAR_OK;
+}
+
+JNIEXPORT jstring SIGAR_JNIx(formatSize)
+(JNIEnv *env, jclass cls, jlong size)
+{
+    char buf[56];
+    sigar_format_size(size, buf);
+    return JENV->NewStringUTF(env, buf);
+}
+
+JNIEXPORT jstring SIGAR_JNIx(getNativeVersion)
+(JNIEnv *env, jclass cls)
+{
+    sigar_version_t *version = sigar_version_get();
+    return JENV->NewStringUTF(env, version->version);
+}
+
+JNIEXPORT jstring SIGAR_JNIx(getNativeBuildDate)
+(JNIEnv *env, jclass cls)
+{
+    sigar_version_t *version = sigar_version_get();
+    return JENV->NewStringUTF(env, version->build_date);
+}
+
+JNIEXPORT jstring SIGAR_JNIx(getNativeScmRevision)
+(JNIEnv *env, jclass cls)
+{
+    sigar_version_t *version = sigar_version_get();
+    return JENV->NewStringUTF(env, version->scm_revision);
+}
+
+JNIEXPORT void SIGAR_JNIx(open)
+(JNIEnv *env, jobject obj)
+{
+    jni_sigar_t *jsigar = malloc(sizeof(*jsigar));
+
+    memset(jsigar, '\0', sizeof(*jsigar));
+
+    sigar_set_pointer(env, obj, jsigar);
+        
+    /* this method is called by the constructor.
+     * if != SIGAR_OK save status and throw exception
+     * when methods are invoked (see sigar_get_pointer).
+     */
+    if ((jsigar->open_status = sigar_open(&jsigar->sigar)) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, jsigar->open_status);
+        return;
+    }
+}
+
+JNIEXPORT jint SIGAR_JNIx(nativeClose)
+(JNIEnv *env, jobject sigar_obj)
+{
+    jint status;
+    int i;
+    dSIGAR(0);
+
+    /* only place it is possible this would be something other than
+     * SIGAR_OK is on win32 if RegCloseKey fails, which i don't think
+     * is possible either.
+     */
+    status = sigar_close(sigar);
+
+    if (jsigar->logger != NULL) {
+        JENV->DeleteGlobalRef(env, jsigar->logger);
+    }
+
+    if (jsigar->not_impl != NULL) {
+        JENV->DeleteGlobalRef(env, jsigar->not_impl);
+    }
+
+    for (i=0; i<JSIGAR_FIELDS_MAX; i++) {
+        if (jsigar->fields[i]) {
+            JENV->DeleteGlobalRef(env,
+                                  jsigar->fields[i]->classref);
+            free(jsigar->fields[i]->ids);
+            free(jsigar->fields[i]);
+        }
+    }
+
+    free(jsigar);
+    sigar_set_pointer(env, sigar_obj, NULL);
+
+    return status;
+}
+
+JNIEXPORT jlong SIGAR_JNIx(getPid)
+(JNIEnv *env, jobject sigar_obj)
+{
+    dSIGAR(0);
+
+    return sigar_pid_get(sigar);
+}
+
+JNIEXPORT void SIGAR_JNIx(kill)
+(JNIEnv *env, jobject sigar_obj, jlong pid, jint signum)
+{
+    int status;
+    dSIGAR_VOID;
+
+    if ((status = sigar_proc_kill(pid, signum)) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+    }
+}
+
+JNIEXPORT jint SIGAR_JNIx(getSigNum)
+(JNIEnv *env, jclass cls_obj, jstring jname)
+{
+    jboolean is_copy;
+    const char *name;
+    int num;
+
+    name = JENV->GetStringUTFChars(env, jname, &is_copy);
+
+    num = sigar_signum_get((char *)name);
+
+    if (is_copy) {
+        JENV->ReleaseStringUTFChars(env, jname, name);
+    }
+
+    return num;
+}
+
+#define SetStringField(env, obj, fieldID, val) \
+    SetObjectField(env, obj, fieldID, JENV->NewStringUTF(env, val))
+
+static jstring jnet_address_to_string(JNIEnv *env, sigar_t *sigar, sigar_net_address_t *val) {
+    char addr_str[SIGAR_INET6_ADDRSTRLEN];
+    sigar_net_address_to_string(sigar, val, addr_str);
+    return JENV->NewStringUTF(env, addr_str);
+}
+
+#define SetNetAddressField(env, obj, fieldID, val) \
+    SetObjectField(env, obj, fieldID, jnet_address_to_string(env, sigar, &val))
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_Uptime_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_Uptime_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_uptime_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_uptime_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_UPTIME(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_UPTIME(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcMem_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcMem_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid)
+{
+    sigar_proc_mem_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_proc_mem_get(sigar, pid, &s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_PROCMEM(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_PROCMEM(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcCpu_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcCpu_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid)
+{
+    sigar_proc_cpu_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_proc_cpu_get(sigar, pid, &s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_PROCCPU(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_PROCCPU(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcCred_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcCred_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid)
+{
+    sigar_proc_cred_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_proc_cred_get(sigar, pid, &s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_PROCCRED(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_PROCCRED(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ThreadCpu_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ThreadCpu_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid)
+{
+    sigar_thread_cpu_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_thread_cpu_get(sigar, pid, &s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_THREADCPU(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_THREADCPU(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_FileAttrs_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_FileAttrs_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname)
+{
+    sigar_file_attrs_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+    const char *name;
+    dSIGAR_VOID;
+
+    name = jname ? JENV->GetStringUTFChars(env, jname, 0) : NULL;
+
+    status = sigar_file_attrs_get(sigar, name, &s);
+
+    if (jname) JENV->ReleaseStringUTFChars(env, jname, name);
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_FILEATTRS(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_FILEATTRS(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NfsServerV2_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NfsServerV2_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_nfs_server_v2_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_nfs_server_v2_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_NFSSERVERV2(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_NFSSERVERV2(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcDiskIO_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcDiskIO_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid)
+{
+    sigar_proc_disk_io_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_proc_disk_io_get(sigar, pid, &s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_PROCDISKIO(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_PROCDISKIO(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcState_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcState_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid)
+{
+    sigar_proc_state_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_proc_state_get(sigar, pid, &s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_PROCSTATE(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_PROCSTATE(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_Cpu_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_Cpu_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_cpu_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_cpu_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_CPU(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_CPU(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NfsClientV2_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NfsClientV2_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_nfs_client_v2_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_nfs_client_v2_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_NFSCLIENTV2(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_NFSCLIENTV2(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcStat_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcStat_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_proc_stat_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_proc_stat_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_PROCSTAT(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_PROCSTAT(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcTime_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcTime_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid)
+{
+    sigar_proc_time_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_proc_time_get(sigar, pid, &s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_PROCTIME(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_PROCTIME(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcExe_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcExe_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid)
+{
+    sigar_proc_exe_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_proc_exe_get(sigar, pid, &s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_PROCEXE(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_PROCEXE(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_DirUsage_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_DirUsage_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname)
+{
+    sigar_dir_usage_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+    const char *name;
+    dSIGAR_VOID;
+
+    name = jname ? JENV->GetStringUTFChars(env, jname, 0) : NULL;
+
+    status = sigar_dir_usage_get(sigar, name, &s);
+
+    if (jname) JENV->ReleaseStringUTFChars(env, jname, name);
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_DIRUSAGE(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_DIRUSAGE(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_DiskUsage_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_DiskUsage_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname)
+{
+    sigar_disk_usage_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+    const char *name;
+    dSIGAR_VOID;
+
+    name = jname ? JENV->GetStringUTFChars(env, jname, 0) : NULL;
+
+    status = sigar_disk_usage_get(sigar, name, &s);
+
+    if (jname) JENV->ReleaseStringUTFChars(env, jname, name);
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_DISKUSAGE(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_DISKUSAGE(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_FileSystemUsage_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_FileSystemUsage_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname)
+{
+    sigar_file_system_usage_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+    const char *name;
+    dSIGAR_VOID;
+
+    name = jname ? JENV->GetStringUTFChars(env, jname, 0) : NULL;
+
+    status = sigar_file_system_usage_get(sigar, name, &s);
+
+    if (jname) JENV->ReleaseStringUTFChars(env, jname, name);
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_FILESYSTEMUSAGE(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_FILESYSTEMUSAGE(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcCredName_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcCredName_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid)
+{
+    sigar_proc_cred_name_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_proc_cred_name_get(sigar, pid, &s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_PROCCREDNAME(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_PROCCREDNAME(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_Mem_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_Mem_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_mem_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_mem_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_MEM(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_MEM(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_SysInfo_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_SysInfo_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_sys_info_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_sys_info_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_SYSINFO(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_SYSINFO(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NetInfo_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NetInfo_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_net_info_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_net_info_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_NETINFO(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_NETINFO(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NfsClientV3_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NfsClientV3_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_nfs_client_v3_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_nfs_client_v3_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_NFSCLIENTV3(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_NFSCLIENTV3(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ResourceLimit_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ResourceLimit_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_resource_limit_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_resource_limit_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_RESOURCELIMIT(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_RESOURCELIMIT(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_DirStat_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_DirStat_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname)
+{
+    sigar_dir_stat_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+    const char *name;
+    dSIGAR_VOID;
+
+    name = jname ? JENV->GetStringUTFChars(env, jname, 0) : NULL;
+
+    status = sigar_dir_stat_get(sigar, name, &s);
+
+    if (jname) JENV->ReleaseStringUTFChars(env, jname, name);
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_DIRSTAT(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_DIRSTAT(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcFd_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcFd_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid)
+{
+    sigar_proc_fd_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_proc_fd_get(sigar, pid, &s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_PROCFD(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_PROCFD(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NetInterfaceStat_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NetInterfaceStat_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname)
+{
+    sigar_net_interface_stat_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+    const char *name;
+    dSIGAR_VOID;
+
+    name = jname ? JENV->GetStringUTFChars(env, jname, 0) : NULL;
+
+    status = sigar_net_interface_stat_get(sigar, name, &s);
+
+    if (jname) JENV->ReleaseStringUTFChars(env, jname, name);
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_NETINTERFACESTAT(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_NETINTERFACESTAT(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_DumpPidCache_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_DumpPidCache_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_dump_pid_cache_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_dump_pid_cache_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_DUMPPIDCACHE(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_DUMPPIDCACHE(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NfsServerV3_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NfsServerV3_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_nfs_server_v3_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_nfs_server_v3_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_NFSSERVERV3(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_NFSSERVERV3(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_Tcp_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_Tcp_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_tcp_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_tcp_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_TCP(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_TCP(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NetInterfaceConfig_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_NetInterfaceConfig_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring jname)
+{
+    sigar_net_interface_config_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+    const char *name;
+    dSIGAR_VOID;
+
+    name = jname ? JENV->GetStringUTFChars(env, jname, 0) : NULL;
+
+    status = sigar_net_interface_config_get(sigar, name, &s);
+
+    if (jname) JENV->ReleaseStringUTFChars(env, jname, name);
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_NETINTERFACECONFIG(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_NETINTERFACECONFIG(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_Swap_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_Swap_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_swap_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_swap_get(sigar,&s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_SWAP(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_SWAP(cls, obj, s);
+}
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcCumulativeDiskIO_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid);
+
+JNIEXPORT void JNICALL Java_org_hyperic_sigar_ProcCumulativeDiskIO_gather
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid)
+{
+    sigar_proc_cumulative_disk_io_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+
+    dSIGAR_VOID;
+
+
+
+    status = sigar_proc_cumulative_disk_io_get(sigar, pid, &s);
+
+
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+
+
+    JAVA_SIGAR_INIT_FIELDS_PROCCUMULATIVEDISKIO(cls);
+
+
+
+    JAVA_SIGAR_SET_FIELDS_PROCCUMULATIVEDISKIO(cls, obj, s);
+}
+
+
+enum {
+    FS_FIELD_DIRNAME,
+    FS_FIELD_DEVNAME,
+    FS_FIELD_SYS_TYPENAME,
+    FS_FIELD_OPTIONS,
+    FS_FIELD_TYPE,
+    FS_FIELD_TYPENAME,
+    FS_FIELD_MAX
+};
+
+#define STRING_SIG "Ljava/lang/String;"
+
+JNIEXPORT jobjectArray SIGAR_JNIx(getFileSystemListNative)
+(JNIEnv *env, jobject sigar_obj)
+{
+    int status;
+    unsigned int i;
+    sigar_file_system_list_t fslist;
+    jobjectArray fsarray;
+    jfieldID ids[FS_FIELD_MAX];
+    jclass nfs_cls=NULL, cls = SIGAR_FIND_CLASS("FileSystem");
+    dSIGAR(NULL);
+
+    if ((status = sigar_file_system_list_get(sigar, &fslist)) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    ids[FS_FIELD_DIRNAME] =
+        JENV->GetFieldID(env, cls, "dirName", STRING_SIG);
+
+    ids[FS_FIELD_DEVNAME] =
+        JENV->GetFieldID(env, cls, "devName", STRING_SIG);
+
+    ids[FS_FIELD_TYPENAME] =
+        JENV->GetFieldID(env, cls, "typeName", STRING_SIG);
+
+    ids[FS_FIELD_SYS_TYPENAME] =
+        JENV->GetFieldID(env, cls, "sysTypeName", STRING_SIG);
+
+    ids[FS_FIELD_OPTIONS] =
+        JENV->GetFieldID(env, cls, "options", STRING_SIG);
+
+    ids[FS_FIELD_TYPE] =
+        JENV->GetFieldID(env, cls, "type", "I");
+
+    fsarray = JENV->NewObjectArray(env, fslist.number, cls, 0);
+    SIGAR_CHEX;
+
+    for (i=0; i<fslist.number; i++) {
+        sigar_file_system_t *fs = &(fslist.data)[i];
+        jobject fsobj;
+        jclass obj_cls;
+
+#ifdef _WIN32
+        obj_cls = cls;
+#else
+        if ((fs->type == SIGAR_FSTYPE_NETWORK) &&
+            (strcmp(fs->sys_type_name, "nfs") == 0) &&
+            strstr(fs->dev_name, ":/"))
+        {
+            if (!nfs_cls) {
+                nfs_cls = SIGAR_FIND_CLASS("NfsFileSystem");
+            }
+            obj_cls = nfs_cls;
+        }
+        else {
+            obj_cls = cls;
+        }
+#endif
+
+        fsobj = JENV->AllocObject(env, obj_cls);
+        SIGAR_CHEX;
+
+        JENV->SetStringField(env, fsobj,
+                             ids[FS_FIELD_DIRNAME],
+                             fs->dir_name);
+
+        JENV->SetStringField(env, fsobj,
+                             ids[FS_FIELD_DEVNAME],
+                             fs->dev_name);
+
+        JENV->SetStringField(env, fsobj,
+                             ids[FS_FIELD_SYS_TYPENAME],
+                             fs->sys_type_name);
+
+        JENV->SetStringField(env, fsobj,
+                             ids[FS_FIELD_OPTIONS],
+                             fs->options);
+
+        JENV->SetStringField(env, fsobj,
+                             ids[FS_FIELD_TYPENAME],
+                             fs->type_name);
+
+        JENV->SetIntField(env, fsobj,
+                          ids[FS_FIELD_TYPE],
+                          fs->type);
+
+        JENV->SetObjectArrayElement(env, fsarray, i, fsobj);
+        SIGAR_CHEX;
+    }
+
+    sigar_file_system_list_destroy(sigar, &fslist);
+
+    return fsarray;
+}
+
+JNIEXPORT jint Java_org_hyperic_sigar_RPC_ping
+(JNIEnv *env, jclass cls_obj, jstring jhostname,
+ jint protocol, jlong program, jlong version)
+{
+#ifdef _WIN32
+    return JNI_FALSE; /*XXX*/
+#else
+    jboolean is_copy;
+    const char *hostname;
+    int status;
+
+    if (!jhostname) {
+        return 13; /* RPC_UNKNOWNHOST */
+    }
+
+    hostname = JENV->GetStringUTFChars(env, jhostname, &is_copy);
+
+    status =
+        sigar_rpc_ping((char *)hostname,
+                       protocol, program, version);
+
+    if (is_copy) {
+        JENV->ReleaseStringUTFChars(env, jhostname, hostname);
+    }
+
+    return status;
+#endif
+}
+
+JNIEXPORT jstring SIGAR_JNI(RPC_strerror)
+(JNIEnv *env, jclass cls_obj, jint err)
+{
+#ifdef _WIN32
+    return NULL;
+#else
+    return JENV->NewStringUTF(env, sigar_rpc_strerror(err));
+#endif
+}
+
+JNIEXPORT jobjectArray SIGAR_JNIx(getCpuInfoList)
+(JNIEnv *env, jobject sigar_obj)
+{
+    int status;
+    unsigned int i;
+    sigar_cpu_info_list_t cpu_infos;
+    jobjectArray cpuarray;
+    jclass cls = SIGAR_FIND_CLASS("CpuInfo");
+    dSIGAR(NULL);
+
+    if ((status = sigar_cpu_info_list_get(sigar, &cpu_infos)) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    JAVA_SIGAR_INIT_FIELDS_CPUINFO(cls);
+
+    cpuarray = JENV->NewObjectArray(env, cpu_infos.number, cls, 0);
+    SIGAR_CHEX;
+
+    for (i=0; i<cpu_infos.number; i++) {
+        jobject info_obj = JENV->AllocObject(env, cls);
+        SIGAR_CHEX;
+        JAVA_SIGAR_SET_FIELDS_CPUINFO(cls, info_obj,
+                                      cpu_infos.data[i]);
+        JENV->SetObjectArrayElement(env, cpuarray, i, info_obj);
+        SIGAR_CHEX;
+    }
+
+    sigar_cpu_info_list_destroy(sigar, &cpu_infos);
+
+    return cpuarray;
+}
+
+JNIEXPORT jobjectArray SIGAR_JNIx(getCpuListNative)
+(JNIEnv *env, jobject sigar_obj)
+{
+    int status;
+    unsigned int i;
+    sigar_cpu_list_t cpulist;
+    jobjectArray cpuarray;
+    jclass cls = SIGAR_FIND_CLASS("Cpu");
+    dSIGAR(NULL);
+
+    if ((status = sigar_cpu_list_get(sigar, &cpulist)) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    JAVA_SIGAR_INIT_FIELDS_CPU(cls);
+
+    cpuarray = JENV->NewObjectArray(env, cpulist.number, cls, 0);
+    SIGAR_CHEX;
+
+    for (i=0; i<cpulist.number; i++) {
+        jobject info_obj = JENV->AllocObject(env, cls);
+        SIGAR_CHEX;
+        JAVA_SIGAR_SET_FIELDS_CPU(cls, info_obj,
+                                  cpulist.data[i]);
+        JENV->SetObjectArrayElement(env, cpuarray, i, info_obj);
+        SIGAR_CHEX;
+    }
+
+    sigar_cpu_list_destroy(sigar, &cpulist);
+
+    return cpuarray;
+}
+
+JNIEXPORT void SIGAR_JNI(CpuPerc_gather)
+(JNIEnv *env, jobject jperc, jobject sigar_obj, jobject jprev, jobject jcurr)
+{
+    sigar_cpu_t prev, curr;
+    sigar_cpu_perc_t perc;
+    dSIGAR_VOID;
+
+    JAVA_SIGAR_GET_FIELDS_CPU(jprev, prev);
+    JAVA_SIGAR_GET_FIELDS_CPU(jcurr, curr);
+    sigar_cpu_perc_calculate(&prev, &curr, &perc);
+    JAVA_SIGAR_INIT_FIELDS_CPUPERC(JENV->GetObjectClass(env, jperc));
+    JAVA_SIGAR_SET_FIELDS_CPUPERC(NULL, jperc, perc);
+}
+
+JNIEXPORT jlongArray SIGAR_JNIx(getProcList)
+(JNIEnv *env, jobject sigar_obj)
+{
+    int status;
+    jlongArray procarray;
+    sigar_proc_list_t proclist;
+    jlong *pids = NULL;
+    dSIGAR(NULL);
+
+    if ((status = sigar_proc_list_get(sigar, &proclist)) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    procarray = JENV->NewLongArray(env, proclist.number);
+    SIGAR_CHEX;
+
+    if (sizeof(jlong) == sizeof(sigar_pid_t)) {
+        pids = (jlong *)proclist.data;
+    }
+    else {
+        unsigned int i;
+        pids = (jlong *)malloc(sizeof(jlong) * proclist.number);
+
+        for (i=0; i<proclist.number; i++) {
+            pids[i] = proclist.data[i];
+        }
+    }
+
+    JENV->SetLongArrayRegion(env, procarray, 0,
+                             proclist.number, pids);
+
+    if (pids != (jlong *)proclist.data) {
+        free(pids);
+    }
+
+    sigar_proc_list_destroy(sigar, &proclist);
+
+    return procarray;
+}
+
+JNIEXPORT jobjectArray SIGAR_JNIx(getProcArgs)
+(JNIEnv *env, jobject sigar_obj, jlong pid)
+{
+    int status;
+    unsigned int i;
+    sigar_proc_args_t procargs;
+    jobjectArray argsarray;
+    jclass stringclass = JENV->FindClass(env, "java/lang/String");
+    dSIGAR(NULL);
+
+    if ((status = sigar_proc_args_get(sigar, pid, &procargs)) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    argsarray = JENV->NewObjectArray(env, procargs.number, stringclass, 0);
+    SIGAR_CHEX;
+
+    for (i=0; i<procargs.number; i++) {
+        jstring s = JENV->NewStringUTF(env, procargs.data[i]);
+        JENV->SetObjectArrayElement(env, argsarray, i, s);
+        SIGAR_CHEX;
+    }
+
+    sigar_proc_args_destroy(sigar, &procargs);
+
+    return argsarray;
+}
+
+typedef struct {
+    JNIEnv *env;
+    jobject map;
+    jmethodID id;
+} jni_env_put_t;
+
+static int jni_env_getall(void *data,
+                          const char *key, int klen,
+                          char *val, int vlen)
+{
+    jni_env_put_t *put = (jni_env_put_t *)data;
+    JNIEnv *env = put->env;
+
+    JENV->CallObjectMethod(env, put->map, put->id,  
+                           JENV->NewStringUTF(env, key),
+                           JENV->NewStringUTF(env, val));
+
+    return JENV->ExceptionCheck(env) ? !SIGAR_OK : SIGAR_OK;
+}
+
+#define MAP_PUT_SIG \
+    "(Ljava/lang/Object;Ljava/lang/Object;)" \
+    "Ljava/lang/Object;"
+
+JNIEXPORT jobject SIGAR_JNI(ProcEnv_getAll)
+(JNIEnv *env, jobject cls, jobject sigar_obj, jlong pid)
+{
+    int status;
+    sigar_proc_env_t procenv;
+    jobject hashmap;
+    jni_env_put_t put;
+    jclass mapclass =
+        JENV->FindClass(env, "java/util/HashMap");
+    jmethodID mapid =
+        JENV->GetMethodID(env, mapclass, "<init>", "()V");
+    jmethodID putid =
+        JENV->GetMethodID(env, mapclass, "put", MAP_PUT_SIG);
+
+    dSIGAR(NULL);
+
+    hashmap = JENV->NewObject(env, mapclass, mapid);
+    SIGAR_CHEX;
+
+    put.env = env;
+    put.id = putid;
+    put.map = hashmap;
+
+    procenv.type = SIGAR_PROC_ENV_ALL;
+    procenv.env_getter = jni_env_getall;
+    procenv.data = &put;
+
+    if ((status = sigar_proc_env_get(sigar, pid, &procenv)) != SIGAR_OK) {
+        JENV->DeleteLocalRef(env, hashmap);
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    return hashmap;
+}
+
+typedef struct {
+    JNIEnv *env;
+    const char *key;
+    int klen;
+    jstring val;
+} jni_env_get_t;
+
+static int jni_env_getvalue(void *data,
+                            const char *key, int klen,
+                            char *val, int vlen)
+{
+    jni_env_get_t *get = (jni_env_get_t *)data;
+    JNIEnv *env = get->env;
+
+    if ((get->klen == klen) &&
+        (strcmp(get->key, key) == 0))
+    {
+        get->val = JENV->NewStringUTF(env, val);
+        return !SIGAR_OK; /* foundit; stop iterating */
+    }
+
+    return SIGAR_OK;
+}
+
+JNIEXPORT jstring SIGAR_JNI(ProcEnv_getValue)
+(JNIEnv *env, jobject cls, jobject sigar_obj, jlong pid, jstring key)
+{
+    int status;
+    sigar_proc_env_t procenv;
+    jni_env_get_t get;
+    dSIGAR(NULL);
+
+    get.env = env;
+    get.key = JENV->GetStringUTFChars(env, key, 0);
+    get.klen = JENV->GetStringUTFLength(env, key);
+    get.val = NULL;
+
+    procenv.type = SIGAR_PROC_ENV_KEY;
+    procenv.key  = get.key;
+    procenv.klen = get.klen;
+    procenv.env_getter = jni_env_getvalue;
+    procenv.data = &get;
+
+    if ((status = sigar_proc_env_get(sigar, pid, &procenv)) != SIGAR_OK) {
+        JENV->ReleaseStringUTFChars(env, key, get.key);
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    JENV->ReleaseStringUTFChars(env, key, get.key);
+
+    return get.val;
+}
+
+JNIEXPORT jobject SIGAR_JNIx(getProcModulesNative)
+(JNIEnv *env, jobject sigar_obj, jlong pid)
+{
+    int status;
+    sigar_proc_modules_t procmods;
+    jsigar_list_t obj;
+
+    dSIGAR(NULL);
+
+    if (jsigar_list_init(env, &obj) != SIGAR_OK) {
+        return NULL; /* Exception thrown */
+    }
+
+    procmods.module_getter = jsigar_list_add;
+    procmods.data = &obj;
+
+    if ((status = sigar_proc_modules_get(sigar, pid, &procmods)) != SIGAR_OK) {
+        JENV->DeleteLocalRef(env, obj.obj);
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    return obj.obj;
+}
+
+JNIEXPORT jdoubleArray SIGAR_JNIx(getLoadAverage)
+(JNIEnv *env, jobject sigar_obj)
+{
+    int status;
+    jlongArray avgarray;
+    sigar_loadavg_t loadavg;
+    dSIGAR(NULL);
+
+    if ((status = sigar_loadavg_get(sigar, &loadavg)) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    avgarray = JENV->NewDoubleArray(env, 3);
+    SIGAR_CHEX;
+
+    JENV->SetDoubleArrayRegion(env, avgarray, 0,
+                               3, loadavg.loadavg);
+
+    return avgarray;
+}
+
+JNIEXPORT jobjectArray SIGAR_JNIx(getNetRouteList)
+(JNIEnv *env, jobject sigar_obj)
+{
+    int status;
+    unsigned int i;
+    jarray routearray;
+    jclass cls = SIGAR_FIND_CLASS("NetRoute");
+    sigar_net_route_list_t routelist;
+    dSIGAR(NULL);
+
+    if ((status = sigar_net_route_list_get(sigar, &routelist)) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    JAVA_SIGAR_INIT_FIELDS_NETROUTE(cls);
+
+    routearray = JENV->NewObjectArray(env, routelist.number, cls, 0);
+    SIGAR_CHEX;
+
+    for (i=0; i<routelist.number; i++) {
+        jobject obj = JENV->AllocObject(env, cls);
+        SIGAR_CHEX;
+        JAVA_SIGAR_SET_FIELDS_NETROUTE(cls, obj, routelist.data[i]);
+        JENV->SetObjectArrayElement(env, routearray, i, obj);
+        SIGAR_CHEX;
+    }
+
+    sigar_net_route_list_destroy(sigar, &routelist);
+
+    return routearray;
+}
+
+JNIEXPORT jstring SIGAR_JNI(NetFlags_getIfFlagsString)
+(JNIEnv *env, jclass cls, jlong flags)
+{
+    char buf[1024];
+    sigar_net_interface_flags_to_string(flags, buf);
+    return JENV->NewStringUTF(env, buf);
+}
+
+JNIEXPORT jstring SIGAR_JNI(NetFlags_getScopeString)
+(JNIEnv *env, jclass cls, jint scope)
+{
+    const char *buf = sigar_net_scope_to_string(scope);
+    return JENV->NewStringUTF(env, buf);
+}
+
+JNIEXPORT jobjectArray SIGAR_JNIx(getNetConnectionList)
+(JNIEnv *env, jobject sigar_obj, jint flags)
+{
+    int status;
+    unsigned int i;
+    jarray connarray;
+    jclass cls = SIGAR_FIND_CLASS("NetConnection");
+    sigar_net_connection_list_t connlist;
+    dSIGAR(NULL);
+
+    status = sigar_net_connection_list_get(sigar, &connlist, flags);
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    JAVA_SIGAR_INIT_FIELDS_NETCONNECTION(cls);
+
+    connarray = JENV->NewObjectArray(env, connlist.number, cls, 0);
+    SIGAR_CHEX;
+
+    for (i=0; i<connlist.number; i++) {
+        jobject obj = JENV->AllocObject(env, cls);
+        SIGAR_CHEX;
+        JAVA_SIGAR_SET_FIELDS_NETCONNECTION(cls, obj, connlist.data[i]);
+        JENV->SetObjectArrayElement(env, connarray, i, obj);
+        SIGAR_CHEX;
+    }
+
+    sigar_net_connection_list_destroy(sigar, &connlist);
+
+    return connarray;
+}
+
+static int jbyteArray_to_sigar_net_address(JNIEnv *env, jbyteArray jaddress,
+                                           sigar_net_address_t *address)
+{
+    jsize len = JENV->GetArrayLength(env, jaddress);
+
+    JENV->GetByteArrayRegion(env, jaddress, 0, len,
+                             (jbyte *)&address->addr.in6);
+
+    switch (len) {
+      case 4:
+        address->family = SIGAR_AF_INET;
+        break;
+      case 4*4:
+        address->family = SIGAR_AF_INET6;
+        break;
+      default:
+        return EINVAL;
+    }
+
+    return SIGAR_OK;
+}
+
+JNIEXPORT void SIGAR_JNI(NetStat_stat)
+(JNIEnv *env, jobject obj, jobject sigar_obj, jint flags,
+ jbyteArray jaddress, jlong port)
+{
+    int status;
+    sigar_net_stat_t netstat;
+    jclass cls;
+    jfieldID id;
+    jintArray states;
+    jint tcp_states[SIGAR_TCP_UNKNOWN];
+    sigar_net_address_t address;
+    jboolean has_port = (port != -1);
+    dSIGAR_VOID;
+
+    if (has_port) {
+        status = jbyteArray_to_sigar_net_address(env, jaddress, &address);
+        if (status == SIGAR_OK) {
+            status = sigar_net_stat_port_get(sigar, &netstat, flags,
+                                             &address, port);
+        }
+    }
+    else {
+        status = sigar_net_stat_get(sigar, &netstat, flags);
+    }
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+    cls = JENV->GetObjectClass(env, obj);
+
+    JAVA_SIGAR_INIT_FIELDS_NETSTAT(cls);
+    JAVA_SIGAR_SET_FIELDS_NETSTAT(cls, obj, netstat);
+
+    if (sizeof(tcp_states[0]) == sizeof(netstat.tcp_states[0])) {
+        memcpy(&tcp_states[0], &netstat.tcp_states[0],
+               sizeof(netstat.tcp_states));
+    }
+    else {
+        int i;
+        for (i=0; i<SIGAR_TCP_UNKNOWN; i++) {
+            tcp_states[i] = netstat.tcp_states[i];
+        }
+    }
+
+    states = JENV->NewIntArray(env, SIGAR_TCP_UNKNOWN);
+    if (JENV->ExceptionCheck(env)) {
+        return;
+    }
+
+    JENV->SetIntArrayRegion(env, states, 0,
+                            SIGAR_TCP_UNKNOWN,
+                            tcp_states);
+
+    id = JENV->GetFieldID(env, cls, "tcpStates", "[I");
+    JENV->SetObjectField(env, obj, id, states);
+}
+
+JNIEXPORT jstring SIGAR_JNIx(getNetListenAddress)
+(JNIEnv *env, jobject sigar_obj, jlong port)
+{
+    int status;
+    sigar_net_address_t address;
+    dSIGAR(NULL);
+
+    status = sigar_net_listen_address_get(sigar, port, &address);
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    return jnet_address_to_string(env, sigar, &address);
+}
+
+JNIEXPORT jstring SIGAR_JNIx(getNetServicesName)
+(JNIEnv *env, jobject sigar_obj, jint protocol, jlong port)
+{
+    char *name;
+    dSIGAR(NULL);
+
+    if ((name = sigar_net_services_name_get(sigar, protocol, port))) {
+        return JENV->NewStringUTF(env, name);
+    }
+    else {
+        return NULL;
+    }
+}
+
+JNIEXPORT jstring SIGAR_JNI(NetConnection_getTypeString)
+(JNIEnv *env, jobject obj)
+{
+    jclass cls = JENV->GetObjectClass(env, obj);
+    jfieldID field = JENV->GetFieldID(env, cls, "type", "I");
+    jint type = JENV->GetIntField(env, obj, field);
+    return JENV->NewStringUTF(env,
+                              sigar_net_connection_type_get(type));
+}
+
+JNIEXPORT jstring SIGAR_JNI(NetConnection_getStateString)
+(JNIEnv *env, jobject cls, jint state)
+{
+    return JENV->NewStringUTF(env,
+                              sigar_net_connection_state_get(state));
+}
+
+JNIEXPORT jobjectArray SIGAR_JNIx(getArpList)
+(JNIEnv *env, jobject sigar_obj)
+{
+    int status;
+    unsigned int i;
+    sigar_arp_list_t arplist;
+    jobjectArray arparray;
+    jclass cls = SIGAR_FIND_CLASS("Arp");
+    dSIGAR(NULL);
+
+    if ((status = sigar_arp_list_get(sigar, &arplist)) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    JAVA_SIGAR_INIT_FIELDS_ARP(cls);
+
+    arparray = JENV->NewObjectArray(env, arplist.number, cls, 0);
+
+    for (i=0; i<arplist.number; i++) {
+        jobject info_obj = JENV->AllocObject(env, cls);
+        JAVA_SIGAR_SET_FIELDS_ARP(cls, info_obj,
+                                  arplist.data[i]);
+        assert(info_obj != NULL);
+        JENV->SetObjectArrayElement(env, arparray, i, info_obj);
+    }
+
+    sigar_arp_list_destroy(sigar, &arplist);
+
+    return arparray;
+}
+
+JNIEXPORT jobjectArray SIGAR_JNIx(getWhoList)
+(JNIEnv *env, jobject sigar_obj)
+{
+    int status;
+    unsigned int i;
+    sigar_who_list_t wholist;
+    jobjectArray whoarray;
+    jclass cls = SIGAR_FIND_CLASS("Who");
+    dSIGAR(NULL);
+
+    if ((status = sigar_who_list_get(sigar, &wholist)) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    JAVA_SIGAR_INIT_FIELDS_WHO(cls);
+
+    whoarray = JENV->NewObjectArray(env, wholist.number, cls, 0);
+    SIGAR_CHEX;
+
+    for (i=0; i<wholist.number; i++) {
+        jobject info_obj = JENV->AllocObject(env, cls);
+        SIGAR_CHEX;
+        JAVA_SIGAR_SET_FIELDS_WHO(cls, info_obj,
+                                  wholist.data[i]);
+        JENV->SetObjectArrayElement(env, whoarray, i, info_obj);
+        SIGAR_CHEX;
+    }
+
+    sigar_who_list_destroy(sigar, &wholist);
+
+    return whoarray;
+}
+
+/* XXX perhaps it would be better to duplicate these strings
+ * in java land as static final so we dont create a new String
+ * everytime.
+ */
+JNIEXPORT jstring SIGAR_JNI(FileInfo_getTypeString)
+(JNIEnv *env, jclass cls, jint type)
+{
+    return JENV->NewStringUTF(env,
+                              sigar_file_attrs_type_string_get(type));
+}
+
+JNIEXPORT jstring SIGAR_JNI(FileInfo_getPermissionsString)
+(JNIEnv *env, jclass cls, jlong perms)
+{
+    char str[24];
+    return JENV->NewStringUTF(env,
+                              sigar_file_attrs_permissions_string_get(perms,
+                                                                      str));
+}
+
+JNIEXPORT jint SIGAR_JNI(FileInfo_getMode)
+(JNIEnv *env, jclass cls, jlong perms)
+{
+    return sigar_file_attrs_mode_get(perms);
+}
+
+
+/*
+ * copy of the generated FileAttrs_gather function
+ * but we call the lstat wrapper instead.
+ */
+JNIEXPORT void SIGAR_JNI(FileInfo_gatherLink)
+(JNIEnv *env, jobject obj, jobject sigar_obj, jstring name)
+{
+    sigar_file_attrs_t s;
+    int status;
+    jclass cls = JENV->GetObjectClass(env, obj);
+    const char *utf;
+    dSIGAR_VOID;
+
+    utf = JENV->GetStringUTFChars(env, name, 0);
+
+    status = sigar_link_attrs_get(sigar, utf, &s);
+
+    JENV->ReleaseStringUTFChars(env, name, utf);
+
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return;
+    }
+
+    JAVA_SIGAR_INIT_FIELDS_FILEATTRS(cls);
+
+    JAVA_SIGAR_SET_FIELDS_FILEATTRS(cls, obj, s);
+}
+
+JNIEXPORT jlong SIGAR_JNIx(getProcPort)
+(JNIEnv *env, jobject sigar_obj, jint protocol, jlong port)
+{
+    int status;
+    sigar_pid_t pid;
+    dSIGAR(0);
+
+    status = sigar_proc_port_get(sigar, protocol,
+                                 (unsigned long)port, &pid);
+    if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return -1;
+    }
+
+    return pid;
+}
+
+JNIEXPORT jobjectArray SIGAR_JNIx(getNetInterfaceList)
+(JNIEnv *env, jobject sigar_obj)
+{
+    int status;
+    unsigned int i;
+    sigar_net_interface_list_t iflist;
+    jobjectArray ifarray;
+    jclass stringclass = JENV->FindClass(env, "java/lang/String");
+    dSIGAR(NULL);
+
+    if ((status = sigar_net_interface_list_get(sigar, &iflist)) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    ifarray = JENV->NewObjectArray(env, iflist.number, stringclass, 0);
+    SIGAR_CHEX;
+
+    for (i=0; i<iflist.number; i++) {
+        jstring s = JENV->NewStringUTF(env, iflist.data[i]);
+        JENV->SetObjectArrayElement(env, ifarray, i, s);
+        SIGAR_CHEX;
+    }
+
+    sigar_net_interface_list_destroy(sigar, &iflist);
+
+    return ifarray;
+}
+
+JNIEXPORT jstring SIGAR_JNIx(getPasswordNative)
+(JNIEnv *env, jclass classinstance, jstring prompt)
+{
+    const char *prompt_str;
+    char *password;
+
+    if (getenv("NO_NATIVE_GETPASS")) {
+        sigar_throw_notimpl(env, "disabled with $NO_NATIVE_GETPASS");
+        return NULL;
+    }
+
+    prompt_str = JENV->GetStringUTFChars(env, prompt, 0);
+
+    password = sigar_password_get(prompt_str);
+
+    JENV->ReleaseStringUTFChars(env, prompt, prompt_str);
+
+    return JENV->NewStringUTF(env, password);
+}
+
+JNIEXPORT jstring SIGAR_JNIx(getFQDN)
+(JNIEnv *env, jobject sigar_obj)
+{
+    char fqdn[SIGAR_FQDN_LEN];
+    int status;
+    dSIGAR(NULL);
+
+    if ((status = sigar_fqdn_get(sigar, fqdn, sizeof(fqdn))) != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    return JENV->NewStringUTF(env, fqdn);
+}
+
+typedef struct {
+    JNIEnv *env;
+    jobject obj;
+    jclass cls;
+    jmethodID id;    
+} jni_ptql_re_data_t;
+
+static int jsigar_ptql_re_impl(void *data,
+                               char *haystack, char *needle)
+{
+    jni_ptql_re_data_t *re = (jni_ptql_re_data_t *)data;
+    JNIEnv *env = re->env;
+
+    if (!re->cls) {
+        re->cls = JENV->GetObjectClass(env, re->obj);
+        re->id =
+            JENV->GetStaticMethodID(env, re->cls, "re",
+                                    "(Ljava/lang/String;Ljava/lang/String;)"
+                                    "Z");
+        if (!re->id) {
+            return 0;
+        }
+    }
+
+    return JENV->CallStaticBooleanMethod(env, re->cls, re->id,  
+                                         JENV->NewStringUTF(env, haystack),
+                                         JENV->NewStringUTF(env, needle));
+}
+
+static void re_impl_set(JNIEnv *env, sigar_t *sigar, jobject obj, jni_ptql_re_data_t *re)
+{
+    re->env = env;
+    re->cls = NULL;
+    re->obj = obj;
+    re->id = NULL;
+
+    sigar_ptql_re_impl_set(sigar, re, jsigar_ptql_re_impl);
+}
+
+JNIEXPORT jboolean SIGAR_JNI(ptql_SigarProcessQuery_match)
+(JNIEnv *env, jobject obj, jobject sigar_obj, jlong pid)
+{
+    int status;
+    jni_ptql_re_data_t re;
+    sigar_ptql_query_t *query =
+        (sigar_ptql_query_t *)sigar_get_pointer(env, obj);
+    dSIGAR(JNI_FALSE);
+
+    re_impl_set(env, sigar, obj, &re);
+
+    status = sigar_ptql_query_match(sigar, query, pid);
+
+    sigar_ptql_re_impl_set(sigar, NULL, NULL);
+
+    if (status == SIGAR_OK) {
+        return JNI_TRUE;
+    }
+    else {
+        return JNI_FALSE;
+    }
+}
+
+JNIEXPORT void SIGAR_JNI(ptql_SigarProcessQuery_create)
+(JNIEnv *env, jobject obj, jstring jptql)
+{
+    int status;
+    jboolean is_copy;
+    const char *ptql;
+    sigar_ptql_query_t *query;
+    sigar_ptql_error_t error;
+
+    ptql = JENV->GetStringUTFChars(env, jptql, &is_copy);
+    status = sigar_ptql_query_create(&query, (char *)ptql, &error);
+    if (is_copy) {
+        JENV->ReleaseStringUTFChars(env, jptql, ptql);
+    }
+
+    if (status != SIGAR_OK) {
+        sigar_throw_ptql_malformed(env, error.message);
+    }
+    else {
+        sigar_set_pointer(env, obj, query);
+    }
+}
+
+JNIEXPORT void SIGAR_JNI(ptql_SigarProcessQuery_destroy)
+(JNIEnv *env, jobject obj)
+{
+    sigar_ptql_query_t *query =
+        (sigar_ptql_query_t *)sigar_get_pointer(env, obj);
+
+    if (query) {
+        sigar_ptql_query_destroy(query);
+        sigar_set_pointer(env, obj, 0);
+    }
+}
+
+JNIEXPORT jlong SIGAR_JNI(ptql_SigarProcessQuery_findProcess)
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    sigar_pid_t pid;
+    int status;
+    jni_ptql_re_data_t re;
+    sigar_ptql_query_t *query =
+        (sigar_ptql_query_t *)sigar_get_pointer(env, obj);
+    dSIGAR(0);
+
+    re_impl_set(env, sigar, obj, &re);
+
+    status = sigar_ptql_query_find_process(sigar, query, &pid);
+
+    sigar_ptql_re_impl_set(sigar, NULL, NULL);
+
+    if (status < 0) {
+        sigar_throw_exception(env, sigar->errbuf);
+    }
+    else if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+    }
+
+    return pid;
+}
+
+JNIEXPORT jlongArray SIGAR_JNI(ptql_SigarProcessQuery_find)
+(JNIEnv *env, jobject obj, jobject sigar_obj)
+{
+    int status;
+    jlongArray procarray;
+    sigar_proc_list_t proclist;
+    jlong *pids = NULL;
+    jni_ptql_re_data_t re;
+    sigar_ptql_query_t *query =
+        (sigar_ptql_query_t *)sigar_get_pointer(env, obj);
+    dSIGAR(NULL);
+
+    re_impl_set(env, sigar, obj, &re);
+
+    status = sigar_ptql_query_find(sigar, query, &proclist);
+
+    sigar_ptql_re_impl_set(sigar, NULL, NULL);
+
+    if (status < 0) {
+        sigar_throw_exception(env, sigar->errbuf);
+        return NULL;
+    }
+    else if (status != SIGAR_OK) {
+        sigar_throw_error(env, jsigar, status);
+        return NULL;
+    }
+
+    procarray = JENV->NewLongArray(env, proclist.number);
+    SIGAR_CHEX;
+
+    if (sizeof(jlong) == sizeof(sigar_pid_t)) {
+        pids = (jlong *)proclist.data;
+    }
+    else {
+        unsigned int i;
+        pids = (jlong *)malloc(sizeof(jlong) * proclist.number);
+
+        for (i=0; i<proclist.number; i++) {
+            pids[i] = proclist.data[i];
+        }
+    }
+
+    JENV->SetLongArrayRegion(env, procarray, 0,
+                             proclist.number, pids);
+
+    if (pids != (jlong *)proclist.data) {
+        free(pids);
+    }
+
+    sigar_proc_list_destroy(sigar, &proclist);
+
+    return procarray;
+}
+
+#include "sigar_getline.h"
+
+JNIEXPORT jboolean SIGAR_JNI(util_Getline_isatty)
+(JNIEnv *env, jclass cls)
+{
+    return sigar_isatty(sigar_fileno(stdin)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jstring SIGAR_JNI(util_Getline_getline)
+(JNIEnv *env, jobject sigar_obj, jstring prompt)
+{
+    const char *prompt_str;
+    char *line;
+    jboolean is_copy;
+
+    prompt_str = JENV->GetStringUTFChars(env, prompt, &is_copy);
+
+    line = sigar_getline((char *)prompt_str);
+
+    if (is_copy) {
+        JENV->ReleaseStringUTFChars(env, prompt, prompt_str);
+    }
+
+    if ((line == NULL) ||
+        sigar_getline_eof())
+    {
+        jclass eof_ex = JENV->FindClass(env, "java/io/EOFException");
+        JENV->ThrowNew(env, eof_ex, "");
+        return NULL;
+    }
+
+    return JENV->NewStringUTF(env, line);
+}
+
+JNIEXPORT void SIGAR_JNI(util_Getline_histadd)
+(JNIEnv *env, jobject sigar_obj, jstring hist)
+{
+    const char *hist_str;
+    jboolean is_copy;
+
+    hist_str = JENV->GetStringUTFChars(env, hist, &is_copy);
+
+    sigar_getline_histadd((char *)hist_str);
+
+    if (is_copy) {
+        JENV->ReleaseStringUTFChars(env, hist, hist_str);
+    }
+}
+
+JNIEXPORT void SIGAR_JNI(util_Getline_histinit)
+(JNIEnv *env, jobject sigar_obj, jstring hist)
+{
+    const char *hist_str;
+    jboolean is_copy;
+
+    hist_str = JENV->GetStringUTFChars(env, hist, &is_copy);
+
+    sigar_getline_histinit((char *)hist_str);
+
+    if (is_copy) {
+        JENV->ReleaseStringUTFChars(env, hist, hist_str);
+    }
+}
+
+static struct {
+    JNIEnv *env;
+    jobject obj;
+    jmethodID id;
+    jclass clazz;
+} jsigar_completer;
+
+static int jsigar_getline_completer(char *buffer, int offset, int *pos)
+{
+    JNIEnv *env = jsigar_completer.env;
+    jstring jbuffer;
+    jstring completion;
+    const char *line;
+    int len, cur;
+    jboolean is_copy;
+
+    jbuffer = JENV->NewStringUTF(env, buffer);
+
+    completion = 
+        JENV->CallObjectMethod(env, jsigar_completer.obj,
+                               jsigar_completer.id, jbuffer);
+
+    if (JENV->ExceptionCheck(env)) {
+        JENV->ExceptionDescribe(env);
+        return 0;
+    }
+
+    if (!completion) {
+        return 0;
+    }
+
+    line = JENV->GetStringUTFChars(env, completion, &is_copy);
+    len = JENV->GetStringUTFLength(env, completion);
+
+    cur = *pos;
+
+    if (len != cur) {
+        strcpy(buffer, line);
+        *pos = len;
+    }
+
+    if (is_copy) {
+        JENV->ReleaseStringUTFChars(env, completion, line);
+    }
+
+    return cur;
+}
+
+JNIEXPORT void SIGAR_JNI(util_Getline_setCompleter)
+(JNIEnv *env, jclass classinstance, jobject completer)
+{
+    if (completer == NULL) {
+        sigar_getline_completer_set(NULL);
+        return;
+    }
+    
+    jsigar_completer.env = env;
+    jsigar_completer.obj = completer;
+    jsigar_completer.clazz = JENV->GetObjectClass(env, completer);
+    jsigar_completer.id =
+        JENV->GetMethodID(env, jsigar_completer.clazz,
+                          "complete",
+                          "(Ljava/lang/String;)Ljava/lang/String;");
+
+    sigar_getline_completer_set(jsigar_getline_completer);
+}
+
+JNIEXPORT void SIGAR_JNI(util_Getline_redraw)
+(JNIEnv *env, jobject obj)
+{
+    sigar_getline_redraw();
+}
+
+JNIEXPORT void SIGAR_JNI(util_Getline_reset)
+(JNIEnv *env, jobject obj)
+{
+    sigar_getline_reset();
+}
+
+static const char *log_methods[] = {
+    "fatal", /* SIGAR_LOG_FATAL */
+    "error", /* SIGAR_LOG_ERROR */
+    "warn",  /* SIGAR_LOG_WARN */
+    "info",  /* SIGAR_LOG_INFO */
+    "debug", /* SIGAR_LOG_DEBUG */
+    /* XXX trace is only in commons-logging??? */
+    "debug", /* SIGAR_LOG_TRACE */
+};
+
+static void jsigar_log_impl(sigar_t *sigar, void *data,
+                            int level, char *message)
+{
+    jni_sigar_t *jsigar = (jni_sigar_t *)data;
+    JNIEnv *env = jsigar->env;
+    jobject logger = jsigar->logger;
+    jobject message_obj;
+
+    /* XXX should cache method id lookups */
+    jmethodID id =
+        JENV->GetMethodID(env, JENV->GetObjectClass(env, logger),
+                          log_methods[level],
+                          "(Ljava/lang/Object;)V");
+
+    if (JENV->ExceptionCheck(env)) {
+        JENV->ExceptionDescribe(env);
+        return;
+    }
+
+    message_obj = (jobject)JENV->NewStringUTF(env, message);
+
+    JENV->CallVoidMethod(env, logger, id, message_obj);
+}
+
+JNIEXPORT void SIGAR_JNI(SigarLog_setLogger)
+(JNIEnv *env, jclass classinstance, jobject sigar_obj, jobject logger)
+{
+    dSIGAR_VOID;
+
+    if (jsigar->logger != NULL) {
+        JENV->DeleteGlobalRef(env, jsigar->logger);
+        jsigar->logger = NULL;
+    }
+
+    if (logger) {
+        jsigar->logger = JENV->NewGlobalRef(env, logger);
+
+        sigar_log_impl_set(sigar, jsigar, jsigar_log_impl);
+    }
+    else {
+        sigar_log_impl_set(sigar, NULL, NULL);
+    }
+}
+
+JNIEXPORT void SIGAR_JNI(SigarLog_setLevel)
+(JNIEnv *env, jclass classinstance, jobject sigar_obj, jint level)
+{
+    dSIGAR_VOID;
+
+    sigar_log_level_set(sigar, level);
+}
+
+JNIEXPORT jlong SIGAR_JNIx(getServicePid)
+(JNIEnv *env, jobject sigar_obj, jstring jname)
+{
+#ifdef _WIN32
+    const char *name;
+    jboolean is_copy;
+    jlong pid = 0;
+    int status;
+    dSIGAR(0);
+
+    name = JENV->GetStringUTFChars(env, jname, &is_copy);
+
+    status =
+        sigar_service_pid_get(sigar, (char *)name, &pid);
+
+    if (is_copy) {
+        JENV->ReleaseStringUTFChars(env, jname, name);
+    }
+
+    if (status != ERROR_SUCCESS) {
+        sigar_throw_error(env, jsigar, status);
+    }
+
+    return pid;
+#else
+    dSIGAR(0);
+    sigar_throw_error(env, jsigar, SIGAR_ENOTIMPL);
+    return 0;
+#endif
+}
+
+JNIEXPORT jlong SIGAR_JNI(ResourceLimit_INFINITY)
+(JNIEnv *env, jclass cls)
+{
+#ifdef _WIN32
+    return 0x7fffffff;
+#else
+    return RLIM_INFINITY;
+#endif
+}
+
+JNIEXPORT jstring SIGAR_JNI(win32_Win32_findExecutable)
+(JNIEnv *env, jclass sigar_class, jstring jname)
+{
+#ifdef _WIN32
+#include "shellapi.h"
+    const char *name;
+    jboolean is_copy;
+    char exe[MAX_PATH];
+    LONG result;
+    jstring jexe = NULL;
+
+    name = JENV->GetStringUTFChars(env, jname, &is_copy);
+
+    if ((result = (LONG)FindExecutable(name, ".", exe)) > 32) {
+        jexe = JENV->NewStringUTF(env, exe);
+    }
+
+    if (is_copy) {
+        JENV->ReleaseStringUTFChars(env, jname, name);
+    }
+
+    return jexe;
+#else
+    sigar_throw_notimpl(env, "win32 only");
+    return NULL;
+#endif
+}
+
+JNIEXPORT jboolean SIGAR_JNI(win32_FileVersion_gather)
+(JNIEnv *env, jobject obj, jstring jname)
+{
+#ifdef _WIN32
+    int status;
+    sigar_file_version_t version;
+    jboolean is_copy;
+    jfieldID id;
+    jclass cls = JENV->GetObjectClass(env, obj);
+    const char *name = JENV->GetStringUTFChars(env, jname, &is_copy);
+    sigar_proc_env_t infocb;
+    jobject hashmap;
+    jni_env_put_t put;
+
+    id = JENV->GetFieldID(env, cls, "string_file_info",
+                          "Ljava/util/Map;");
+    hashmap = JENV->GetObjectField(env, obj, id);
+    put.env = env;
+    put.id = 
+        JENV->GetMethodID(env,
+                          JENV->GetObjectClass(env, hashmap),
+                          "put", MAP_PUT_SIG);
+    put.map = hashmap;
+
+    infocb.type = SIGAR_PROC_ENV_ALL;
+    infocb.env_getter = jni_env_getall;
+    infocb.data = &put;
+
+    status = sigar_file_version_get(&version, (char *)name, &infocb);
+
+    if (is_copy) {
+        JENV->ReleaseStringUTFChars(env, jname, name);
+    }
+
+    if (status != SIGAR_OK) {
+        return JNI_FALSE;
+    }
+
+#define set_vfield(name) \
+    id = JENV->GetFieldID(env, cls, #name, "I"); \
+    JENV->SetIntField(env, obj, id, version.name)
+
+    set_vfield(product_major);
+    set_vfield(product_minor);
+    set_vfield(product_build);
+    set_vfield(product_revision);
+    set_vfield(file_major);
+    set_vfield(file_minor);
+    set_vfield(file_build);
+    set_vfield(file_revision);
+#undef set_vfield
+
+    return JNI_TRUE;
+#else
+    return JNI_FALSE;
+#endif
+}
