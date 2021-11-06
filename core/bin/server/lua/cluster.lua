@@ -1,7 +1,7 @@
 local sc = require("sc")
 local redishelp = require("redishelp")
 local entitymng = require("entitymng")
-local elog = require("elog")
+local elog = require("eloghelp")
 local cluster = {}
 
 cluster.isBoots = 0

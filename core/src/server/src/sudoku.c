@@ -65,6 +65,12 @@
 // 
 // 任何曲线都可以折算成对应减速的直线。所以有方向和起点速度的向量可以近似模拟任何活动路径。
 //
+// 总数为1万人时，当进入格子的人数为n时。进入格子人数为5千人时，发送的封包数量为5千万达到巅峰。 
+// 当达到巅峰是每个玩家收到的封包数量为5千。5千万封包平摊到16线程为也要312万5千
+// 2*n*(10000 - n)
+// 
+//
+
 enum entity_status {
 	entity_normal = 0,
 	entity_limite = 2,
@@ -338,6 +344,23 @@ static int luaB_Leave(lua_State* L) {
 	return 0;
 }
 
+void SendAddView(PEntity pEntity, PEntity pViewEntity) {
+	mp_buf* pmp_buf = mp_buf_new();
+	MP_ENCODE_CONST(pmp_buf, "OnAddView");
+
+	mp_encode_array(pmp_buf, 6);
+	mp_encode_double(pmp_buf, u642double(pViewEntity->entityid));
+	mp_encode_double(pmp_buf, pViewEntity->transform.position.x);
+	mp_encode_double(pmp_buf, pViewEntity->transform.position.z);
+	mp_encode_double(pmp_buf, pViewEntity->transform.rotation.y);
+	mp_encode_double(pmp_buf, pViewEntity->velocity);
+	mp_encode_int(pmp_buf, pViewEntity->stamp);
+	mp_encode_int(pmp_buf, pViewEntity->stampStop);
+
+	DockerSend(pEntity->entityid, pmp_buf->b, pmp_buf->len);
+	mp_buf_free(pmp_buf);
+}
+
 void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position, 
 	struct Vector3 rotation, float velocity, 
 	unsigned int stamp, unsigned int stampStop, unsigned int isGhost) {
@@ -444,24 +467,6 @@ static int luaB_Entry(lua_State* L) {
 	return 0;
 }
 
-void SendAddView(PEntity pEntity, PEntity pViewEntity) {
-	mp_buf* pmp_buf = mp_buf_new();
-	const char ptr[] = "OnAddView";
-	mp_encode_bytes(pmp_buf, ptr, sizeof(ptr));
-
-	mp_encode_array(pmp_buf, 6);
-	mp_encode_double(pmp_buf, u642double(pViewEntity->entityid));
-	mp_encode_double(pmp_buf, pViewEntity->transform.position.x);
-	mp_encode_double(pmp_buf, pViewEntity->transform.position.z);
-	mp_encode_double(pmp_buf, pViewEntity->transform.rotation.y);
-	mp_encode_double(pmp_buf, pViewEntity->velocity);
-	mp_encode_int(pmp_buf, pViewEntity->stamp);
-	mp_encode_int(pmp_buf, pViewEntity->stampStop);
-
-	DockerSend(pEntity->entityid, pmp_buf->b, pmp_buf->len);
-	mp_buf_free(pmp_buf);
-}
-
 void FillView(PSudoku s, enum SudokuDir dir, unsigned int centre, PEntity pEntityEntry) {
 
 	unsigned int viewgird = GirdDirId(s, dir, centre);
@@ -482,13 +487,21 @@ void FillView(PSudoku s, enum SudokuDir dir, unsigned int centre, PEntity pEntit
 		while ((node = listNext(iter)) != NULL) {
 			PEntity pEntity = listNodeValue(node);
 
+			//同时从可见范围移动过来的
+			if (pEntity->update != 0) {
+				if (GirdDir(s, pEntityEntry->oldGird, pEntity->oldGird) != SudokuDirError)
+					continue;
+			}
+
 			if (pEntity->entityid != pEntityEntry->entityid) {
 				if(!(s->isBigWorld && (pEntityEntry->status & entity_ghost) && (pEntity->status & entity_limite) || (pEntity->status & entity_outside) || (pEntityEntry->status & entity_outside)))
 					SendAddView(pEntityEntry, pEntity);
 			}
-				
-			if (pEntity->update != 0)
+			
+			//双方都在处理移动可见的就不会收到双份
+			if (pEntity->update != 0) {
 				continue;
+			}
 
 			if (pEntity->entityid != pEntityEntry->entityid) {
 				if (!(s->isBigWorld && (pEntity->status & entity_ghost) && (pEntityEntry->status & entity_limite) || (pEntity->status & entity_outside) || (pEntityEntry->status & entity_outside)))
@@ -776,8 +789,7 @@ void SudokuUpdate(void* pSudoku) {
 			SudokuLeave(s, pEntity->entityid);
 
 			mp_buf* pmp_buf = mp_buf_new();
-			const char ptr[] = "OnLeaveSpace";
-			mp_encode_bytes(pmp_buf, ptr, sizeof(ptr)-1);
+			MP_ENCODE_CONST(pmp_buf, "OnLeaveSpace");
 			mp_encode_double(pmp_buf, u642double(pEntity->entityid));
 
 			DockerSend(pEntity->entityid, pmp_buf->b, pmp_buf->len);

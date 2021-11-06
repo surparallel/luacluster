@@ -4,7 +4,7 @@ local entitymng = require("entitymng")
 local cmsgpack = require("cmsgpack")
 local docker = require("docker")
 local int64 = require("int64")
-local elog = require("elog")
+local elog = require("eloghelp")
 local udpproxy = require 'udpproxy'
 
 local spaceFactory= {}
@@ -30,7 +30,7 @@ function spaceFactory.New()
     function obj:EntryWorld(id, poitionx, poitionz, rotationy, velocity, stamp, stampStop, isGhost)
         local entryid = tostring(int64.new_unsigned(id))
 
-        elog.fun(string.format("space::LeaveWorld %s",entryid))
+        elog.fun("space::LeaveWorld %s",entryid)
         if self.entities[entryid] ~= nil then
             elog.n_error(string.format("EntryWorld::Repeat into space error %s", entryid))
             return

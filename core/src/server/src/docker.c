@@ -248,6 +248,7 @@ void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short upor
 		pDockerHandle->id_unallocate = dictCreate(DefaultUintPtr(), NULL);
 		pDockerHandle->entityCount = 0;
 		pDockerHandle->eventQueueLength = 0;
+		pDockerHandle->pBuf = 0;
 		uv_thread_create(&pDockerHandle->pthreadHandle, DockerRun, pDockerHandle);
 
 		pDocksHandle->listPDockerHandle[i] = pDockerHandle;
@@ -265,10 +266,11 @@ void DockerCancel() {
 		pProtoHead->proto = proto_ctr_cancel;
 
 		EqPush(pDockerHandle->eQueue, pProtoHead);
-		
 		uv_thread_join(&pDockerHandle->pthreadHandle);
 
 		EqDestory(pDockerHandle->eQueue, PacketFree);
+		if (pDockerHandle->pBuf != 0)
+			sdsfree(pDockerHandle->pBuf);
 		free(pDockerHandle);
 	}
 }
@@ -293,6 +295,7 @@ int DockerLoop(void* pVoid, lua_State* L, long long msec) {
 		EqTimeWait(pDockerHandle->eQueue, msec);
 	}
 
+	sdsfree(pDockerHandle->pBuf);
 	//如果长度超过限制要释放掉队列
 	pDockerHandle->pBuf = EqPopWithLen(pDockerHandle->eQueue, &pDockerHandle->eventQueueLength);
 	PProtoHead pProtoHead = (PProtoHead)pDockerHandle->pBuf;
@@ -301,14 +304,17 @@ int DockerLoop(void* pVoid, lua_State* L, long long msec) {
 		lua_pushnumber(L, pProtoHead->proto);
 		if (pProtoHead->proto == proto_ctr_cancel) {
 			//由脚本退出循环
-			sdsfree(pDockerHandle->pBuf);
 			return 1;
 		}
 		else if (pProtoHead->proto == proto_rpc_create) {
 			PProtoRPCCreate pProtoRPCCreate = (PProtoRPCCreate)(pDockerHandle->pBuf);
+
+			if (pProtoHead->len < sizeof(ProtoRPCCreate)) {
+				elog_error(ctg_script, "DockerLoop::proto_rpc_create len error %i %i", pProtoHead->len, sizeof(ProtoRPCCreate));
+				return 0;
+			}
 			size_t len = pProtoHead->len - sizeof(ProtoRPCCreate);
 			lua_pushlstring(L, pProtoRPCCreate->callArg, len);
-			sdsfree(pDockerHandle->pBuf);
 			return 2;
 		}
 		else if (pProtoHead->proto == proto_rpc_call) {
@@ -316,28 +322,33 @@ int DockerLoop(void* pVoid, lua_State* L, long long msec) {
 			PProtoRPC pProtoRPC = (PProtoRPC)(pDockerHandle->pBuf);
 			luaL_u64pushnumber(L, pProtoRPC->id);
 			//初始化参数
+
+			if (pProtoHead->len < sizeof(ProtoRPC)) {
+				elog_error(ctg_script, "DockerLoop::proto_rpc_call len error %i %i", pProtoHead->len, sizeof(ProtoRPC));
+				return 0;
+			}
 			size_t len = pProtoHead->len - sizeof(ProtoRPC);
 			lua_pushlstring(L, pProtoRPC->callArg, len);
-			sdsfree(pDockerHandle->pBuf);
 			return 3;
 		}
 		else if (pProtoHead->proto == proto_run_lua) {
 			PProtoRunLua pProtoRunLua = (PProtoRunLua)(pDockerHandle->pBuf);
 			luaL_dostring(L, pProtoRunLua->luaString);
-			sdsfree(pDockerHandle->pBuf);
 		}
 		else if (pProtoHead->proto == proto_route_call) {
 			PProtoRoute pProtoRoute = (PProtoRoute)(pDockerHandle->pBuf);
 			luaL_u64pushnumber(L, pProtoRoute->did);
 			luaL_u64pushnumber(L, pProtoRoute->pid);
-			//初始化参数
+
+			if (pProtoHead->len < sizeof(ProtoRoute)) {
+				elog_error(ctg_script, "DockerLoop::proto_route_call len error %i %i", pProtoHead->len, sizeof(ProtoRoute));
+				return 0;
+			}
 			size_t len = pProtoHead->len - sizeof(ProtoRoute);
 			lua_pushlstring(L, pProtoRoute->callArg, len);
-			sdsfree(pDockerHandle->pBuf);
 			return 4;
 		}
 	}
-
 	return 0;
 }
 
@@ -425,9 +436,7 @@ void DockerCopyRpcToClient(void* pVoid) {
 
 	PProtoHead pProtoHead = (PProtoHead)pDockerHandle->pBuf;
 	if (pProtoHead->proto == proto_rpc_call) {
-
 		PProtoRPC pProtoRPC = (PProtoRPC)pDockerHandle->pBuf;
-
 		DockerSendToClient(pVoid, pProtoRPC->id, pProtoRPC->id, pProtoRPC->callArg, pProtoRPC->protoHead.len - sizeof(ProtoRPC));
 	}
 	else {

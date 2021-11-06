@@ -574,7 +574,7 @@ void LogRun(void* pVoid) {
 static void doJsonParseFile(char* config)
 {
 	if (config == NULL) {
-		config = getenv("GrypaniaAssetsPath");
+		config = getenv("AssetsPath");
 		if (config == 0 || access_t(config, 0) != 0) {
 			config = "../../res/server/config_defaults.json";
 			if (access_t(config, 0) != 0) {

@@ -144,7 +144,8 @@ static void freeClient(NetClient* c) {
     }
 
     if (c->stream != 0) {
-        uv_close((uv_handle_t*)c->stream, NULL);
+        if(!uv_is_closing((uv_handle_t*)c->stream))
+            uv_close((uv_handle_t*)c->stream, NULL);
         free(c->stream);
         c->stream = 0;
     }
@@ -241,7 +242,7 @@ static void RecvCallback(PNetClient c, char* buf, size_t buffsize) {
             }
         }
     }
-    else if (c->flags & _TCP_SOCKET) {
+    else if (c->flags & _TCP_SOCKET || c->flags & _TCP_CONNECT) {
         if (pProtoHead->proto == proto_route_call) {
             //因为机器人的存在，这里会存在node <=> client
             //虽然工程上说是对等的，但因为安全的原因，客户端的npc不能调用服务器的npc方法
@@ -276,14 +277,13 @@ static void tcp_read(uv_stream_t* handle,
 {
     PNetClient c = uv_handle_get_data((uv_handle_t*)handle);
     n_details("tcp_read stream:;%i client::%i", handle, c->id);
-    int r;
     if (nread < 0) {
         /* Error or EOF */
-        n_error("tcp_read error %s %s", uv_err_name(errno), uv_strerror(errno));
+        n_error("tcp_read error %s %s", uv_err_name(nread), uv_strerror(nread));
 
         //启动销毁流程
         uv_shutdown_t* sreq = malloc(sizeof * sreq);
-        r = uv_shutdown(sreq, handle, after_shutdown);
+        int r = uv_shutdown(sreq, handle, after_shutdown);
         if (r) {
             n_error("Socket uv_shutdown error %s %s", uv_err_name(r), uv_strerror(r));
             return;
@@ -298,7 +298,7 @@ static void tcp_read(uv_stream_t* handle,
     unsigned int readSize = 0;
     char* pos = buf->base;
     while (true) {
-        if (nread >= readSize) {
+        if (nread <= readSize) {
             break;
         }
 
@@ -325,6 +325,7 @@ static void on_connection(uv_stream_t* server, int status) {
     //创建client对象，创建接收数据缓冲区（只大不小），添加到当前链接队列列表
     PNetClient c = calloc(1, sizeof(NetClient));
     c->stream = malloc(sizeof(uv_tcp_t));
+    
     r = uv_tcp_init(pNetServer->loop, (uv_tcp_t*)c->stream);
     if (r) {
         n_error("Socket accept error %s %s", uv_err_name(r), uv_strerror(r));
@@ -336,8 +337,9 @@ static void on_connection(uv_stream_t* server, int status) {
     /* associate server with stream */
     c->stream->data = c;
     c->pNetServer = pNetServer;
-    c->id = pNetServer->allClientID++;
+    c->id = ++pNetServer->allClientID;
     c->flags = _TCP_SOCKET;
+    c->tcp_recv_buf = sdsempty();
 
     r = uv_accept(server, c->stream);
     if (r) {
@@ -361,26 +363,8 @@ static void on_connection(uv_stream_t* server, int status) {
     if (c->flags & _TCP_SOCKET) {
         //这里调用绑定协议尝试创建entity
         mp_buf* pmp_buf = mp_buf_new();
-
-        if (c->flags & _TCP_CONNECT)
-        {
-            mp_encode_bytes(pmp_buf, pNetServer->botsObj, sdslen(pNetServer->botsObj));
-        }
-        else
-        {
-            mp_encode_bytes(pmp_buf, pNetServer->entityObj, sdslen(pNetServer->entityObj));
-        }
-
-        if (c->flags & _TCP_CONNECT)
-        {
-            mp_encode_map(pmp_buf, 2);
-            mp_encode_bytes(pmp_buf, "isconnect", strlen("isconnect"));
-            mp_encode_int(pmp_buf, 1);
-        }
-        else {
-            mp_encode_map(pmp_buf, 1);
-        }
-
+        mp_encode_bytes(pmp_buf, pNetServer->entityObj, sdslen(pNetServer->entityObj));
+        mp_encode_map(pmp_buf, 1);
         mp_encode_bytes(pmp_buf, "clientid", strlen("clientid"));
         mp_encode_int(pmp_buf, c->id);
 
@@ -477,7 +461,7 @@ static uv_tcp_t* tcp4_start(uv_loop_t* loop, char* ip, int port) {
 static void doJsonParseFile(PNetServer pNetServer, char* config)
 {
     if (config == NULL) {
-        config = getenv("GrypaniaAssetsPath");
+        config = getenv("AssetsPath");
         if (config == 0 || access_t(config, 0) != 0) {
             config = "../../res/server/config_defaults.json";
             if (access_t(config, 0) != 0) {
@@ -557,9 +541,9 @@ static void doJsonParseFile(PNetServer pNetServer, char* config)
             else if (strcmp(item->string, "bindListenIp") == 0) {
                 unsigned short r = (unsigned short)cJSON_GetNumberValue(item);
                 if (r == 4)
-                    pNetServer->botsObj = _TCP4_SOCKET;
+                    pNetServer->bindListenIp = _TCP4_SOCKET;
                 else if (r == 6)
-                    pNetServer->botsObj = _TCP6_SOCKET;
+                    pNetServer->bindListenIp = _TCP6_SOCKET;
             }
             item = item->next;
         }
@@ -576,8 +560,42 @@ static void NetRun(void* pVoid) {
 }
 
 static void connect_cb(uv_connect_t* req, int status) {
+
     if (status != 0) {
         n_error("connect_cb error: %s - %s", uv_err_name(status), uv_strerror(status));
+    }
+
+    NetClient* c = req->data;
+    free(req);
+    int r = uv_read_start(c->stream, tcp_alloc, tcp_read);
+    if (r) {
+        n_error("Socket read_start error %s %s", uv_err_name(r), uv_strerror(r));
+        free(c);
+        return;
+    }
+
+    dictAddWithUint(c->pNetServer->id_client, c->id, c);
+    listAddNodeTail(c->pNetServer->clients, c);
+
+    if (c->flags & _TCP_CONNECT) {
+        //这里调用绑定协议尝试创建entity
+        mp_buf* pmp_buf = mp_buf_new();
+        mp_encode_bytes(pmp_buf, c->pNetServer->botsObj, sdslen(c->pNetServer->botsObj));
+        mp_encode_map(pmp_buf, 2);
+        mp_encode_bytes(pmp_buf, "isconnect", strlen("isconnect"));
+        mp_encode_int(pmp_buf, 1);
+        mp_encode_bytes(pmp_buf, "clientid", strlen("clientid"));
+        mp_encode_int(pmp_buf, c->id);
+
+        unsigned short len = sizeof(ProtoRPCCreate) + pmp_buf->len;
+        PProtoHead pProtoHead = malloc(len);
+        pProtoHead->len = len;
+        pProtoHead->proto = proto_rpc_create;
+
+        PProtoRPCCreate protoRPCCreate = (PProtoRPCCreate)pProtoHead;
+        memcpy(protoRPCCreate->callArg, pmp_buf->b, pmp_buf->len);
+
+        DockerRandomPushMsg((unsigned char*)pProtoHead, len);
     }
 
 }
@@ -623,8 +641,6 @@ static void NetCommand(char* pBuf, PNetServer pNetServer) {
 
         PProtoConnect pProtoConnect = (PProtoConnect)pProtoHead;
         struct sockaddr_in addr;
-        uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
-        uv_tcp_t* h = malloc(sizeof(uv_tcp_t));;
 
         int r = uv_ip4_addr(pProtoConnect->ip, pProtoConnect->port, &addr);
         if (r) {
@@ -632,18 +648,38 @@ static void NetCommand(char* pBuf, PNetServer pNetServer) {
             return;
         }
 
-        r = uv_tcp_init(pNetServer->loop, h);
+        uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
+        //创建client对象，创建接收数据缓冲区（只大不小），添加到当前链接队列列表
+        PNetClient c = calloc(1, sizeof(NetClient));
+        c->stream = malloc(sizeof(uv_tcp_t));
+
+        connect_req->data = c;
+        /* associate server with stream */
+        c->stream->data = c;
+        c->pNetServer = pNetServer;
+        c->id = ++pNetServer->allClientID;
+        c->flags = _TCP_CONNECT;
+        c->tcp_recv_buf = sdsempty();
+
+        r = uv_tcp_init(pNetServer->loop, (uv_tcp_t*)c->stream);
         if (r) {
             n_error("NetCommand::uv_ip4_addr error: %s - %s", uv_err_name(r), uv_strerror(r));
+            free(connect_req);
+            free(c->stream);
+            free(c);
             return;
         }
 
         r = uv_tcp_connect(connect_req,
-            h,
+            (uv_tcp_t*)c->stream,
             (const struct sockaddr*)&addr,
             connect_cb);
         if (r) {
             n_error("uv_tcp_connect error: %s - %s", uv_err_name(r), uv_strerror(r));
+            uv_close((uv_handle_t*)c->stream, NULL);
+            free(connect_req);
+            free(c->stream);
+            free(c);
         }
     }
 }
@@ -683,7 +719,6 @@ int NetSendToEntity(unsigned long long entityid, const char* b, unsigned short s
     listAddNodeTail(_pNetServer->sendBuf, sendBuf);
     len = listLength(_pNetServer->sendBuf);
     if (len == 1) {
-        //todo 可能会导致空循环一次，在刚刚处理数据后
         uv_async_send(&_pNetServer->async);
     }
     MutexUnlock(_pNetServer->sendBufMutexHandle, "");
@@ -776,8 +811,7 @@ void async_cb(uv_async_t* handle) {
 }
 
 static int listenToPort(PNetServer pNetServer, int port) {
-    int j;
-
+    int j = 0;
     /* Force binding of 0.0.0.0 if no bind address is specified, always
      * entering the loop if j == 0. */
     if (pNetServer->bindaddr_count == 0) {
@@ -915,7 +949,7 @@ static uv_udp_t* udp4_start(uv_loop_t* loop, char* ip, int port) {
     }
 
     PNetClient pNetClient = malloc(sizeof(NetClient));
-    pNetClient->id = pNetServer->allClientID++;
+    pNetClient->id = ++pNetServer->allClientID;
     pNetClient->pNetServer = uv_loop_get_data(loop);
     uv_handle_set_data((uv_handle_t*)udpServer, pNetClient);
     pNetClient->flags = _UDP_SOCKET;

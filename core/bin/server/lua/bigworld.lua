@@ -2,7 +2,7 @@
 local sc = require 'sc'
 local entity = require("entity")
 local entitymng = require("entitymng")
-local elog = require("elog")
+local elog = require("eloghelp")
 local bigworldapi = require("bigworldapi")
 local udpproxy = require 'udpproxy'
 

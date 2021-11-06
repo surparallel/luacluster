@@ -17,6 +17,10 @@ function test.New()
         print("test entity fun2")
     end
 
+    function obj:mongo()
+        require(assert(("test"), 'test script is missing'))
+    end
+
     return obj
 end
 

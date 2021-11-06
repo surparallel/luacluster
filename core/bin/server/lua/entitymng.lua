@@ -1,6 +1,6 @@
 --我们需要一个管理类，负责将entity工厂创建的entity注册到以剥离应用层的功能
 local docker = require("docker")
-local elog = require("elog")
+local elog = require("eloghelp")
 local int64 = require("int64")
 local cmsgpack = require("cmsgpack")
 local redishelp = require('redishelp')
@@ -41,12 +41,12 @@ function entityMng.NewEntity(name, arg)
         entityMng.RegistryObj(e)
 
         local myid = tostring(int64.new_unsigned(e.id))
-        elog.details(string.format("New::id::%s",myid))
+        elog.details("New::id::%s(%s)",name, myid)
 
         if(e.clientid ~= nil)then
             entityMng.BindObj(e.id, e.clientid)
         else
-            elog.details(string.format("main::proto_rpc_create::not BindObj::%s",name))
+            elog.details("main::proto_rpc_create::not BindObj::%s", name)
         end
 
         if type(e.Init) == "function" then
@@ -54,18 +54,18 @@ function entityMng.NewEntity(name, arg)
         end
 
         --注册DNS
-        if arg["DNS"] ~= nil then
-            redishelp:hset("DNS",arg["DNS"],myid)
+        if arg ~= nil and arg["DNS"] ~= nil then
+            redishelp:hset("DNS",arg["DNS"], myid)
         end
 
         --注册一个负载均衡
-        if arg["BALANCE"] ~= nil then
+        if arg ~= nil and arg["BALANCE"] ~= nil then
             redishelp:select(1)
             redishelp:lpush(arg["BALANCE"],myid)
             redishelp:select(0)
         end
     else
-        elog.error(string.format("main::proto_rpc_create:: New error::%s",name))
+        elog.error("main::proto_rpc_create:: New error::%s",name)
     end
 end
 

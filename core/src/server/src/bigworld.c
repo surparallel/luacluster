@@ -139,9 +139,7 @@ static int luaB_BigWorldEntry(lua_State* L) {
 	rtree_search(pBigWorld->prtree, rects, MultipleIter, result);
 
 	mp_buf* pmp_buf = mp_buf_new();
-	const char ptr[] = "OnRedirectToSpace";
-	mp_encode_bytes(pmp_buf, ptr, sizeof(ptr)-1);
-
+	MP_ENCODE_CONST(pmp_buf, "OnRedirectToSpace");
 	mp_encode_array(pmp_buf, listLength(result));
 	listIter* iter = listGetIterator(result, AL_START_HEAD);
 	listNode* node;
@@ -224,8 +222,7 @@ static int luaB_OnSpace(lua_State* L) {
 	pBigWorldSpace->id = id;
 
 	mp_buf* pmp_buf2 = mp_buf_new();
-	const char ptr[] = "OnAlterSpace";
-	mp_encode_bytes(pmp_buf2, ptr, sizeof(ptr)-1);
+	MP_ENCODE_CONST(pmp_buf2, "OnAlterSpace");
 	mp_encode_array(pmp_buf2, 5);
 	mp_encode_double(pmp_buf2, u642double(pBigWorldSpace->id));
 	mp_encode_double(pmp_buf2, pBigWorldSpace->begin.x - pBigWorld->boundary.x);
@@ -274,8 +271,7 @@ static int luaB_OnSpace(lua_State* L) {
 		listNode* node;
 
 		mp_buf* pmp_buf = mp_buf_new();
-		const char ptr[] = "OnInitSpace";
-		mp_encode_bytes(pmp_buf, ptr, sizeof(ptr)-1);
+		MP_ENCODE_CONST(pmp_buf, "OnInitSpace");
 		mp_encode_array(pmp_buf, listLength(pBigWorld->spaceList));
 
 		while ((node = listNext(iter)) != NULL) {

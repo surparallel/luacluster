@@ -1,4 +1,4 @@
-/* packjson.c --pack or unpack to json for User interaction
+/* packtest.c
 *
 * Copyright(C) 2021 - 2022, sun shuo <sun.shuo@surparallel.org>
 * All rights reserved.
@@ -17,6 +17,4 @@
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
 
-
-void UnpackJson(const char* buf, size_t len, cJSON** json);
-void PackJson(const char* str, mp_buf* pk);
+void DoTestPack();

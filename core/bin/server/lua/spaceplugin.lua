@@ -6,7 +6,7 @@ local int64 = require("int64")
 local spaceproxy = require 'spaceproxy'
 local udpproxy = require 'udpproxy'
 local math3d = require 'math3d'
-local elog = require("elog")
+local elog = require("eloghelp")
 local entity = require("entity")
 
 local spacepluginFactory = {}
@@ -61,12 +61,9 @@ function spacepluginFactory.New()
     end
 
     --可能会收到多个空间的进入可见列表
-    function obj:OnAddView(entityList)
-        for key, value in ipairs(entityList) do
-            local id64 = int64.new_unsigned(value[1])
-            local sid = tostring(id64)
-            self.entities[sid] = value
-        end
+    function obj:OnAddView(entity)
+        local id64 = int64.new_unsigned(entity[1])
+        self.entities[tostring(id64)] = entity
 
         --转发到客户端
         if self.clientid ~= nil then
@@ -90,7 +87,7 @@ function spacepluginFactory.New()
         limit = limit * 2;
 
         for k, v in pairs(self.entities) do
-            local x,y,z =math3d.Position(v[2], 0, v[3], v[4], 0, v[5], v[6], v[7])
+            local x,y,z =math3d.Position(v[2], 0, v[3], 0, v[4], 0, v[5], v[6])
             local dist = math3d.Dist(self.transform.poition.x, 0, self.transform.poition.z, x, y, z)
             if dist > limit then
                 self.entities[k] = nil

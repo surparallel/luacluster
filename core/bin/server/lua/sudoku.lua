@@ -4,7 +4,7 @@ local entity = require("entity")
 local entitymng = require("entitymng")
 local docker = require("docker")
 local int64 = require("int64")
-local elog = require("elog")
+local elog = require("eloghelp")
 local sudokuapi = require("sudokuapi")
 local udpproxy = require 'udpproxy'
 

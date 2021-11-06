@@ -1,4 +1,4 @@
-local elog = require("elog")
+local elog = require("eloghelp")
 local cmsgpack = require("cmsgpack")
 local docker = require("docker")
 
@@ -7,7 +7,7 @@ local tcpProxyFactory = {}
 function tcpProxyFactory.New(id)
     local obj = {}
     obj.did = id
-    obj.pid = id
+    obj.sid = id
 
     function obj:PID(pid)
         obj.pid = pid
@@ -27,7 +27,7 @@ function tcpProxyFactory.New(id)
                 end
                 
                 arg[1] = k
-                docker.SendToClient(obj.did, obj.pid, cmsgpack.pack(unpack(arg)))
+                docker.SendToClient(obj.did, obj.sid, cmsgpack.pack(unpack(arg)))
             end
         end,
         __newindex = function (t,k,v)

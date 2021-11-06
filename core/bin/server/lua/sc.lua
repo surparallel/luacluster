@@ -1,7 +1,7 @@
 --system config
 local dcopy = require "dcopy"
 local try = require("try-catch-finally")
-local elog = require("elog")
+local elog = require("eloghelp")
 local sc = {}
 
 sc.proto = {}

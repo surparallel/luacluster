@@ -56,6 +56,11 @@ void mp_encode_array(mp_buf* buf, size_t n);
 void mp_encode_map(mp_buf* buf, size_t n);
 void mp_encode_bool(mp_buf* buf, unsigned int to);
 
+#define MP_ENCODE_CONST(buf, ptr) {\
+const char myptr[] = ptr;\
+mp_encode_bytes(buf, ptr, sizeof(myptr)-1);\
+}
+
 void mp_cur_init(mp_cur* cursor, const unsigned char* s, size_t len);
 void mp_decode_type(mp_cur* c, int* type);
 void mp_decode_bytes(mp_cur* c, const unsigned char** s, size_t* len);

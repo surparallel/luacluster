@@ -3,7 +3,7 @@ local docker = require("docker")
 local int64 = require("int64")
 local udpproxy = require 'udpproxy'
 local math3d = require 'math3d'
-local elog = require("elog")
+local elog = require("eloghelp")
 local entity = require("entity")
 
 local movepluginFactory = {}
@@ -22,7 +22,7 @@ function movepluginFactory.New()
     function obj:MoveTo(x, y, z)
 
         if (x < self.spaceInfo.beginx or  x > self.spaceInfo.endx) and (z < self.spaceInfo.beginz or  z > self.spaceInfo.endz) then
-            elog.error(string.format("space::MoveTo outside error x:%f y:%f z:%f",x,y,z))
+            elog.error("space::MoveTo outside error x:%f y:%f z:%f",x,y,z)
             return
         end
 

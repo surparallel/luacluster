@@ -78,7 +78,8 @@ void* LVMCreate(const char* scriptPath, const char* assetsPath) {
 	LuaOpenElog(pLVMHandle->luaVM);
 	luaopen_mongo(pLVMHandle->luaVM);
 	LuaOpenMath3d(pLVMHandle->luaVM);
-	LuaAddPath(pLVMHandle->luaVM, "path", (char*)assetsPath);
+	if(sdslen((sds)assetsPath) != 0)
+		LuaAddPath(pLVMHandle->luaVM, "path", (char*)assetsPath);
 	LuaAddPath(pLVMHandle->luaVM, "path", (char*)"./lua/?.lua;");
 	luaopen_socket_core(pLVMHandle->luaVM);
 	luaopen_mime_core(pLVMHandle->luaVM);

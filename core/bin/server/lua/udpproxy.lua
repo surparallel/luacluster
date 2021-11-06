@@ -1,4 +1,4 @@
-local elog = require("elog")
+local elog = require("eloghelp")
 local cmsgpack = require("cmsgpack")
 local docker = require("docker")
 

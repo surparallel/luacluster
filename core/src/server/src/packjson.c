@@ -21,6 +21,7 @@
 #include "plateform.h"
 #include "lua_cmsgpack.h"
 #include "cJSON.h"
+#include "packjson.h"
 
 void PackJsonObject(cJSON* item, mp_buf* pk);
 
@@ -116,10 +117,92 @@ void PackJson(const char* str, mp_buf* pk) {
 		return;
 	}
 
-	PackJsonObject(json, pk);
+	if (((json->type) & 0XFF) == cJSON_Object)
+		PackJsonObject(json, pk);
+	else if (((json->type) & 0XFF) == cJSON_Array)
+		PackJsonArray(json, pk);
+
+	cJSON_Delete(json);
 }
 
+void UnpackArray(mp_cur* pcursor, cJSON* json);
 void UnpackObj(mp_cur* pcursor, cJSON* json);
+
+void UnpackArrayItem(mp_cur* pcursor, cJSON* json) {
+
+	int type;
+	mp_decode_type(pcursor, &type);
+	if (pcursor->err == 0) {
+		switch (type)
+		{
+		case code_byte: {
+			unsigned char* p;
+			size_t l;
+			mp_decode_bytes(pcursor, &p, &l);
+			char* str = calloc(1, l + 1);
+			memcpy(str, p, l);
+			cJSON* jsonstr = cJSON_CreateString(str);
+			cJSON_AddItemToArray(json, jsonstr);
+			free(str);
+			break;
+		}
+		case code_double:
+		{
+			double value;
+			mp_decode_double(pcursor, &value);
+			cJSON* jsondouble = cJSON_CreateNumber(value);
+			cJSON_AddItemToArray(json, jsondouble);
+			break;
+		}
+		case code_unint:
+		{
+			unsigned long long value;
+			mp_decode_unint(pcursor, &value);
+			cJSON* jsondouble = cJSON_CreateNumber((double)value);
+			cJSON_AddItemToArray(json, jsondouble);
+			break;
+		}
+		case code_int:
+		{
+			long long value;
+			mp_decode_int(pcursor, &value);
+			cJSON* jsondouble = cJSON_CreateNumber((double)value);
+			cJSON_AddItemToArray(json, jsondouble);
+			break;
+		}
+		case code_bool:
+		{
+			int value;
+			mp_decode_bool(pcursor, &value);
+			cJSON* jsonbool = cJSON_CreateBool(value);
+			cJSON_AddItemToArray(json, jsonbool);
+			break;
+		}
+		case code_nil:
+			break;
+		case code_array:
+		{
+			cJSON* array = cJSON_CreateArray();
+			cJSON_AddItemToArray(json, array);
+			UnpackArray(pcursor, array);
+			break;
+		}
+		case code_map:
+		{
+			cJSON* map = cJSON_CreateObject();
+			cJSON_AddItemToArray(json, map);
+			UnpackObj(pcursor, map);
+			break;
+		}
+		default:
+			break;
+		}
+	}
+	else {
+		return;
+	}
+}
+
 void UnpackArray(mp_cur* pcursor, cJSON* json) {
 
 	int type = 0;
@@ -218,7 +301,7 @@ void UnpackObj(mp_cur* pcursor, cJSON* json) {
 				unsigned char* p;
 				size_t l;
 				mp_decode_bytes(pcursor, &p, &l);
-				char* key = malloc(l + 1);
+				char* key = calloc(1, l + 1);
 				memcpy(key, p, l);
 
 				mp_decode_type(pcursor, &type);
@@ -267,13 +350,15 @@ void UnpackObj(mp_cur* pcursor, cJSON* json) {
 						break;
 					case code_array:
 					{
-						cJSON* array = cJSON_AddArrayToObject(json, key);
+						cJSON* array = cJSON_CreateArray();
+						cJSON_AddItemToObject(json, key, array);
 						UnpackArray(pcursor, array);
 						break;
 					}
 					case code_map:
 					{
-						cJSON* map = cJSON_AddObjectToObject(json, key);
+						cJSON* map = cJSON_CreateObject();
+						cJSON_AddItemToObject(json, key, map);
 						UnpackObj(pcursor, map);
 						break;
 					}
@@ -293,10 +378,28 @@ void UnpackObj(mp_cur* pcursor, cJSON* json) {
 	}
 }
 
-void UnpackJson(const char* buf, size_t len, cJSON* json) {
+void UnpackJson(const char* buf, size_t len, cJSON** json) {
 
 	mp_cur cursor;
 	mp_cur* pcursor = &cursor;
 	mp_cur_init(pcursor, buf, len);
-	
+
+	int type;
+	mp_decode_type(pcursor, &type);
+	if (type == code_map) {
+		*json = cJSON_CreateObject();
+		UnpackObj(pcursor, *json);
+	}
+	else if (type == code_array) {
+		*json = cJSON_CreateArray();
+		UnpackArray(pcursor, *json);
+	}
+	else {
+		*json = cJSON_CreateArray();
+		while (1) {
+			UnpackArrayItem(pcursor, *json);
+			if (pcursor->err != 0)
+				break;
+		}
+	}
 }

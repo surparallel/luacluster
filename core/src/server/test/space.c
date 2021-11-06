@@ -76,11 +76,11 @@ void test_sudoku() {
 	TestGirdDir(hand);
 
 	for (int i = 0; i < 5; i++) {
-		position.x = rand() % 30;
-		position.z = rand() % 30;
+		position.x = (float)(rand() % 30);
+		position.z = (float)(rand() % 30);
 
-		rotation.x = rand() % 360;
-		rotation.z = rand() % 360;
+		rotation.x = (float)(rand() % 360);
+		rotation.z = (float)(rand() % 360);
 
 		SudokuEntry(hand, i, position, rotation, 1, GetCurrentSec(), 0, 0);
 	}

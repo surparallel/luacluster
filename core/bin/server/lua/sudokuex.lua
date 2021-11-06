@@ -2,7 +2,7 @@
 local sc = require 'sc'
 local entity = require("entity")
 local entitymng = require("entitymng")
-local elog = require("elog")
+local elog = require("eloghelp")
 local sudokuapi = require("sudokuapi")
 local udpproxy = require 'udpproxy'
 

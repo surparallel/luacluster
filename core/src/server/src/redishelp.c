@@ -40,7 +40,7 @@ static unsigned redis_port;
 static void doJsonParseFile(char* config)
 {
     if (config == NULL) {
-        config = getenv("GrypaniaAssetsPath");
+        config = getenv("AssetsPath");
         if (config == 0 || access_t(config, 0) != 0) {
             config = "../../res/server/config_defaults.json";
             if (access_t(config, 0) != 0) {
@@ -318,6 +318,68 @@ void GetUpdOutside(unsigned int* ip, unsigned short* port) {
 	}
 	sdsfree(s);
 	sdsfreesplitres(tokens, count);
+	freeReplyObject(r);
+	redisFree(c);
+}
+
+void SetEntityToDns(const char* name, unsigned long long id) {
+
+	//redis默认监听端口为6387 可以再配置文件中修改
+	redisContext* c = redisConnect(redis_ip, redis_port);
+	if (c->err)
+	{
+		redisFree(c);
+		n_error("Connect to redisServer faile");
+		return;
+	}
+
+	const char* command = "hset DNS %s %ull";
+	redisReply* r = (redisReply*)redisCommand(c, command, name, id);
+
+	if (NULL == r)
+	{
+		n_error("Execut command failure");
+		redisFree(c);
+		return;
+	}
+
+	if (r->type == REDIS_REPLY_INTEGER && r->integer != 1)
+	{
+		n_warn("Failed to execute command[%s]", command);
+	}
+
+	freeReplyObject(r);
+	redisFree(c);
+}
+
+void GetEntityToDns(const char* name, unsigned long long* id) {
+	//redis默认监听端口为6387 可以再配置文件中修改
+	redisContext* c = redisConnect(redis_ip, redis_port);
+	if (c->err)
+	{
+		redisFree(c);
+		n_error("Connect to redisServer faile");
+		return;
+	}
+	const char* command = "hget DNS %s";
+	redisReply* r = (redisReply*)redisCommand(c, command, name);
+
+	if (NULL == r)
+	{
+		n_error("Execut command failure");
+		redisFree(c);
+		return;
+	}
+
+	if (r->type == REDIS_REPLY_STRING) {
+		*id = strtoull(r->str, NULL, 0);
+	} else if (r->type == REDIS_REPLY_INTEGER) {
+		*id = r->integer;
+	} else
+	{
+		n_warn("Failed to execute command[%s]", command);
+	}
+
 	freeReplyObject(r);
 	redisFree(c);
 }

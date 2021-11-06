@@ -3,6 +3,7 @@ local tcpproxy = require("tcpproxy")
 local sc = require("sc")
 local docker = require("docker")
 local int64 = require("int64")
+local elog = require("eloghelp")
 
 local accountFactory = {}
 
@@ -38,12 +39,13 @@ function accountFactory.New()
     function obj:Init()
 
         local myid = tostring(int64.new_unsigned(self.id))
-        elog.fun(string.format("account::init %s", myid))
+        elog.fun("account::init %s", myid)
         if(obj.clientid ~= nil)then
             obj.client = tcpproxy.New(self.id)
         end
 
-        obj:EntryWorld("bigworld")
+        --obj:EntryWorld("bigworld")
+        obj:ping(1)
     end
 
     function obj:Destory()

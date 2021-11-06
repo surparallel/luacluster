@@ -3,7 +3,7 @@ local LuaPanda = require("LuaPanda").start(sc.LuaPanda.ip,sc.LuaPanda.port)
 local cmsgpack = require("cmsgpack")
 local entitymng = require("entitymng")
 local docker = require("docker")
-local elog = require("elog")
+local elog = require("eloghelp")
 local try = require("try-catch-finally")
 local cluster = require("cluster")
 local int64 = require("int64")
@@ -17,14 +17,14 @@ function main()
             cluster:CheckInit()
         end
 
-        ret = {docker.Wait(sc.glob.msec)}
+        local ret = {docker.Wait(sc.glob.msec)}
         if #ret == 0 then
             entitymng.LoopUpdata()
         elseif ret[1] == sc.proto.proto_ctr_cancel then
             return
         elseif ret[1] == sc.proto.proto_rpc_create then
             try(function()
-                arg = {cmsgpack.unpack(ret[2])}
+                local arg = {cmsgpack.unpack(ret[2])}
                 entitymng.NewEntity(arg[1], arg[2])
             end).catch(function (ex)
                 elog.error(ex)
@@ -42,26 +42,26 @@ function main()
                     entitymng.UnRegistryObj(ret[2])
                 else
                     local myid = tostring(int64.new_unsigned(ret[2]))
-                    elog.error(string.format("main::proto_rpc_destory:: not find obj: %s" ,myid))
+                    elog.error("main::proto_rpc_destory:: not find obj: %s" ,myid)
                 end
             end).catch(function (ex)
                 elog.error(ex)
             end)
         elseif ret[1] == sc.proto.proto_rpc_call then
             try(function()
+                local myid = tostring(int64.new_unsigned(ret[2]))
                 local obj = entitymng.FindObj(ret[2])
                 if obj ~= nil then
-                    arg = {cmsgpack.unpack(ret[3])}
+                    local arg = {cmsgpack.unpack(ret[3])}
                     local funName = arg[1]
-                    if type(obj[arg[1]]) == 'function' then
+                    if type(obj[funName]) == 'function' then
                         table.remove(arg, 1)
                         obj[funName](obj, unpack(arg))
                     else
-                        elog.error(string.format("main::proto_rpc_call:: not find:%s.%s",obj.__class,funName))
+                        elog.error("main::proto_rpc_call:: not find function:%s(%s).%s",obj.__class, myid, funName)
                     end
                 else
-                    local myid = tostring(int64.new_unsigned(ret[2]))
-                    elog.error(string.format("main::proto_rpc_call:: not find obj:%s" ,myid))
+                    elog.error("main::proto_rpc_call:: not find obj:%s" ,myid)
                 end
             end).catch(function (ex)
                 elog.error(ex)
@@ -76,7 +76,7 @@ function main()
             try(function()
                 local obj = entitymng.FindObj(ret[3])
                 if obj.isconnect then
-                    --服务器发送给客户端   
+                    --服务器发送给客户端
                     if obj ~= nil then
                         if type(obj.entityCall) == 'function' then
                             obj:entityCall(ret[2], cmsgpack.unpack(ret[4]))
@@ -88,23 +88,20 @@ function main()
                     --客户端发送给服务器端
                     obj = entitymng.FindObj(ret[2])
                     if obj ~= nil then
-                        arg = {cmsgpack.unpack(ret[4])}
-
+                        local arg = {cmsgpack.unpack(ret[4])}
                         local funName = arg[1]
-
                         if type(obj[funName]) == 'function' then
                             if obj:HaveKeyFlags(funName, sc.keyflags.exposed) then
                                 table.remove(arg, 1)
                                 obj[funName](obj, unpack(arg))
                             else
-                                elog.error(string.format("main::proto_route_call:: not exposed fun:%s", funName))
+                                elog.error("main::proto_route_call:: not exposed fun:%s", funName)
                             end
                         else
-                            elog.error(string.format("main::proto_route_call:: not find fun: %s", funName))
+                            elog.error("main::proto_route_call:: not find fun: %s", funName)
                         end
-                    
                     else
-                        elog.error(string.format("main::proto_route_call:: not find obj: %u",ret[2]))
+                        elog.error("main::proto_route_call:: not find obj: %u",ret[2])
                     end
                 end
 

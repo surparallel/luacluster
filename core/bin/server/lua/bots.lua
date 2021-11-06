@@ -1,6 +1,7 @@
 local entity = require("entity")
 local tcpproxy = require("tcpproxy")
 local tabtostr = require 'tabtostr'
+local int64 = require("int64")
 
 local botsFactory = {}
 
@@ -25,7 +26,7 @@ function botsFactory.New()
     end
 
     function obj:entityCall(id, fun, ...)
-        print("bot fun::", id, fun)
+        print("bot fun::", tostring(int64.new_unsigned(id)), fun)
 
         if fun == 'pong' then
             local arg = {...}
