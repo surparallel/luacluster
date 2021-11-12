@@ -23,7 +23,7 @@
 #include "cJSON.h"
 #include "packjson.h"
 
-void PackJsonObject(cJSON* item, mp_buf* pk);
+static void PackJsonObject(cJSON* item, mp_buf* pk);
 
 static void PackJsonArray(cJSON* item, mp_buf* pk)
 {
