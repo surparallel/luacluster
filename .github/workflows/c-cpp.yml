@@ -13,9 +13,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: readline
+      run: 'sudo apt install libreadline-dev'
     - name: cd core
       run: "cd core && mkdir build"
     - name: cd build
-      run: "cd build && cmake .."
+      run: "cd core/build && cmake .."
     - name: cmake --build
-      run: "cd .. && cmake --build build"
+      run: "cd core && cmake --build build"
