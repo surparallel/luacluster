@@ -29,7 +29,6 @@
 #include "lua_cmsgpack.h"
 #include "dockerapi.h"
 #include "srp.h"
-#include "bit.h"
 #include "logapi.h"
 #include "luasocket.h"
 #include "mime.h"
@@ -68,21 +67,23 @@ void* LVMCreate(const char* scriptPath, const char* assetsPath) {
 	pLVMHandle->scriptPath = sdsnew(scriptPath);
 
 	luaL_openlibs(pLVMHandle->luaVM);
-	luaopen_int64(pLVMHandle->luaVM);
-	LuaOpenDocker(pLVMHandle->luaVM);
-	LuaOpenSudoku(pLVMHandle->luaVM);
-	LuaOpenBigworld(pLVMHandle->luaVM);
-	luaopen_srp(pLVMHandle->luaVM);
-	luaopen_cmsgpack(pLVMHandle->luaVM);
-	luaopen_bit(pLVMHandle->luaVM);
-	LuaOpenElog(pLVMHandle->luaVM);
-	luaopen_mongo(pLVMHandle->luaVM);
-	LuaOpenMath3d(pLVMHandle->luaVM);
+
+	luaL_requiref(pLVMHandle->luaVM, "int64", luaopen_int64, 1);
+	luaL_requiref(pLVMHandle->luaVM, "docker", LuaOpenDocker, 1);
+	luaL_requiref(pLVMHandle->luaVM, "sudokuapi", LuaOpenSudoku, 1);
+	luaL_requiref(pLVMHandle->luaVM, "bigworldapi", LuaOpenBigworld, 1);
+	luaL_requiref(pLVMHandle->luaVM, "srp", luaopen_srp, 1);
+	luaL_requiref(pLVMHandle->luaVM, "cmsgpack", luaopen_cmsgpack, 1);
+	luaL_requiref(pLVMHandle->luaVM, "elog", LuaOpenElog, 1);
+	luaL_requiref(pLVMHandle->luaVM, "mongo", luaopen_mongo, 1);
+	luaL_requiref(pLVMHandle->luaVM, "math3d", LuaOpenMath3d, 1);
+	luaL_requiref(pLVMHandle->luaVM, "socket.core", luaopen_socket_core, 1);
+	luaL_requiref(pLVMHandle->luaVM, "mime.core", luaopen_mime_core, 1);
+	
 	if(sdslen((sds)assetsPath) != 0)
 		LuaAddPath(pLVMHandle->luaVM, "path", (char*)assetsPath);
 	LuaAddPath(pLVMHandle->luaVM, "path", (char*)"./lua/?.lua;");
-	luaopen_socket_core(pLVMHandle->luaVM);
-	luaopen_mime_core(pLVMHandle->luaVM);
+
 	return pLVMHandle;
 }
 
@@ -123,7 +124,7 @@ int LVMCallFunction(void* pvLVMHandle, char* sdsFile, char* fun) {
 	sdsfree(allPath);
 
 	//call fun
-	lua_getfield(pLVMHandle->luaVM, LUA_GLOBALSINDEX, fun);
+	lua_getglobal(pLVMHandle->luaVM, fun);
 	if (lua_pcall(pLVMHandle->luaVM, 0, LUA_MULTRET, 0)) {
 		elog(log_error, ctg_script, "plg_LvmCallFile.plua_pcall:%s lua:%s", fun, lua_tolstring(pLVMHandle->luaVM, -1, NULL));
 		lua_settop(pLVMHandle->luaVM, 0);

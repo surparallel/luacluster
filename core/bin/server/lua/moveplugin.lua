@@ -40,13 +40,13 @@ function movepluginFactory.New()
 
         for k, v in pairs(self.entities) do
             local entity = udpproxy.New(v[1])
-            entity.OnMove(self.id, self.transform.poition.x, self.transform.poition.z
-            , self.transform.rotation.y, self.transform.velocity, self.transform.stamp, self.transform.stampStop);
+            entity:OnMove(self.id, self.transform.poition.x, self.transform.poition.y, self.transform.poition.z
+            ,self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z, self.transform.velocity, self.transform.stamp, self.transform.stampStop);
         end
 
         for k, v in pairs(self.spaces) do
-            v:Move(self.id, self.transform.poition.x, self.transform.poition.z
-            , self.transform.rotation.y, self.transform.velocity, self.transform.stamp, self.transform.stampStop);
+            v:Move(self.id, self.transform.poition.x, self.transform.poition.y, self.transform.poition.z
+            ,self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z, self.transform.velocity, self.transform.stamp, self.transform.stampStop);
         end
     end
 

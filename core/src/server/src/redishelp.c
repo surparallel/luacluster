@@ -352,7 +352,7 @@ void SetEntityToDns(const char* name, unsigned long long id) {
 	redisFree(c);
 }
 
-void GetEntityToDns(const char* name, unsigned long long* id) {
+void GetEntityFromDns(const char* name, unsigned long long* id) {
 	//redis默认监听端口为6387 可以再配置文件中修改
 	redisContext* c = redisConnect(redis_ip, redis_port);
 	if (c->err)

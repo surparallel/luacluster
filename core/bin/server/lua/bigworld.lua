@@ -45,7 +45,7 @@ function spaceFactory.New()
     end
     
     --引导entity进入space 如果是多个就进入多个
-    function obj:EntryWorld(id, poitionx, poitionz, rotationy, velocity, stamp, stampStop)
+    function obj:EntryWorld(id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
         bigworldapi.Entry(self.apihandle, id, poitionx, poitionz)
 
         local entityProxy = udpproxy.New(id)

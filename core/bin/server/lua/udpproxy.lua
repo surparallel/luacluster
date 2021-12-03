@@ -7,6 +7,7 @@ local udpProxyFactory = {}
 function udpProxyFactory.New(id)
     local obj = {}
     obj.id = id
+    obj.__entity = 1
     return setmetatable(obj,{
         __index = function (t,k)
             return function(...)
@@ -19,7 +20,7 @@ function udpProxyFactory.New(id)
                     return
                 end
                 arg[1] = k
-                docker.Send(self.id, cmsgpack.pack(unpack(arg)))
+                docker.Send(self.id, cmsgpack.pack(table.unpack(arg)))
             end
         end,
         __newindex = function (t,k,v)

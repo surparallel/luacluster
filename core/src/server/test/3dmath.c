@@ -1,4 +1,5 @@
-﻿#include "3dmath.h"
+﻿#include"plateform.h"
+#include "3dmath.h"
 #include "quaternion.h"
 #include "vector.h"
 #include "transform.h"
@@ -9,11 +10,11 @@ static double PIOver2 = 0xc.90fdaa22168cp-3;
 void LookRotation(struct Vector3 fromDir, struct Vector3* eulerAngles)
 {
     //AngleX = arc cos(sqrt((x^2 + z^2)/(x^2+y^2+z^2)))
-    eulerAngles->x = cosf(sqrtf((fromDir.x * fromDir.x + fromDir.z * fromDir.z) / (fromDir.x * fromDir.x + fromDir.y * fromDir.y + fromDir.z * fromDir.z))) * RADIANS_PER_DEGREE;
+    eulerAngles->x = cosf(sqrtf((fromDir.x * fromDir.x + fromDir.z * fromDir.z) / (fromDir.x * fromDir.x + fromDir.y * fromDir.y + fromDir.z * fromDir.z)));
     if (fromDir.y > 0) eulerAngles->x = 360 - eulerAngles->x;
 
     //AngleY = arc tan(x/z)
-    eulerAngles->y = atan2(fromDir.x, fromDir.z) * RADIANS_PER_DEGREE;
+    eulerAngles->y = atan2(fromDir.x, fromDir.z);
     if (eulerAngles->y < 0) eulerAngles->y += 180;
     if (fromDir.x < 0) eulerAngles->y += 180;
     //AngleZ = 0
@@ -309,43 +310,48 @@ void GetEulerAngle2(struct Quaternion* q, struct Vector3* EulerAngle)
 }
 
 void do3dlibTest() {
+    /*
+    struct Quaternion qout;
+    struct Vector3 qin1, qin2;
 
-	struct BasicTransform bt;
-	bt.position.x = 1;
-	bt.position.y = 0;
-	bt.position.z = 0;
-	
-	struct Vector3 ea = {0, (float)(45 * RADIANS_PER_DEGREE), 0};
-    struct Vector3 v3 = {1, 0, 0};
-    struct Vector3 vout;
-	quatEulerAngles(&ea, &bt.rotation);
-    quatMultVector(&bt.rotation, &gForward, &vout);
+    qin1.x = 0;
+    qin1.y = 45;
+    qin1.z = 0;
 
-	transformForward(&bt, &v3);
-	transformDirection(&bt, &v3, &vout);
+    ToQ(&qin1, &qout);
+    FromQ2(&qout, &qin2);
 
-    struct Quaternion rotation;
-    CAngleToQuaternion(&ea, &rotation);
+   // for (size_t x = 0; x <= 360; x++)
+    {
+        for (int y = -360; y <= 360; y++)
+        {
+           // for (size_t z = 0; z <= 360; z++)
+            {
+                qin1.x = 0;
+                qin1.y = y;
+                qin1.z = 0;
 
-    float ret[4][4];
-    GetMatrixLH(&rotation, ret);
-    GetMatrixRH(&rotation, ret);
+                ToQ(&qin1, &qout);
+                FromQ2(&qout, &qin2);
 
-    struct Vector3 fromDir = {0.5, 0, 0.5};
-    struct Vector3 eulerAngles;
-    LookRotation(fromDir, &eulerAngles);
+                if (round(qin2.x) != qin1.x || round(qin2.y) != qin1.y || round(qin2.z) != qin1.z) {
+                    if (abs(round(qin2.x)) + qin1.x == 360 || abs(round(qin2.y)) + qin1.y == 360 || abs(round(qin2.z)) + qin1.z == 360)
+                        continue;
+                    printf("error x1:%f x2:%f y1:%f y2:%f z1:%f z2:%f\n", qin1.x, qin2.x, qin1.y, qin2.y, qin1.z, qin2.z);
+                }
+            }
+        }
+    }
 
-    Matrix rm;
-    EulerAnglesToMatrix((struct EulerAngle*)&ea, ORDER_XZY, rm);
+*/
 
-	int a = 1;
-
+    struct Quaternion rotation, rotation1;
     struct Vector3 Euler, Euler2, Euler3;
-    Euler.x = 15.0f * RADIANS_PER_DEGREE;
-    Euler.y = 25.0f * RADIANS_PER_DEGREE;
-    Euler.z = 45.0f * RADIANS_PER_DEGREE;
-    quatEulerAngles(&Euler, &rotation);
-    quatToEulerAngles(&rotation, &Euler2);
+    Euler.x = 0.f;
+    Euler.y = 45.f;
+    Euler.z = 0.f;
+    quatEulerAngles(&Euler, &rotation1);
+    quatToEulerAngles(&rotation1, &Euler2);
 
     struct Vector3 forwd;
     forwd.x = 1;
@@ -353,4 +359,19 @@ void do3dlibTest() {
     forwd.z = 1;
     quatLookRotation(&forwd, &rotation);
     quatToEulerAngles(&rotation, &Euler2);
+
+    for (float x = -1; x <= 1; x++) {
+        for (float z = -1; z <= 1; z++) {
+            struct Vector3 forwd;
+            forwd.x = x;
+            forwd.y = 0;
+            forwd.z = z;
+            quatLookRotation(&forwd, &rotation);
+            quatToEulerAngles(&rotation, &Euler2);
+
+            printf("in.x:%f in.z:%f q.x:%f q.y:%f q.z:%f q.w:%f out.x:%f out.y:%f out.z:%f\n", forwd.x, forwd.z, rotation.x, rotation.y, rotation.z, rotation.w, Euler2.x, Euler2.y, Euler2.z);
+        }
+    }
+
+    getc(stdin);
 }

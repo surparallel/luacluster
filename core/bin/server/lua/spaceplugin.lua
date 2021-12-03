@@ -25,16 +25,18 @@ function spacepluginFactory.New()
         --从redis获取对象并调用空间的EntryWorld
         --entitymng.RegistryUpdata(self) 需要在子类的updata调用，引用self数据错误
         local space = entitymng.GetSev(sapceName)
-        space:EntryWorld(self.id, self.transform.poition.x, self.transform.poition.z
+        space:EntryWorld(self.id, self.transform.poition.x, self.transform.poition.y, self.transform.poition.z
+            , self.transform.rotation.x
             , self.transform.rotation.y
+            , self.transform.rotation.z
             , self.transform.velocity
             , self.transform.stamp
             , self.transform.stampStop
             , self.isGhost
         )
         self.clients = spaceproxy.New(self)
-        self.isGhost = 0
         self.spaces = {}
+        self.isGhost = 0
     end
 
     function obj:OnEntryWorld(spaceType, beginx, beginz, endx, endz)
@@ -105,7 +107,11 @@ function spacepluginFactory.New()
 
             --首次登录
             self.spaces[tostring(id64)]:EntryWorld(self.id, self.transform.poition.x,
-            self.transform.poition.z, self.transform.rotation.y,
+            self.transform.poition.y,
+            self.transform.poition.z,
+            self.transform.rotation.x,
+            self.transform.rotation.y,
+			self.transform.rotation.z,
             self.transform.velocity, self.transform.stamp,  self.transform.stampStop, self.isGhost)
 
             if self.isGhost == 0 then
@@ -147,7 +153,7 @@ function spacepluginFactory.New()
     end
 
     --其他客户端调用更改可见范围内的状态
-    function obj:OnMove(id, poitionx, poitionz, rotationy, velocity, stamp, stampStop)
+    function obj:OnMove(id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
 
         local id64 = int64.new_unsigned(id)
         local sid = tostring(id64)
@@ -157,11 +163,14 @@ function spacepluginFactory.New()
 
         self.entities[sid][1] = id
         self.entities[sid][2] = poitionx
-        self.entities[sid][3] = poitionz
-        self.entities[sid][4] = rotationy
-        self.entities[sid][5] = velocity
-        self.entities[sid][6] = stamp
-        self.entities[sid][7] = stampStop
+        self.entities[sid][3] = poitiony
+        self.entities[sid][4] = poitionz
+        self.entities[sid][5] = rotationx
+        self.entities[sid][6] = rotationy
+        self.entities[sid][7] = rotationz
+        self.entities[sid][8] = velocity
+        self.entities[sid][9] = stamp
+        self.entities[sid][10] = stampStop
 
         --转发到客户端
         if self.clientid ~= nil then
@@ -169,15 +178,15 @@ function spacepluginFactory.New()
         end
     end
 
-    function obj:Move(poitionx, poitionz, rotationy, velocity, stamp)
+    function obj:Move(poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
 
         --通知空间
         for k, v in pairs(self.spaces) do
-            v:Move(self.id, poitionx, poitionz, rotationy, velocity, stamp)
+            v:Move(self.id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
         end
 
-        --通知客户端
-        self.clients:OnMove(self.id, poitionx, poitionz, rotationy, velocity, stamp)
+        --通知客户端这里可以使用转发省去了序列化
+        self.clients:OnMove(self.id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
     end
 
     return obj

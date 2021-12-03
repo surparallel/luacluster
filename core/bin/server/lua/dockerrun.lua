@@ -56,7 +56,7 @@ function main()
                     local funName = arg[1]
                     if type(obj[funName]) == 'function' then
                         table.remove(arg, 1)
-                        obj[funName](obj, unpack(arg))
+                        obj[funName](obj, table.unpack(arg))
                     else
                         elog.error("main::proto_rpc_call:: not find function:%s(%s).%s",obj.__class, myid, funName)
                     end
@@ -93,7 +93,7 @@ function main()
                         if type(obj[funName]) == 'function' then
                             if obj:HaveKeyFlags(funName, sc.keyflags.exposed) then
                                 table.remove(arg, 1)
-                                obj[funName](obj, unpack(arg))
+                                obj[funName](obj, table.unpack(arg))
                             else
                                 elog.error("main::proto_route_call:: not exposed fun:%s", funName)
                             end

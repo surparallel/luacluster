@@ -1231,6 +1231,10 @@ int luaopen_create(lua_State *L) {
     return 1;
 }
 
+#if LUA_VERSION_NUM == 502
+#define luaL_register(L,n,l) { luaL_newlib(L,l);}
+#endif
+
 LUALIB_API int luaopen_cmsgpack(lua_State *L) {
 /*    luaopen_create(L);
 

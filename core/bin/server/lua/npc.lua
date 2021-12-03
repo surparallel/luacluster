@@ -6,11 +6,16 @@ local int64 = require("int64")
 local entitymng = require("entitymng")
 
 local npcFactory = {}
+function npcFactory.OnFreshKey(t,k,v,o,f)
+    print("OnFreshKey")
+end
 
 function npcFactory.New()
     local obj = entity.New()
     obj:Inherit("moveplugin")
     obj.client = tcpproxy.New(obj.id)
+    
+    obj:AddFlagFun(sc.keyflags.private, npcFactory.OnFreshKey)
 
     obj.transform.poition.x = 0
     obj.transform.poition.y = 0
@@ -53,6 +58,10 @@ function npcFactory.New()
 
     function obj:Update(count, deltaTime)
         self.__allparant["spaceplugin"].Update(self, count, deltaTime)
+
+        if obj.status == 1 and os.time() > obj.transform.stampStop then
+            self:MoveTo(math.random(0, self.spaceInfo.endx), 0, math.random(0, self.spaceInfo.endz))
+        end
     end
 
     return obj

@@ -19,9 +19,6 @@
 
 #include "plateform.h"
 #include "dict.h"
-#include "lua.h"
-#include "lauxlib.h"
-#include "lualib.h"
 #include "elog.h"
 #include "sds.h"
 #include "filesys.h"

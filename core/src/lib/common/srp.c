@@ -750,6 +750,10 @@ static const luaL_Reg srp_lib[] = {
     { NULL, NULL }
 };
 
+#if LUA_VERSION_NUM == 502
+#define luaL_register(L,n,l) { luaL_newlib(L,l);}
+#endif
+
 int luaopen_srp(lua_State *L)
 {
     luaL_register(L, "srp", srp_lib);

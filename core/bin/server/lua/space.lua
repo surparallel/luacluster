@@ -27,7 +27,7 @@ function spaceFactory.New()
         --print("space update", count, deltaTime)
     end
 
-    function obj:EntryWorld(id, poitionx, poitionz, rotationy, velocity, stamp, stampStop, isGhost)
+    function obj:EntryWorld(id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop, isGhost)
         local entryid = tostring(int64.new_unsigned(id))
 
         elog.fun("space::LeaveWorld %s",entryid)
@@ -47,11 +47,14 @@ function spaceFactory.New()
         obj.entities[entryid] = {}
         obj.entities[entryid][1] = id
         obj.entities[entryid][2] = poitionx
-        obj.entities[entryid][3] = poitionz
-        obj.entities[entryid][4] = rotationy
-        obj.entities[entryid][5] = velocity
-        obj.entities[entryid][6] = stamp
-        obj.entities[entryid][7] = stampStop
+        obj.entities[entryid][3] = poitiony
+        obj.entities[entryid][4] = poitionz
+        obj.entities[entryid][5] = rotationx
+        obj.entities[entryid][6] = rotationy
+        obj.entities[entryid][7] = rotationz
+        obj.entities[entryid][8] = velocity
+        obj.entities[entryid][9] = stamp
+        obj.entities[entryid][10] = stampStop
 
         --这个空间没有尺寸限制
         local entityProxy = udpproxy.New(id)

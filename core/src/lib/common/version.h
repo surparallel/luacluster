@@ -21,11 +21,11 @@
 #ifndef __VERSION_H
 #define __VERSION_H
 
-#define VERSION_MAJOR	"0"
-#define VERSION_MINOR	"1"
+#define VERSION_MAJOR	"1"
+#define VERSION_MINOR	"0"
 
-#define VERSION_NUMMAJOR	0
-#define VERSION_NUMMINOR	1
+#define VERSION_NUMMAJOR	1
+#define VERSION_NUMMINOR	0
 
 void Version();
 

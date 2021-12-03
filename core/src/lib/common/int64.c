@@ -887,16 +887,15 @@ static const luaL_Reg meta[] = {
 
 
 #if LUA_VERSION_NUM == 502
-#define luaL_register(L,n,l) ((n) ? luaL_setfuncs(L,l,0) : luaL_newlib(L,l))
+#define luaL_register(L,n,l) { luaL_newlib(L,l);}
 #endif
-
 
 int luaopen_int64 (lua_State *L) {
   luaL_newmetatable(L, LTYPE);
-  luaL_register(L, NULL, meta);
+  luaL_setfuncs(L, meta, 0);
   lua_pushvalue(L, -1);
   lua_setfield(L, -2, "__index");
-  luaL_register(L, "int64", lib);
+  luaL_setfuncs(L, lib, 0);
   lua_pushvalue(L, -1);
   lua_setmetatable(L, -2);
   return 1;

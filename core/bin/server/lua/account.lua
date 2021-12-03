@@ -21,6 +21,8 @@ function accountFactory.New()
     obj:Inherit("moveplugin")
     obj.client = tcpproxy.New(obj.id)
 
+    obj:AddFlagFun(sc.keyflags.private, accountFactory.OnFreshKey)
+
     obj.transform = {}
     obj.transform.poition = {}
     obj.transform.poition.x = 1

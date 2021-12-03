@@ -1,6 +1,5 @@
 
 local entityFactory = {}
-local bit = require("bit")
 
 --需要回调写入事件的属性
 function entityFactory.CreateSub(obj, t, name, root, rootk)
@@ -25,24 +24,37 @@ function entityFactory.CreateSub(obj, t, name, root, rootk)
         end,
 
         __newindex = function (t,k,v)
-            
             --事件创建和修改
-            if t.__root.__KeyFlags[t.__rootk] ~= nill and t.__root.__KeyFilter ~= nil then
-                for key, fun in pairs(t.__root.__KeyFilter) do
+            if t.__root.__KeyFlags[k] ~= nil and t.__root.__FlagFilter[t.__root.__KeyFlags[k]] ~= nil then
+                for fun in t.__root.__FlagFilter[t.__root.__KeyFlags[k]] do
                     fun(t,k,v,rawobj[k],t.__root.__KeyFlags[t.__rootk])
-                end  
+                end
             end
 
             if rawobj[k] == nil and type(v) == 'table' then
                 if getmetatable(v) == nil then
                     rawobj[k] = entityFactory.CreateSub(v, t, k, t.__root, wrap.__rootk)
                 else
-                    error("An attempt was made to assign an object that cannot be serialized")
+                    if v.__rawobj == nil or v.__entity == nil then
+                        error("CreateSub An attempt was made to assign an object that cannot be serialized "..k)
+                    else
+                        rawobj[k] = v
+                        return
+                    end
                 end
             else
-                rawobj[k] = v   
+                rawobj[k] = v
+                return
             end
-        end
+        end,
+
+        __ipairs = function(t)
+            return ipairs(t.__rawobj)
+          end,
+
+        __pairs = function(t)
+            return pairs(t.__rawobj)
+          end,
     })
 end
 
@@ -52,10 +64,12 @@ function entityFactory.New()
     local wrap = {}
     local rawobj = {}
     wrap.__rawobj = rawobj
-    wrap.__KeyFilter = {}
+    wrap.__FlagFilter = {} --key对应的KeyFilterFlag
+    wrap.__FlagFilterFun = {} --单一flag对应的函数
     wrap.__KeyFlags = {}
     wrap.__inherit = {}
     wrap.__allparant = {}
+    wrap.__entity = 1
 
     function rawobj:CopyArg(arg)
         if arg ~= nil then
@@ -99,6 +113,61 @@ function entityFactory.New()
     function rawobj:Destory()
     end
 
+    function rawobj:AddOneFlagFilter(flag, fun)
+        if self.__FlagFilter[flag] == nil then
+            self.__FlagFilter[flag] = {}       
+        end
+        self.__FlagFilter[flag][tostring(fun)] = fun
+        
+    end
+
+    function rawobj:AddFlagFilter(flag, fun)
+        for iflag, ifun in pairs(self.__FlagFilter) do
+            if bit32.band(iflag, falg) ~= 0 then
+                ifun[tostring(fun)] = fun
+            end
+        end
+    end
+
+    function rawobj:AddFlagFun(flag, fun) --publice
+
+        local isempty = 0
+        if self.__FlagFilter[flag] == nil then
+            isempty = 1    
+        end
+
+        local cflag = 1
+        local tflag = flag
+        for i = 1, 32, 1 do
+            if bit32.band(tflag , 1) == 1 then
+
+                if self.__FlagFilterFun[cflag] == nil then
+                    self.__FlagFilterFun[cflag] = {}
+                    self.__FlagFilterFun[cflag][tostring(fun)] = fun
+                else
+                    self.__FlagFilterFun[cflag][tostring(fun)] = fun
+                    self:AddFlagFilter(cflag, fun)
+
+                    if isempty == 1 then
+                        for k, v in pairs(self.__FlagFilterFun[cflag][tostring(fun)]) do
+                            self:AddOneFlagFilter(flag, v)
+                        end
+                    end
+
+                end   
+            end
+
+            tflag = bit32.rshift(tflag, 1)
+            cflag = bit32.lshift(cflag, 1)
+
+            if tflag == 0 then
+                break
+            end
+        end
+
+        self:AddOneFlagFilter(flag, fun)
+    end
+
     function rawobj:SetKeyFlags(k, f)
         local KeyFlags = rawget(self, "__KeyFlags")
         KeyFlags[k] = f
@@ -107,7 +176,7 @@ function entityFactory.New()
     function rawobj:AddKeyFlags(k, f)
         local KeyFlags = rawget(self, "__KeyFlags")
         if KeyFlags[k] ~= nil then
-            KeyFlags[k] = bit.bor(KeyFlags[k] , f)
+            KeyFlags[k] = bit32.bor(KeyFlags[k] , f)
         else
             KeyFlags[k] = f
         end
@@ -121,7 +190,7 @@ function entityFactory.New()
     function rawobj:HaveKeyFlags(k, f)
         local KeyFlags = rawget(self, "__KeyFlags")
         if KeyFlags[k] ~= nil then
-            if bit.band(KeyFlags[k], f) ~= 0 then
+            if bit32.band(KeyFlags[k], f) ~= 0 then
                 return true
             end
         end
@@ -164,40 +233,62 @@ function entityFactory.New()
             for k, v in pairs(parantObj) do self.__rawobj[k] = v end
         end
 
-        if parantObj.__KeyFilter ~= nil then
-            for k, v in pairs(parantObj.__KeyFilter) do self.__KeyFilter[k] = v end
+        if parantObj.__FlagFilter ~= nil then
+            for k, v in pairs(parantObj.__FlagFilter) do
+                for key, fun in pairs(v) do
+                    self:AddOneFlagFilter(k, fun)
+                end
+            end
         end
 
-        if parantFactory.OnFreshKey ~= nil then
-            local keyFilter = rawget(wrap, "__KeyFilter")
-            keyFilter[parant] = parantFactory.OnFreshKey
+        if parantObj.__KeyFlags ~= nil then
+            for k, v in pairs(parantObj.__KeyFlags) do self.__KeyFlags[k] = v end
+        end
+
+        if parantObj.__FlagFilterFun ~= nil then
+            for k, v in pairs(parantObj.__FlagFilterFun) do self.__FlagFilterFun[k] = v end
         end
     end
-    
+
     setmetatable(wrap,{
         __index = function (t,k)
             return t.__rawobj[k]
         end,
         __newindex = function (t,k,v)
-            if t.__KeyFlags ~= nil and t.__KeyFlags[k] ~= nil then
-                if t.__KeyFilter ~= nil then
-                    for key, fun in pairs(t.__KeyFilter) do
-                        fun(t,k,v,t.__rawobj[k],t.__KeyFlags[k])
-                    end  
+
+            if t.__KeyFlags[k] ~= nil and t.__FlagFilter[t.__KeyFlags[k]] ~= nil then
+                for fun in t.__FlagFilter[t.__KeyFlags[k]] do
+                    fun(t,k,v,t.__rawobj[k],t.__KeyFlags[k])
                 end
 
                 if t.__rawobj[k] == nil and type(v) == 'table' then
                     if getmetatable(v) == nil then
                         t.__rawobj[k] = entityFactory.CreateSub(v, t, k, t, k)
+                        return
                     else
-                        error("An attempt was made to assign an object that cannot be serialized")
+                        if v.__rawobj == nil or v.__entity == nil then
+                            error("An attempt was made to assign an object that cannot be serialized "..k)
+                        else
+                            t.__rawobj[k] = v
+                            return
+                        end
                     end
+                else
+                    t.__rawobj[k] = v
                     return
                 end
             end
-
             t.__rawobj[k] = v
-        end
+        end,
+
+        __ipairs = function(t)
+            return ipairs(t.__rawobj)
+          end,
+
+        --__pairs会导致调试器的循环失效，显示错误的数据
+        __pairs = function(t)
+            return pairs(t.__rawobj)
+          end,
     })
     return wrap
 end

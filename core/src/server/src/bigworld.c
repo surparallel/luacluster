@@ -310,7 +310,7 @@ static const luaL_Reg bigworld_funcs[] = {
 
 int LuaOpenBigworld(lua_State* L) {
 	luaL_register(L, "bigworldapi", bigworld_funcs);
-	return 2;
+	return 1;
 }
 
 

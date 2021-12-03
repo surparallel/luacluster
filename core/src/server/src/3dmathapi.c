@@ -30,8 +30,19 @@
 #include "vector.h"
 #include "timesys.h"
 
-void Position(struct Vector3* position, struct Vector3* angles, float velocity, unsigned int stamp, unsigned int stampStop, struct Vector3* out) {
-	unsigned int current = GetCurrentSec();
+void CurrentPosition(
+	struct Vector3* position, 
+	struct Vector3* angles, 
+	float velocity, 
+	unsigned int stamp, 
+	unsigned int stampStop, 
+	struct Vector3* out,
+	unsigned int current
+) {
+
+	if(current == 0)
+		current = GetCurrentSec();
+
 	if (stampStop && current >= stampStop)
 		current = stampStop;
 
@@ -54,9 +65,9 @@ static int luaB_Position(lua_State* L) {
 
 	//rotation
 	struct Vector3 angles;
-	angles.x = luaL_checknumber(L,4) * RADIANS_PER_DEGREE;
-	angles.y = luaL_checknumber(L, 5) * RADIANS_PER_DEGREE;;
-	angles.z = luaL_checknumber(L, 6) * RADIANS_PER_DEGREE;
+	angles.x = luaL_checknumber(L,4);
+	angles.y = luaL_checknumber(L, 5);;
+	angles.z = luaL_checknumber(L, 6);
 
 	//velocity 每秒移动的速度
 	float velocity = luaL_checknumber(L, 7);
@@ -66,7 +77,7 @@ static int luaB_Position(lua_State* L) {
 	unsigned int stampStop = luaL_checkinteger(L, 9);
 
 	struct Vector3 out;
-	Position(&position, &angles, velocity, stamp, stampStop, &out);
+	CurrentPosition(&position, &angles, velocity, stamp, stampStop, &out, 0);
 
 	lua_pushnumber(L, out.x);
 	lua_pushnumber(L, out.y);
@@ -114,9 +125,9 @@ static int luaB_LookVector(lua_State* L) {
 	quatToEulerAngles(&out, &euler);
 
 	lua_pushnumber(L, distance);
-	lua_pushnumber(L, euler.x * DEGREE_PER_RADIANS);
-	lua_pushnumber(L, euler.y * DEGREE_PER_RADIANS);
-	lua_pushnumber(L, euler.z * DEGREE_PER_RADIANS);
+	lua_pushnumber(L, euler.x);
+	lua_pushnumber(L, euler.y);
+	lua_pushnumber(L, euler.z);
 	return 4;
 }
 

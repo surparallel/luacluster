@@ -5,10 +5,6 @@ local int64 = require("int64")
 
 local botsFactory = {}
 
-function botsFactory.OnFreshKey(t,k,v,o,f)
-    print("OnFreshKey")
-end
-
 function botsFactory.New()
     local obj = entity.New()
 

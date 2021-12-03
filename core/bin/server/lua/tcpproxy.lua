@@ -8,7 +8,7 @@ function tcpProxyFactory.New(id)
     local obj = {}
     obj.did = id
     obj.sid = id
-
+    obj.__entity = 1
     function obj:PID(pid)
         obj.pid = pid
         return obj
@@ -27,7 +27,7 @@ function tcpProxyFactory.New(id)
                 end
                 
                 arg[1] = k
-                docker.SendToClient(obj.did, obj.sid, cmsgpack.pack(unpack(arg)))
+                docker.SendToClient(obj.did, obj.sid, cmsgpack.pack(table.unpack(arg)))
             end
         end,
         __newindex = function (t,k,v)

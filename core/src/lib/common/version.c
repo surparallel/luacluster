@@ -32,8 +32,8 @@ unsigned int MVersion() {
 void Version() {
 
 	Color(11);
-	printf("grypaniz version \"" VERSION_MAJOR "." VERSION_MINOR "\"\n");
-	printf("Copyright(C) 2021 - 2022, sun shuo <sun.shuo@surparallel.org>\n");
+	printf("luacluter version \"" VERSION_MAJOR "." VERSION_MINOR "\"\n");
+	printf("Copyright(C) 2021-2022, sun shuo<sun.shuo@surparallel.org>\n");
 	printf("* All rights reserved. *\n");
 	ClearColor();
 }

@@ -197,3 +197,11 @@ __inline int c99_snprintf(char *outBuf, unsigned int size, const char *format, .
 
 /* Anti-warning macro... */
 #define NOTUSED(V) ((void) V)
+
+#include "lua.h"
+#include "lauxlib.h"
+#include "lualib.h"
+
+#if LUA_VERSION_NUM == 502
+#define luaL_register(L,n,l) { luaL_newlib(L,l);}
+#endif

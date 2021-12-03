@@ -40,8 +40,8 @@ function spaceFactory.New()
         sudokuapi.Update(self.mysudoku)
     end
 
-    function obj:EntryWorld(id, poitionx, poitionz, rotationy, velocity, stamp, stampStop, isGhost)
-        sudokuapi.Entry(self.mysudoku, id, poitionx, poitionz, rotationy, velocity, stamp, stampStop, isGhost)
+    function obj:EntryWorld(id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop, isGhost)
+        sudokuapi.Entry(self.mysudoku, id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop, isGhost)
 
         local entityProxy = udpproxy.New(id)
         entityProxy:OnEntryWorld(self.spaceType, self.beginx, self.beginz, self.endx, self.endz)
@@ -50,8 +50,8 @@ function spaceFactory.New()
         entityProxy:OnGetSpace(self.id)
     end
 
-    function obj:Move(id, poitionx, poitionz, rotationy, velocity, stamp, stampStop)
-        sudokuapi.Move(self.mysudoku, id, poitionx, poitionz, rotationy, velocity, stamp, stampStop)
+    function obj:Move(id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
+        sudokuapi.Move(self.mysudoku, id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
     end
 
     function obj:LeaveWorld(id)

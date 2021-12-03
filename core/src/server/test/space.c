@@ -88,7 +88,7 @@ void test_sudoku() {
 	for (int i = 0; i < 100; i++) {
 		sleep(1);
 		printf("************  %d  *****************\n", i);
-		SudokuUpdate(hand);
+		SudokuUpdate(hand, i, 10);
 		PrintAllPoition(hand);
 	}
 

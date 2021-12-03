@@ -23,7 +23,7 @@ int LuaOpenSudoku(lua_State* L);
 
 void* SudokuCreate(struct Vector3 gird, struct Vector3 begin, struct Vector3 end, int isBigWorld, unsigned long long spaceId, unsigned int outsideSec);
 void SudokuDestory(void* pSudokus);
-void SudokuUpdate(void* pSudoku);
+void SudokuUpdate(void* pSudoku, unsigned int count, float deltaTime);
 void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position, 
 	struct Vector3 rotation, float velocity, unsigned int stamp, unsigned int isGhost, unsigned int stampStop);
 void SudokuLeave(void* pSudoku, unsigned long long id);

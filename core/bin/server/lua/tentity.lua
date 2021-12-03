@@ -1,4 +1,5 @@
 local entity = require("entity")
+local sc = require("sc")
 local test = {}
 
 function test.OnFreshKey(t,k,v,o,f)
@@ -8,6 +9,8 @@ end
 function test.New()
     print("New")
     local obj = entity.New()
+
+    obj.AddFlagFun(sc.keyflags.private, test.OnFreshKey)
 
     function obj:fun()
         print("test entity fun")

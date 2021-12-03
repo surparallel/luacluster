@@ -116,7 +116,7 @@ int IssueCommand(int argc, char** argv, int noFind) {
 
 		unsigned long long id = strtoull(argv[1], NULL, 0);
 		if (id == 0) {
-			GetEntityToDns(argv[1], &id);
+			GetEntityFromDns(argv[1], &id);
 		}
 
 		mp_buf* pmp_buf = mp_buf_new();
