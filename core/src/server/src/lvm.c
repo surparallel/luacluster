@@ -60,6 +60,15 @@ void LuaAddPath(lua_State* ls, char* name, char* value)
 	sdsfree(v);
 }
 
+#if LUA_VERSION_NUM > 501 && !defined(LUA_COMPAT_MODULE)
+
+#else
+LUALIB_API void luaL_requiref(lua_State* L, const char* modname,
+	lua_CFunction openf, int glb){
+	openf(L);
+}
+#endif
+
 void* LVMCreate(const char* scriptPath, const char* assetsPath) {
 
 	PLVMHandle pLVMHandle = malloc(sizeof(LVMHandle));

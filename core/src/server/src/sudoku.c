@@ -85,11 +85,12 @@ typedef struct _Entity {
 	//list* entityview;//dict-list 某个时间点进入视角的玩家列表
 	struct BasicTransform transform;
 	struct Vector3 nowPosition;
+	unsigned int newGird;
 	float velocity;//速度
 	unsigned int stamp;
 	unsigned int stampStop;
 	int update;//上一帧中是否移动过网格，0没有，1移动，2新进入
-	unsigned int oldGird;
+	int oldGird;
 	unsigned int status;//当前所在位置，0普通区域，2在边界区域，4超出范围, 8鬼魂状态。 超出地图范围的对象将不会再更新数据。直到被删除。
 	unsigned int outingStamp;//超出区域的时间戳
 	unsigned int count;//当前计数次数
@@ -116,8 +117,8 @@ typedef struct _Sudoku {
 }*PSudoku, Sudoku;
 
 static unsigned int GirdId(PSudoku pSudoku, struct Vector3* position) {
-	unsigned int dx = (unsigned int)floor((position->x - pSudoku->begin.x) / pSudoku->gird.x);
-	unsigned int dz = (unsigned int)floor((position->z - pSudoku->begin.z) / pSudoku->gird.z) - 1;
+	unsigned int dx = (unsigned int)floor((position->x - pSudoku->begin.x) / pSudoku->gird.x) + 1;
+	unsigned int dz = (unsigned int)floor((position->z - pSudoku->begin.z) / pSudoku->gird.z);
 
 	return dx + pSudoku->linex * dz;
 }
@@ -153,7 +154,7 @@ unsigned int GirdDirId(PSudoku pSudoku, enum SudokuDir dir, unsigned int centre)
 			ret = centre - pSudoku->linex;
 		break;
 	case left:
-		if (floor(centre / pSudoku->linex) == floor((centre - 1) / pSudoku->linex))
+		if (floor((centre - 0.001) / pSudoku->linex) == floor((centre - 1) / pSudoku->linex))
 			ret = centre - 1;
 		else
 			ret = UINT_MAX;
@@ -213,11 +214,12 @@ int GirdDir(void* pSudoku, unsigned int entry, unsigned int centre) {
 int GirdLimite(void* pSudoku, struct Vector3* position) {
 	PSudoku s = (PSudoku)pSudoku;
 
-	if((s->begin.x <= position->x && position->x <= s->begin.x + s->gird.x * 2) || 
-		(s->end.x >= position->x && position->x >= s->end.x - s->gird.x * 2) ||
-		(s->begin.z <= position->z && position->z <= s->begin.z + s->gird.z * 2) || 
-		(s->end.z >= position->z && position->z >= s->end.z - s->gird.z * 2))
-		return true;
+	if (s->begin.x <= position->x && position->x <= s->end.x && s->begin.z <= position->z && position->z <= s->end.z)
+		if ((position->x >= (s->begin.x + s->gird.x * 2) && position->x <= (s->end.x - s->gird.x * 2))
+			&& (position->z >= (s->begin.z + s->gird.z * 2) && position->z <= (s->end.z - s->gird.z * 2)))
+			return false;
+		else
+			return true;
 	else
 		return false;
 }
@@ -227,11 +229,12 @@ void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position,
 
 	PSudoku s = (PSudoku)pSudoku;
 	struct Vector3 nowPosition;
-	CurrentPosition(&position, &rotation, velocity, stamp, stampStop, &nowPosition, 0);
+	unsigned int current = GetCurrentSec();
+	CurrentPosition(&position, &rotation, velocity, stamp, stampStop, &nowPosition, current);
 	if (nowPosition.x < s->begin.x || nowPosition.x > s->end.x || nowPosition.z < s->begin.z || nowPosition.z > s->end.z) {
 
-		s_error("sudoku(%U)::move entry out limit %U x:%f z:%f  bx:%f bz:%f  ex:%f ez:%f",s->spaceId, id, nowPosition.x, nowPosition.z, s->begin.x, s->begin.z, s->end.x, s->end.z);
-		return;
+		s_warn("sudoku(%U)::move entry out limit %U x:%f z:%f  bx:%f bz:%f  ex:%f ez:%f cc:%i",s->spaceId, id, nowPosition.x, nowPosition.z
+			, s->begin.x, s->begin.z, s->end.x, s->end.z, current);
 	}
 
 	if (stamp == 0) {
@@ -240,7 +243,7 @@ void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position,
 	}
 
 	if (stamp && stampStop && stampStop <= stamp) {
-		s_error("sudoku(%U)::move The end time is less than the start time %U %u %u", s->spaceId, id, stamp, stampStop);
+		s_warn("sudoku(%U)::move The end time is less than the start time %U %u %u", s->spaceId, id, stamp, stampStop);
 		return;
 	}
 
@@ -253,17 +256,11 @@ void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position,
 	}
 
 	PEntity pEntity = dictGetVal(entry);
-
-	if (GirdId(s, &pEntity->transform.position) != GirdId(s, &position)) {
-		SudokuEntry(s, id, position, rotation, velocity, stamp, (pEntity->status & entity_ghost), stampStop);
-		return;
-	}
-
+	
 	//position
 	pEntity->transform.position.x = position.x;
+	pEntity->transform.position.y = position.y;
 	pEntity->transform.position.z = position.z;
-	pEntity->nowPosition.x = position.x;
-	pEntity->nowPosition.z = position.z;
 
 	quatEulerAngles(&rotation, &pEntity->transform.rotation);
 
@@ -274,6 +271,7 @@ void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position,
 	pEntity->stamp = stamp;
 	pEntity->stampStop = stampStop;
 	pEntity->count = s->count;
+	pEntity->update = 2;
 
 	if (pEntity->status & entity_outside) {
 		pEntity->status &= ~entity_outside;
@@ -285,7 +283,7 @@ static int luaB_Move(lua_State* L) {
 
 	PSudoku s = lua_touserdata(L, 1);
 	unsigned long long id = luaL_tou64(L, 2);
-	s_fun("sudoku(%U)::Move id:%U", s->spaceId, id);
+	//s_fun("sudoku(%U)::Move id:%U", s->spaceId, id);
 
 	//position
 	struct Vector3 position = { 0 };
@@ -313,6 +311,8 @@ static int luaB_Move(lua_State* L) {
 void SudokuLeave(void* pSudoku, unsigned long long id) {
 
 	PSudoku s = (PSudoku)pSudoku;
+	s_fun("Sudoku(%U)::SudokuLeave id:%U", s->spaceId, id);
+
 	//查找对应的id
 	dictEntry* entry = dictFind(s->entitiesDict, &id);
 
@@ -325,17 +325,21 @@ void SudokuLeave(void* pSudoku, unsigned long long id) {
 	entry = dictFind(s->grid_entity, &pEntity->oldGird);
 	list* girdlist = NULL;
 	if (entry == NULL) {
-		s_error("sudoku(%U)::SudokuLeave::move error not find gird id %i", s->spaceId, pEntity->oldGird);
+		s_error("sudoku(%U)::SudokuLeave::leave error not find gird id %i", s->spaceId, pEntity->oldGird);
+		return;
 	}
 	else {
 		girdlist = dictGetVal(entry);
 	}
+
 	listDelNode(girdlist, pEntity->girdNode);
 	s_details("sudoku(%U)::SudokuLeave::remove from gird id:%U to gird:%u", s->spaceId, pEntity->entityid, pEntity->oldGird);
 
 	if (listLength(girdlist) == 0) {
 		dictDelete(s->grid_entity, &pEntity->oldGird);
 	}
+
+	dictDelete(s->entitiesDict, &id);
 	free(pEntity);
 }
 
@@ -354,11 +358,14 @@ void SendAddView(PEntity pEntity, PEntity pViewEntity) {
 	mp_buf* pmp_buf = mp_buf_new();
 	MP_ENCODE_CONST(pmp_buf, "OnAddView");
 
-	mp_encode_array(pmp_buf, 6);
+	mp_encode_array(pmp_buf, 10);
 	mp_encode_double(pmp_buf, u642double(pViewEntity->entityid));
 	mp_encode_double(pmp_buf, pViewEntity->transform.position.x);
+	mp_encode_double(pmp_buf, pViewEntity->transform.position.y);
 	mp_encode_double(pmp_buf, pViewEntity->transform.position.z);
+	mp_encode_double(pmp_buf, pViewEntity->transform.rotation.x);
 	mp_encode_double(pmp_buf, pViewEntity->transform.rotation.y);
+	mp_encode_double(pmp_buf, pViewEntity->transform.rotation.z);
 	mp_encode_double(pmp_buf, pViewEntity->velocity);
 	mp_encode_int(pmp_buf, pViewEntity->stamp);
 	mp_encode_int(pmp_buf, pViewEntity->stampStop);
@@ -367,18 +374,62 @@ void SendAddView(PEntity pEntity, PEntity pViewEntity) {
 	mp_buf_free(pmp_buf);
 }
 
+
+int GirdExchang(PSudoku s, PEntity pEntity, int newGird) {
+
+	dictEntry* entry = dictFind(s->grid_entity, &pEntity->oldGird);
+	list* girdlist = NULL;
+	if (entry == NULL) {
+		s_error("Sudoku(%U)::GirdExchang error not find old gird id %i", s->spaceId, pEntity->oldGird);
+		return 0;
+	}
+	else {
+		girdlist = dictGetVal(entry);
+	}
+
+	listPickNode(girdlist, pEntity->girdNode);
+	if (listLength(girdlist) == 0) {
+		dictDelete(s->grid_entity, &pEntity->oldGird);
+	}
+
+	entry = dictFind(s->grid_entity, &newGird);
+	if (entry == NULL) {
+		girdlist = listCreate();
+		dictAddWithUint(s->grid_entity, newGird, girdlist);
+	}
+	else {
+		girdlist = dictGetVal(entry);
+	}
+
+	listAddNodeHeadForNode(girdlist, pEntity->girdNode);
+	pEntity->girdNode = listFirst(girdlist);
+
+	s_details("Sudoku(%U)::GirdExchang from gird to gird id:%U to oldGird:%u newGird:%u", s->spaceId, pEntity->entityid, pEntity->oldGird, newGird);
+	return 1;
+}
+
+void GirdPut(PSudoku s, PEntity pEntity) {
+
+	pEntity->oldGird = GirdId(s, &pEntity->nowPosition);
+	dictEntry* entry = dictFind(s->grid_entity, &pEntity->oldGird);
+	list* girdlist = NULL;
+	if (entry == NULL) {
+		girdlist = listCreate();
+		dictAddWithUint(s->grid_entity, pEntity->oldGird, girdlist);
+	}
+	else {
+		girdlist = dictGetVal(entry);
+	}
+
+	listAddNodeHead(girdlist, pEntity);
+	pEntity->girdNode = listFirst(girdlist);
+}
+
 void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position, 
 	struct Vector3 rotation, float velocity, 
 	unsigned int stamp, unsigned int stampStop, unsigned int isGhost) {
 	
 	PSudoku s = (PSudoku)pSudoku;
-	struct Vector3 nowPosition = {0};
-	CurrentPosition(&position, &rotation, velocity, stamp, stampStop, &nowPosition, 0);
-	if (nowPosition.x < s->begin.x || nowPosition.x > s->end.x || nowPosition.z < s->begin.z || nowPosition.z > s->end.z) {
-
-		s_error("sudoku(%U)::Entry entry out limit %U x:%f z:%f  bx:%f bz:%f  ex:%f ez:%f", s->spaceId, id, nowPosition.x, nowPosition.z, s->begin.x, s->begin.z, s->end.x, s->end.z);
-		return;
-	}
 
 	if (stamp == 0) {
 		s_error("sudoku(%U)::Entry The start time is zero %U", s->spaceId, id);
@@ -394,13 +445,19 @@ void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position,
 	//兼容重复进入空间，如果重复进入空间就相当于瞬间移动。
 	PEntity pEntity;
 	dictEntry* entry = dictFind(s->entitiesDict, &id);
+
+	struct Vector3 nowPosition = { 0 };
+	unsigned int current = GetCurrentSec();
+	CurrentPosition(&position, &rotation, velocity, stamp, stampStop, &nowPosition, current);
+
 	if (entry != NULL) {
 		pEntity = dictGetVal(entry);
-		s_details("sudoku::Entry find is %U", id);
+		s_details("sudoku(%U)::Entry find is %U", s->spaceId, id);
 
 		pEntity->entityid = id;
 		//position
 		pEntity->transform.position.x = position.x;
+		pEntity->transform.position.y = position.y;
 		pEntity->transform.position.z = position.z;
 		pEntity->nowPosition = nowPosition;
 		quatEulerAngles(&rotation, &pEntity->transform.rotation);
@@ -413,56 +470,58 @@ void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position,
 		pEntity->stampStop = stampStop;
 		pEntity->update = 2;
 		pEntity->count = s->count;
-		return;
+		pEntity->status = 0;
+
+		pEntity->newGird = GirdId(s, &pEntity->nowPosition);
+		GirdExchang(s, pEntity, pEntity->newGird);
+		pEntity->oldGird = pEntity->newGird;
 	}
 	else {
 		pEntity = calloc(1, sizeof(Entity));
-		s_details("sudoku::Entry calloc new is %U", id);
+		s_details("sudoku(%U)::Entry calloc new is %U", s->spaceId, id);
+
+		pEntity->entityid = id;
+		//position
+		pEntity->transform.position.x = position.x;
+		pEntity->transform.position.y = position.y;
+		pEntity->transform.position.z = position.z;
+		pEntity->nowPosition = nowPosition;
+		quatEulerAngles(&rotation, &pEntity->transform.rotation);
+
+		//velocity 每秒移动的速度
+		pEntity->velocity = velocity;
+
+		//stamp 秒
+		pEntity->stamp = stamp;
+		pEntity->stampStop = stampStop;
+		pEntity->update = 2;
+		pEntity->count = s->count;
+
+		listAddNodeHead(s->entitiesList, pEntity);
+		pEntity->listNode = listFirst(s->entitiesList);
+		dictAddWithLonglong(s->entitiesDict, id, pEntity);
+
+		GirdPut(s, pEntity);
 	}
 
-	pEntity->entityid = id;
-	//position
-	pEntity->transform.position.x = position.x;
-	pEntity->transform.position.z = position.z;
-	pEntity->nowPosition = nowPosition;
-	quatEulerAngles(&rotation, &pEntity->transform.rotation);
-
-	//velocity 每秒移动的速度
-	pEntity->velocity = velocity;
-
-	//stamp 秒
-	pEntity->stamp = stamp;
-	pEntity->stampStop = stampStop;
-	pEntity->update = 2;
-	pEntity->oldGird = GirdId(s, &pEntity->nowPosition);
-	pEntity->count = s->count;
-
-	listAddNodeHead(s->entitiesList, pEntity);
-	pEntity->listNode = listFirst(s->entitiesList);
-	dictAddWithLonglong(s->entitiesDict, id, pEntity);
-
-	//放入gird
-	entry = dictFind(s->grid_entity, &pEntity->oldGird);
-	list* girdlist = NULL;
-	if (entry == NULL) {
-		girdlist = listCreate();
-		dictAddWithUint(s->grid_entity, pEntity->oldGird, girdlist);
-	}
-	else {
-		girdlist = dictGetVal(entry);
+	if (nowPosition.x < s->begin.x || nowPosition.x > s->end.x || nowPosition.z < s->begin.z || nowPosition.z > s->end.z) {
+		s_warn("sudoku(%U)::Entry entry out limit %U x:%f z:%f  bx:%f bz:%f  ex:%f ez:%f cc:%i", s->spaceId, id, nowPosition.x, nowPosition.z, s->begin.x, s->begin.z, s->end.x, s->end.z, current);
 	}
 
-	listAddNodeHead(girdlist, pEntity);
-	pEntity->girdNode = listFirst(girdlist);
-	s_details("sudoku::SudokuEntry::move to gird id:%U to gird:%u x:%f z:%f", pEntity->entityid, pEntity->oldGird, pEntity->transform.position.x, pEntity->transform.position.z);
-
+	s_details("sudoku(%U)::SudokuEntry::Entry to gird id:%U to gird:%u x:%f z:%f", s->spaceId, pEntity->entityid, pEntity->oldGird, nowPosition.x, nowPosition.z);
 	if (s->isBigWorld) {
-		if (isGhost) {
-			pEntity->status |= entity_ghost | entity_limite;
+		if (isGhost && GirdLimite(s, &nowPosition)) {
+			pEntity->status |= entity_ghost;
 		}
-		else if (GirdLimite(s, &position)) {
-			pEntity->status |= entity_limite;
+		else if(isGhost){
+			pEntity->status |= entity_ghost;
+			s_warn("sudoku(%U)::SudokuEntry:: isGhost but not in limite id:%U", s->spaceId, pEntity->entityid);
 		}
+	}
+
+	if (pEntity->status & entity_outside) {
+		pEntity->status &= ~entity_outside;
+		pEntity->outingStamp = 0;
 	}
 }
 
@@ -544,6 +603,38 @@ static void DestroyRtreeFun(void* value) {
 	free(value);
 }
 
+void OnRedirectToSpace(PSudoku s, PEntity pEntity) {
+	double rect[4] = { 0 };
+	rect[0] = pEntity->nowPosition.x;
+	rect[1] = pEntity->nowPosition.z;
+	rect[2] = pEntity->nowPosition.x;
+	rect[3] = pEntity->nowPosition.z;
+
+	list* result = listCreate();
+	rtree_search(s->prtree, rect, MultipleIter, result);
+
+	if (listLength(result) > 0) {
+		//通知登录其他空间
+		mp_buf* pmp_buf = mp_buf_new();
+		const char ptr[] = "OnRedirectToSpace";
+		mp_encode_bytes(pmp_buf, ptr, sizeof(ptr) - 1);
+
+		mp_encode_array(pmp_buf, listLength(result));
+		listIter* iter = listGetIterator(result, AL_START_HEAD);
+		listNode* node;
+		while ((node = listNext(iter)) != NULL) {
+			struct Iter* iter = (struct Iter*)listNodeValue(node);
+			mp_encode_double(pmp_buf, u642double(*(unsigned long long*)iter->item));
+		}
+
+		DockerSend(pEntity->entityid, pmp_buf->b, pmp_buf->len);
+		mp_buf_free(pmp_buf);
+	}
+
+	listSetFreeMethod(result, DestroyRtreeFun);
+	listRelease(result);
+}
+
 //每次切换格子时，进入或移动，要检查是否在边界，是否为ghost，是否超出地图范围
 void SudokuUpdateLimite(PSudoku s, PEntity pEntity) {
 
@@ -552,65 +643,44 @@ void SudokuUpdateLimite(PSudoku s, PEntity pEntity) {
 
 		if (!(pEntity->status & entity_limite)) {
 			pEntity->status |= entity_limite;
+			s_details("Sudoku(%U)::SudokuUpdateLimite::entity_limite id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
+		}
+		else {
+			s_details("Sudoku(%U)::SudokuUpdateLimite::entity_limite_across id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
 		}
 
 		if (pEntity->status & entity_ghost)
 			return;
 
-		s_details("Sudoku(%U)::SudokuUpdateLimite::entity_limite id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
-		
-		double rect[4] = { 0 };
-		rect[0] = pEntity->nowPosition.x;
-		rect[1] = pEntity->nowPosition.z;
-		rect[2] = pEntity->nowPosition.x;
-		rect[3] = pEntity->nowPosition.z;
+		OnRedirectToSpace(s, pEntity);
+	}
+	else if (s->isBigWorld && !GirdLimite(s, &pEntity->nowPosition)) {
+		if (pEntity->status & entity_limite) {
 
-		list* result = listCreate();
-		rtree_search(s->prtree, rect, MultipleIter, result);
-
-		if (listLength(result) > 0) {
-			//通知登录其他空间
-			mp_buf* pmp_buf = mp_buf_new();
-			const char ptr[] = "OnRedirectToSpace";
-			mp_encode_bytes(pmp_buf, ptr, sizeof(ptr) - 1);
-
-			mp_encode_array(pmp_buf, listLength(result));
-			listIter* iter = listGetIterator(result, AL_START_HEAD);
-			listNode* node;
-			while ((node = listNext(iter)) != NULL) {
-				struct Iter* iter = (struct Iter*)listNodeValue(node);
-				mp_encode_double(pmp_buf, u642double(*(unsigned long long*)iter->item));
+			if (pEntity->nowPosition.x < s->begin.x || pEntity->nowPosition.x > s->end.x || pEntity->nowPosition.z < s->begin.z || pEntity->nowPosition.z > s->end.z) {
+				
+				pEntity->status &= ~entity_limite;
+				pEntity->status |= entity_outside;
+				pEntity->outingStamp = GetCurrentSec();
+				
+				s_details("Sudoku(%U)::SudokuUpdateLimite::entity_outside id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
 			}
+			else {
 
-			DockerSend(pEntity->entityid, pmp_buf->b, pmp_buf->len);
-			mp_buf_free(pmp_buf);
-		}
+				pEntity->status &= ~entity_limite;
+				pEntity->status &= ~entity_ghost;
 
-		listSetFreeMethod(result, DestroyRtreeFun);
-		listRelease(result);
-	}
-	else if (s->isBigWorld && (pEntity->status & entity_limite)) {
-		pEntity->status &= ~entity_limite;
-		pEntity->status &= ~entity_ghost;
+				//离开边界状态，通知更换主空间
+				const char ptr[] = "OnDelGhost";
+				mp_buf* pmp_buf = mp_buf_new();
+				mp_encode_bytes(pmp_buf, ptr, sizeof(ptr) - 1);
+				mp_encode_double(pmp_buf, u642double(s->spaceId));
 
-		//删除其他空间的ghost状态
-		const char ptr[] = "OnDelGhost";
-		mp_buf* pmp_buf = mp_buf_new();
-		mp_encode_bytes(pmp_buf, ptr, sizeof(ptr) - 1);
-		mp_encode_double(pmp_buf, u642double(s->spaceId));
+				DockerSend(pEntity->entityid, pmp_buf->b, pmp_buf->len);
+				mp_buf_free(pmp_buf);
 
-		DockerSend(pEntity->entityid, pmp_buf->b, pmp_buf->len);
-		mp_buf_free(pmp_buf);
-
-		s_details("Sudoku(%U)::SudokuUpdateLimite::~entity_limite id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
-	}
-
-	if ((pEntity->status & entity_limite) || (pEntity->status & entity_outside)) {
-
-		//游出边界设置删除时间戳
-		if (pEntity->status & entity_outside) {
-			s_details("Sudoku(%U)::SudokuUpdateLimite::entity_outside id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
-			pEntity->outingStamp = GetCurrentSec();
+				s_details("Sudoku(%U)::SudokuUpdateLimite::~entity_limite id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
+			}
 		}
 	}
 }
@@ -625,72 +695,35 @@ void SudokuUpdate(void* pSudoku, unsigned int count, float deltaTime) {
 	while ((node = listNext(iter)) != NULL) {
 		PEntity pEntity = listNodeValue(node);
 
-		if (pEntity->velocity == 0.0f || (pEntity->status & entity_outside)) {
-
-			if (pEntity->velocity == 0 && GetCurrentSec() - pEntity->stamp > s->outsideSec) {
-				pEntity->status |= entity_outside;
-				pEntity->outingStamp = GetCurrentSec();
-			}
+		if (pEntity->velocity == 0.f || pEntity->status & entity_outside) {
 			continue;
 		}
 
-		struct Vector3 nowPosition = {0};
+		if (pEntity->stampStop && GetCurrentSec() >= pEntity->stampStop) {
+			pEntity->velocity = 0.f;
+			s_details("Sudoku(%U)::update::stop id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
+			continue;
+		}
+
+		struct Vector3 nowPosition = { 0 };
 		struct Vector3 Euler = { 0 };
 		quatToEulerAngles(&pEntity->transform.rotation, &Euler);
 		CurrentPosition(&pEntity->transform.position, &Euler, pEntity->velocity, pEntity->stamp, pEntity->stampStop, &nowPosition, 0);
 
-		//s_details("Sudoku(%U)::update::nowPosition id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, nowPosition.x, nowPosition.y, nowPosition.z);
-
-		unsigned int newGird = GirdId(s, &nowPosition);
 		pEntity->nowPosition = nowPosition;
+		pEntity->newGird = GirdId(s, &pEntity->nowPosition);
 
-		if (pEntity->stampStop && GetCurrentSec() >= pEntity->stampStop) {
-			pEntity->velocity = 0;
-			s_details("Sudoku(%U)::update::stop id:%U", s->spaceId, pEntity->entityid);
-		}
-
-		if (nowPosition.x < s->begin.x || nowPosition.x > s->end.x || nowPosition.z < s->begin.z || nowPosition.z > s->end.z) {
-			pEntity->status |= entity_outside;
-		}
-
-		if (newGird == pEntity->oldGird) {
+		if (pEntity->newGird == pEntity->oldGird) {
 			pEntity->update = 0;
 		}
 		else {
 			s_details("Sudoku(%U)::SudokuUpdate::nowPosition id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, nowPosition.x, nowPosition.y, nowPosition.z);
 
-			dictEntry* entry = dictFind(s->grid_entity, &pEntity->oldGird);
-			list* girdlist = NULL;
-			if (entry == NULL) {
-				s_error("sudoku::update error not find old gird id %i", pEntity->oldGird);
-				continue;
+			if (GirdExchang(s, pEntity, pEntity->newGird)) {
+				//更换gird
+				if (pEntity->update == 0)
+					pEntity->update = 1;
 			}
-			else {
-				girdlist = dictGetVal(entry);
-			}
-
-			//更换gird
-			if (pEntity->update == 0)
-				pEntity->update = 1;
-
-			listPickNode(girdlist, pEntity->girdNode);
-			s_details("sudoku::update::remove from gird to gird id:%U to oldGird:%u newGird:%u", pEntity->entityid, pEntity->oldGird, newGird);
-
-			if (listLength(girdlist) == 0) {
-				dictDelete(s->grid_entity, &pEntity->oldGird);
-			}
-
-			entry = dictFind(s->grid_entity, &newGird);
-			if (entry == NULL) {
-				girdlist = listCreate();
-				dictAddWithUint(s->grid_entity, newGird, girdlist);
-			}
-			else {
-				girdlist = dictGetVal(entry);
-			}
-
-			listAddNodeHeadForNode(girdlist, pEntity->girdNode);
-			pEntity->girdNode = listFirst(girdlist);
 		}
 	}
 	listReleaseIterator(iter);
@@ -701,17 +734,15 @@ void SudokuUpdate(void* pSudoku, unsigned int count, float deltaTime) {
 		//搜索周围,生成每个用户的listview
 		PEntity pEntity = listNodeValue(node);
 
-		//判断游出边界，并且已经设置删除时间戳的
-		if ((pEntity->status & entity_outside) && pEntity->outingStamp != 0) {
-			unsigned int newGird = GirdId(s, &pEntity->nowPosition);
-			pEntity->oldGird = newGird;
+		//判断游出边界
+		if (pEntity->status & entity_outside) {
 			continue;
 		}
 			
 		if (pEntity->update == 1) {
 
-			s_details("Sudoku(%U)::step2::normalupdate id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
-			unsigned int newGird = GirdId(s, &pEntity->nowPosition);
+			//s_details("Sudoku(%U)::step2::normalupdate id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
+			unsigned int newGird = pEntity->newGird ;
 			enum SudokuDir sudokuDir = GirdDir(s, newGird, pEntity->oldGird);
 
 			switch (sudokuDir)
@@ -782,8 +813,8 @@ void SudokuUpdate(void* pSudoku, unsigned int count, float deltaTime) {
 			break;
 			default: {
 				pEntity->update = 2;
-				s_warn("SudokuUpdate::step2::Flash event in space eid: %U, np: %i, op: %i", pEntity->entityid, newGird, pEntity->oldGird);
-			}
+				s_warn("Sudoku(%U)::SudokuUpdate::step2::Flash event in space eid: %U, newGrid: %i, oldGird: %i x:%f y:%f z:%f", s->spaceId, pEntity->entityid, newGird, pEntity->oldGird, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
+				}
 			}
 
 			if (pEntity->update == 1) {
@@ -795,7 +826,7 @@ void SudokuUpdate(void* pSudoku, unsigned int count, float deltaTime) {
 		if (pEntity->update == 2) {
 
 			s_details("Sudoku(%U)::step2::all update id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
-			unsigned int newGird = GirdId(s, &pEntity->nowPosition);
+			unsigned int newGird = pEntity->newGird;
 
 			FillView(s, up, newGird, pEntity);
 			FillView(s, down, newGird, pEntity);
@@ -888,8 +919,8 @@ void* SudokuCreate(struct Vector3 gird, struct Vector3 begin, struct Vector3 end
 	s->end.x = s->end.x - 0.00001;
 	s->end.z = s->end.z - 0.00001;
 
-	s->linex = (unsigned int)floor((s->end.x - s->begin.x) / s->gird.x);
-	unsigned int dz = (unsigned int)floor((s->end.z - s->begin.z) / s->gird.z);
+	s->linex = (unsigned int)floor((s->end.x - s->begin.x) / s->gird.x) + 1;
+	unsigned int dz = (unsigned int)floor((s->end.z - s->begin.z) / s->gird.z) + 1;
 	s->maxid = s->linex * dz;
 
 	s->isBigWorld = isBigWorld;
@@ -897,6 +928,13 @@ void* SudokuCreate(struct Vector3 gird, struct Vector3 begin, struct Vector3 end
 	s->prtree = rtree_new(sizeof(unsigned long long), 2);
 	s->outsideSec = outsideSec;
 
+	double rect[4] = { 0 };
+	rect[0] = begin.x;
+	rect[1] = begin.z;
+	rect[2] = end.x;
+	rect[3] = end.z;
+
+	rtree_insert(s->prtree, rect, &s->spaceId);
 	return s;
 }
 
@@ -958,9 +996,7 @@ static int luaB_Insert(lua_State* L) {
 	rect[2] = luaL_checknumber(L, 5);
 	rect[3] = luaL_checknumber(L, 6);
 
-	if(id != s->spaceId)
-		rtree_insert(s->prtree, rect, &id);
-
+	rtree_insert(s->prtree, rect, &id);
 	return 0;
 }
 
@@ -987,11 +1023,9 @@ static int luaB_Alter(lua_State* L) {
 		s->maxid = s->linex * dz;
 		s_details("sudoku(%U)::Config bx:%f bz:%f ex:%f ez:%f", s->spaceId, s->begin.x, s->begin.z, s->end.x, s->end.z);
 	}
-	else {
-		rtree_delete(s->prtree, rect, &id);
-		rtree_insert(s->prtree, rect, &id);
-	}
 
+	rtree_delete(s->prtree, rect, &id);
+	rtree_insert(s->prtree, rect, &id);
 	return 0;
 }
 
@@ -1000,7 +1034,7 @@ static int luaB_SetGhost(lua_State* L) {
 	PSudoku s = lua_touserdata(L, 1);
 	unsigned long long id = luaL_tou64(L, 2);
 
-	s_fun("sudoku(%U)::SetGhost", s->spaceId)
+	//s_fun("sudoku(%U)::SetGhost %U", s->spaceId, id);
 
 	PEntity pEntity;
 	dictEntry* entry = dictFind(s->entitiesDict, &id);

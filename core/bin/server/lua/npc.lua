@@ -25,7 +25,7 @@ function npcFactory.New()
     obj.transform.rotation.z = 0
     obj.transform.rotation.y = 0
 
-    obj.transform.velocity = 3
+    obj.transform.velocity = 0.5
     obj.transform.stamp = os.time()
     obj.transform.stampStop = 0
 
@@ -36,19 +36,19 @@ function npcFactory.New()
         elog.fun("npc::init")
         entitymng.RegistryUpdata(self)
 
-        if(obj.clientid ~= nil)then
-            obj.client = tcpproxy.New(self.id)
+        if(self.clientid ~= nil)then
+            self.client = tcpproxy.New(self.id)
         end
 
-        obj:EntryWorld("bigworld")
+        self:EntryWorld("bigworld")
     end
 
     function obj:OnGetSpace(spaceId)
 
         --移动到地图的对角
-        if obj.status == 0 then
+        if self.status == 0 then
             self:MoveTo(self.spaceInfo.endx, 0, self.spaceInfo.endz)
-            obj.status = 1
+            self.status = 1
         end
     end
 
@@ -59,8 +59,17 @@ function npcFactory.New()
     function obj:Update(count, deltaTime)
         self.__allparant["spaceplugin"].Update(self, count, deltaTime)
 
-        if obj.status == 1 and os.time() > obj.transform.stampStop then
+        if os.time() > self.transform.stampStop and self.spaceInfo.endx ~= nil and self.spaceInfo.endz ~= nil then
             self:MoveTo(math.random(0, self.spaceInfo.endx), 0, math.random(0, self.spaceInfo.endz))
+
+            --[[
+            if self.status == 1 then
+                self.status = 2
+                self:MoveTo(0, 0, 0)
+            else
+                self.status = 1
+                self:MoveTo(self.spaceInfo.endx, 0, self.spaceInfo.endz)
+            end]]
         end
     end
 

@@ -79,8 +79,7 @@ static int luaB_Send(lua_State* L) {
 	size_t ret;
 	const char* pc = luaL_checklstring(L, 2, &ret);
 
-	s_fun("Docker::Send %U", id);
-
+	//s_fun("Docker::Send %U", id);
 	DockerSend(id, pc, ret);
 	return 0;
 }
@@ -88,12 +87,6 @@ static int luaB_Send(lua_State* L) {
 static int luaB_Wait(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 	unsigned long long msec = luaL_tou64be(L, 1, 0, 0);
-
-	//s_fun("Docker::Wait %U", msec);
-
-	if (msec == 0)
-		msec = ULLONG_MAX;
-
 	return DockerLoop(pVoid, L, msec);
 }
 
@@ -187,6 +180,13 @@ static int luaB_GetCurrentMilli(lua_State* L) {
 	return 1;
 }
 
+static int luaB_GetDockerID(lua_State* L) {
+	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
+
+	lua_pushinteger(L, GetDockerID(pVoid));
+	return 1;
+}
+
 static const luaL_Reg docker_funcs[] = {
 	{"GetCurrentMilli", luaB_GetCurrentMilli},
 	{"BindNet", luaB_BindNet},
@@ -198,6 +198,7 @@ static const luaL_Reg docker_funcs[] = {
 	{"CopyRpcToClient", luaB_CopyRpcToClient},
 	{"Send", luaB_Send},
 	{"Wait", luaB_Wait},
+	{"GetDockerID", luaB_GetDockerID},
 	{NULL, NULL}
 };
 

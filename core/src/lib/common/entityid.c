@@ -26,58 +26,39 @@
 #include "plateform.h"
 #include "entityid.h"
 
-#pragma pack(push,1)
-typedef struct _EID {
-	unsigned short id;
-	unsigned char dock;
-	unsigned char port;//UDP¶Ë¿ÚºÅµÄÆ«ÒÆ
-	unsigned int addr;//ipv4
-}*PEID, EID;
-#pragma pack(pop)
-
-unsigned char GetDockFromEID(VPEID pVPEID) {
-	PEID pEID = (PEID) pVPEID;
+unsigned char GetDockFromEID(PEID pEID) {
 	return pEID->dock;
 }
 
-void SetDockFromEID(VPEID pVPEID, unsigned char dock) {
-	PEID pEID = (PEID)pVPEID;
+void SetDockFromEID(PEID pEID, unsigned char dock) {
 	pEID->dock = dock;
 }
 
-unsigned short GetIDFromEID(VPEID pVPEID) {
-	PEID pEID = (PEID)pVPEID;
+unsigned short GetIDFromEID(PEID pEID) {
 	return pEID->id;
 }
 
-void SetIDFromEID(VPEID pVPEID, unsigned int id) {
-	PEID pEID = (PEID)pVPEID;
+void SetIDFromEID(PEID pEID, unsigned int id) {
 	pEID->id = id;
 }
 
-void SetAddrFromEID(VPEID pVPEID, unsigned int addr) {
-	PEID pEID = (PEID)pVPEID;
+void SetAddrFromEID(PEID pEID, unsigned int addr) {
 	pEID->addr = addr;
 }
 
-unsigned int GetAddrFromEID(VPEID pVPEID) {
-	PEID pEID = (PEID)pVPEID;
+unsigned int GetAddrFromEID(PEID pEID) {
 	return pEID->addr;
 }
 
-void SetPortFromEID(VPEID pVPEID, unsigned char port) {
-	PEID pEID = (PEID)pVPEID;
+void SetPortFromEID(PEID pEID, unsigned char port) {
 	pEID->port = port;
 }
 
-unsigned char GetPortFromEID(VPEID pVPEID) {
-	PEID pEID = (PEID)pVPEID;
+unsigned char GetPortFromEID(PEID pEID) {
 	return pEID->port;
 }
 
-VPEID CreateEID(unsigned int addr, unsigned char port, unsigned char dock, unsigned short id) {
-
-	PEID pEID = (PEID)calloc(1, sizeof(EID));
+void CreateEID(PEID pEID, unsigned int addr, unsigned char port, unsigned char dock, unsigned short id) {
 	pEID->addr = addr;
 	pEID->port = port;
 	pEID->dock = dock;
@@ -85,31 +66,23 @@ VPEID CreateEID(unsigned int addr, unsigned char port, unsigned char dock, unsig
 	return pEID;
 }
 
-void DestoryEID(VPEID pVPEID) {
-	PEID pEID = (PEID)pVPEID;
-	free(pEID);
-}
-
-unsigned long long GetEID(VPEID pVPEID) {
+unsigned long long GetEID(PEID pEID) {
 	if (sizeof(EID) == sizeof(unsigned long long)) {
 		unsigned long long ret = 0;
-		memcpy(&ret, pVPEID, sizeof(EID));
+		memcpy(&ret, pEID, sizeof(EID));
 		return ret;
 	}
 	return 0;
 }
 
-void SetEID(VPEID pVPEID, unsigned long long eid) {
+void SetEID(PEID pEID, unsigned long long eid) {
 	if (sizeof(EID) == sizeof(unsigned long long)) {
-		memcpy(pVPEID, &eid, sizeof(EID));
+		memcpy(pEID, &eid, sizeof(EID));
 	}
 }
 
-VPEID CreateEIDFromLongLong(unsigned long long eid) {
+void CreateEIDFromLongLong(unsigned long long eid, PEID pEID) {
 	if (sizeof(EID) == sizeof(unsigned long long)) {
-		PEID pEID = (PEID)calloc(1, sizeof(EID));
 		memcpy(pEID, &eid, sizeof(EID));
-		return pEID;
 	}
-	return NULL;
 }

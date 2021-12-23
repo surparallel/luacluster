@@ -28,3 +28,5 @@ void CurrentPosition(struct Vector3* position,
 	struct Vector3* out,
 	unsigned int current
 );
+
+void LookVector(struct Vector3* a, struct Vector3* b, struct Vector3* euler, float* distance);

@@ -38,6 +38,13 @@ function movepluginFactory.New()
         self.transform.stamp = os.time()
         self.transform.stampStop = self.transform.stamp + d / self.transform.velocity
 
+        local myid = int64.new_unsigned(self.id)
+        elog.fun("spaceplugin(%s)::MoveTo (x:%f y:%f z:%f)=>(x:%f y:%f z:%f) d:%f b:%f e:%f rx:%f ry:%f rz:%f"
+        ,tostring(myid)
+        , self.transform.poition.x, self.transform.poition.y, self.transform.poition.z
+        , x, y, z, d, self.transform.stamp, self.transform.stampStop
+        , self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z)
+
         for k, v in pairs(self.entities) do
             local entity = udpproxy.New(v[1])
             entity:OnMove(self.id, self.transform.poition.x, self.transform.poition.y, self.transform.poition.z

@@ -136,9 +136,9 @@ static void freeClient(NetClient* c) {
         PProtoRPCCreate protoRPCCreate = (PProtoRPCCreate)pProtoHead;
         memcpy(protoRPCCreate->callArg, pmp_buf->b, pmp_buf->len);
 
-        VPEID pVPEID = CreateEIDFromLongLong(c->entityId);
-        unsigned int dockerid = GetDockFromEID(pVPEID);
-        DestoryEID(pVPEID);
+        EID eID;
+        CreateEIDFromLongLong(c->entityId, &eID);
+        unsigned int dockerid = GetDockFromEID(&eID);
 
         DockerPushMsg(dockerid, (unsigned char*)pProtoHead, len);
     }
@@ -203,26 +203,26 @@ static void RecvCallback(PNetClient c, char* buf, size_t buffsize) {
         }
         else if (pProtoHead->proto == proto_rpc_call) {
             PProtoRPC pProtoRPC = (PProtoRPC)buf;
-            VPEID pVPEID = CreateEIDFromLongLong(pProtoRPC->id);
-            unsigned int addr = GetAddrFromEID(pVPEID);
-            unsigned char port = GetPortFromEID(pVPEID);
+            EID eID;
+            CreateEIDFromLongLong(pProtoRPC->id, &eID);
+            unsigned int addr = GetAddrFromEID(&eID);
+            unsigned char port = GetPortFromEID(&eID);
 
             if (c->pNetServer->udp_ip == addr && c->pNetServer->uportOffset == port) {
-                unsigned char docker = GetDockFromEID(pVPEID);
+                unsigned char docker = GetDockFromEID(&eID);
                 DockerPushMsg(docker, buf, buffsize);
             }
             else {
                 n_error("RecvCallback error udp addr ip: %i,%i port: %i,%i", c->pNetServer->udp_ip, addr, c->pNetServer->uportOffset, port);
             }
-            DestoryEID(pVPEID);
         }
         else if (pProtoHead->proto == proto_route_call) {
             //转发给客户端
             PProtoRoute pProtoRoute = (PProtoRoute)buf;
-            VPEID pVPEID = CreateEIDFromLongLong(pProtoRoute->pid);
-            unsigned int addr = GetAddrFromEID(pVPEID);
-            unsigned char port = GetPortFromEID(pVPEID);
-            DestoryEID(pVPEID);
+            EID eID;
+            CreateEIDFromLongLong(pProtoRoute->pid, &eID);
+            unsigned int addr = GetAddrFromEID(&eID);
+            unsigned char port = GetPortFromEID(&eID);
 
             if (c->pNetServer->udp_ip == addr && c->pNetServer->uportOffset == port) {
                 //找到对应entity id 的client id 转发
@@ -257,10 +257,9 @@ static void RecvCallback(PNetClient c, char* buf, size_t buffsize) {
                 pProtoRoute->did = c->entityId;//替换掉对应的id
                 pProtoRoute->pid = c->entityId;//替换掉对应的id
             }
-
-            VPEID pVPEID = CreateEIDFromLongLong(pProtoRoute->pid);
-            docker = GetDockFromEID(pVPEID);
-            DestoryEID(pVPEID);
+            EID eID;
+            CreateEIDFromLongLong(pProtoRoute->pid, &eID);
+            docker = GetDockFromEID(&eID);
 
             DockerPushMsg(docker, buf, buffsize);
         }

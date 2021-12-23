@@ -5,6 +5,7 @@ local entitymng = require("entitymng")
 local elog = require("eloghelp")
 local bigworldapi = require("bigworldapi")
 local udpproxy = require 'udpproxy'
+--local mri = require("MemoryReferenceInfo")
 
 local spaceFactory= {}
 
@@ -40,8 +41,38 @@ function spaceFactory.New()
         self.endz = sc.bigworld.endz
         self.spaceType = "bigworld"
 
-        --创建测试npc
-        entitymng.EntityToCreate(sc.entity.NodeInside , "npc")
+     
+        entitymng.RegistryUpdata(self)
+--[[         require "profiler"
+        profiler = newProfiler("call", 1)
+        profiler:start()
+       mri.m_cMethods.DumpMemorySnapshot("./", "1-Before", -1)]]
+    end
+
+    function obj:Update(count, deltaTime)
+
+--[[          print(count,"\n")
+
+        if count > 300 then
+
+            print("************profile stop************")
+            profiler:stop()
+
+            local outfile = io.open( "profile.txt", "w+"  )
+            profiler:report( outfile  )
+            outfile:close()
+          mri.m_cMethods.DumpMemorySnapshot("./", "2-After", -1)
+            os.exit()
+        end]]
+        if count <= 30 then
+            print(count,"\n")
+            if count == 30 then
+                for i = 1, 10000, 1 do
+                    entitymng.EntityToCreate(sc.entity.DockerRandom , "npc")
+                end 
+            end
+
+        end
     end
     
     --引导entity进入space 如果是多个就进入多个
@@ -58,7 +89,7 @@ function spaceFactory.New()
     end
 
     function obj:SpaceFull(id)
-
+--[[
         --检查空间是否已经在调整中，如果没有就开始调整根据返回创建两个新的空间数据
         local adjust, beginx, beginz, endx, endz = bigworldapi.SpaceFull(self.apihandle, id)
         if adjust == 1 then
@@ -69,8 +100,7 @@ function spaceFactory.New()
                                                                         endz = endz,
                                                                         oid = id
                                                                         })
-        end
-
+        end]]
     end
 
     --space创建成功，这里可能导致重复创建

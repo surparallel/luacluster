@@ -9,7 +9,9 @@ local cluster = require("cluster")
 local int64 = require("int64")
 
 function main()
-
+    
+    entitymng.InitUpdata()
+    local waittime = sc.glob.msec
     while(true)
     do
         if  _G["dockerid"] == 0 and not cluster:IsBooted() then
@@ -17,9 +19,22 @@ function main()
             cluster:CheckInit()
         end
 
-        local ret = {docker.Wait(sc.glob.msec)}
+        local stamp = docker.GetCurrentMilli()
+        local ret = {docker.Wait(waittime)}
+
+        --补偿时间
+        if #ret ~= 0 then
+            waittime = waittime - stamp
+            if waittime < 0 then
+                waittime = 0
+            end
+        end
+
         if #ret == 0 then
-            entitymng.LoopUpdata()
+            waittime = sc.glob.msec - entitymng.LoopUpdata()
+            if waittime < 0 then
+                waittime = 0
+            end
         elseif ret[1] == sc.proto.proto_ctr_cancel then
             return
         elseif ret[1] == sc.proto.proto_rpc_create then

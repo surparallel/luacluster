@@ -6,5 +6,8 @@
   },
   "base_config": {
     "inside": 1
+  },
+  "docke_config":{
+    "dockerSize": 16
   }
 }

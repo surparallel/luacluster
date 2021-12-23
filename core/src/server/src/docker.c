@@ -46,7 +46,8 @@ enum entity {
 	DockerRandom,//当前节点的随机ddocker
 	NodeInside,//任意内部节点
 	NodeOutside,//任意有对外部通信节点
-	NodeRandom//随机节点
+	NodeRandom,//随机节点
+	DockerZero//放入第零个节点，这个节点不会出现在DockerRandom中
 };
 
 //消息句柄是静态全局变量
@@ -102,10 +103,9 @@ unsigned long long AllocateID(void* pVoid) {
 	else {
 		n_error("AllocateID::entity number is greater than 65535!");
 	}
-
-	VPEID pVPEID = CreateEID(pDocksHandle->ip, pDocksHandle->uportOffset, pDockerHandle->id, id);
-	unsigned long long retId = GetEID(pVPEID);
-	DestoryEID(pVPEID);
+	EID eID;
+	CreateEID(&eID, pDocksHandle->ip, pDocksHandle->uportOffset, pDockerHandle->id, id);
+	unsigned long long retId = GetEID(&eID);
 
 	return retId;
 }
@@ -113,14 +113,13 @@ unsigned long long AllocateID(void* pVoid) {
 void UnallocateID(void* pVoid, unsigned long long id) {
 
 	PDockerHandle pDockerHandle = pVoid;
-	VPEID pVPEID = CreateEIDFromLongLong(id);
-	unsigned int t_id = GetIDFromEID(pVPEID);
-	if (!(pDocksHandle->ip == GetAddrFromEID(pVPEID) && pDocksHandle->uportOffset == GetPortFromEID(pVPEID) && pDockerHandle->id == GetDockFromEID(pVPEID))) {
-		n_error("UnallocateID::entity id is error! ip:%i port:%i dock:%i", GetAddrFromEID(pVPEID), GetPortFromEID(pVPEID), GetDockFromEID(pVPEID));
-		DestoryEID(pVPEID);
+	EID eID;
+	CreateEIDFromLongLong(id, &eID);
+	unsigned int t_id = GetIDFromEID(&eID);
+	if (!(pDocksHandle->ip == GetAddrFromEID(&eID) && pDocksHandle->uportOffset == GetPortFromEID(&eID) && pDockerHandle->id == GetDockFromEID(&eID))) {
+		n_error("UnallocateID::entity id is error! ip:%i port:%i dock:%i", GetAddrFromEID(&eID), GetPortFromEID(&eID), GetDockFromEID(&eID));
 		return;
 	}
-	DestoryEID(pVPEID);
 
 	dictEntry* entry = dictFind(pDockerHandle->id_allocate, &t_id);
 	if (entry != NULL) {
@@ -291,7 +290,7 @@ void DocksDestory() {
 int DockerLoop(void* pVoid, lua_State* L, long long msec) {
 
 	PDockerHandle pDockerHandle = pVoid;
-	if (pDockerHandle->eventQueueLength == 0) {	
+	if (pDockerHandle->eventQueueLength == 0 && msec != 0) {
 		EqTimeWait(pDockerHandle->eQueue, msec);
 	}
 
@@ -365,7 +364,16 @@ void DockerPushMsg(unsigned int dockerId, unsigned char* b, unsigned short s) {
 
 void DockerRandomPushMsg(unsigned char* b, unsigned short s) {
 
-	unsigned int dockerId = rand() % pDocksHandle->dockerSize;
+	unsigned int dockerId = 0;
+
+	//当线程分配大于等于4时，0线程才不参与随机分配。
+	if (pDocksHandle->dockerSize  >= 4){
+		dockerId = (rand() % (pDocksHandle->dockerSize - 1)) + 1;
+	}
+	else {
+		dockerId = rand() % pDocksHandle->dockerSize;
+	}
+
 	sds msg = sdsnewlen(b, s);
 	EqPush(pDocksHandle->listPDockerHandle[dockerId]->eQueue, msg);
 }
@@ -374,11 +382,11 @@ void DockerRandomPushMsg(unsigned char* b, unsigned short s) {
 void DockerSend(unsigned long long id, const char* pc, size_t s) {
 
 	//n_fun("docker::DockerSend");
-	VPEID pEntityID = CreateEIDFromLongLong(id);
-	unsigned int addr = GetAddrFromEID(pEntityID);
-	unsigned char port =  GetPortFromEID(pEntityID);
-	unsigned char docker = GetDockFromEID(pEntityID);
-	DestoryEID(pEntityID);
+	EID eID;
+	CreateEIDFromLongLong(id, &eID);
+	unsigned int addr = GetAddrFromEID(&eID);
+	unsigned char port =  GetPortFromEID(&eID);
+	unsigned char docker = GetDockFromEID(&eID);
 
 	unsigned short len = sizeof(ProtoRPC) + s;
 	PProtoHead pProtoHead = malloc(len);
@@ -403,12 +411,11 @@ void DockerSend(unsigned long long id, const char* pc, size_t s) {
 void DockerSendToClient(void* pVoid, unsigned long long did, unsigned long long pid, const char* pc, size_t s) {
 
 	PDockerHandle pDockerHandle = pVoid;
-
-	VPEID pEntityID = CreateEIDFromLongLong(pid);
-	unsigned int addr = GetAddrFromEID(pEntityID);
-	unsigned char port = GetPortFromEID(pEntityID);
-	unsigned char docker = GetDockFromEID(pEntityID);
-	DestoryEID(pEntityID);
+	EID eID;
+	CreateEIDFromLongLong(pid, &eID);
+	unsigned int addr = GetAddrFromEID(&eID);
+	unsigned char port = GetPortFromEID(&eID);
+	unsigned char docker = GetDockFromEID(&eID);
 
 	unsigned short len = sizeof(ProtoRoute) + s;
 	PProtoHead pProtoHead = malloc(len);
@@ -461,7 +468,9 @@ void DockerCreateEntity(void* pVoid, int type, const char* c, size_t s) {
 	unsigned int ip = 0;
 	unsigned short port = 0;
 
-	if (DockerCurrent == type)
+	if (DockerZero == type)
+		DockerPushMsg(0, (unsigned char*)pProtoHead, len);
+	else if (DockerCurrent == type)
 		DockerPushMsg(pDockerHandle->id, (unsigned char*)pProtoHead, len);
 	else if(DockerRandom == type)
 		DockerRandomPushMsg((unsigned char*)pProtoHead, len);
@@ -488,4 +497,9 @@ void DockerCreateEntity(void* pVoid, int type, const char* c, size_t s) {
 		}
 	}
 	free(pProtoHead);
+}
+
+unsigned int GetDockerID(void* pVoid) {
+	PDockerHandle pDockerHandle = pVoid;
+	return pDockerHandle->id;
 }

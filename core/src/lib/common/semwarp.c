@@ -115,7 +115,7 @@ int semwarp_timedwait(semwarp_t*psem, unsigned long long milliseconds) {
 	xresult = 0;
 
 	if (psem->count == 0) {
-		xresult = uv_cond_timedwait(&psem->cond, &psem->lock, milliseconds);
+		xresult = uv_cond_timedwait(&psem->cond, &psem->lock, milliseconds * 1e6);
 	}
 	if (!xresult) {
 		if (psem->count > 0) {

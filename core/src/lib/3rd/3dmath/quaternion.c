@@ -1,5 +1,6 @@
 
 #include <math.h>
+#include <float.h>
 #include "quaternion.h"
 #include "mathf.h"
 //https://quaternions.online/
@@ -160,12 +161,13 @@ void quatToMatrix(struct Quaternion* q, float out[4][4]) {
 void quatNormalize(struct Quaternion* q, struct Quaternion* out) {
     float magSqr = q->x * q->x + q->y * q->y + q->z * q->z + q->w * q->w;
 
-    if (magSqr < 0.00001f) {
+    if (magSqr <= 0.0f) {
         out->w = 1.0f;
         out->x = 0.0f;
         out->y = 0.0f;
         out->z = 0.0f;
-    } else {
+    }
+    else {
         magSqr = 1.0f / sqrtf(magSqr);
 
         out->x = q->x * magSqr;
@@ -301,72 +303,3 @@ float NormalizeAxis(float Angle)
 
     return Angle;
 }
-/*
-//https://stackoverflow.com/questions/12088610/conversion-between-euler-quaternion-like-in-unity3d-engine/12122899#12122899
-void ToQ(struct Vector3* in, struct Quaternion* out)
-{
-    const float RADS_DIVIDED_BY_2 = DEG_TO_RAD / 2.f;
-
-    float pitchOver2 = fmod(in->x, 360.f) * RADS_DIVIDED_BY_2;
-    float sinPitchOver2 = (float)sin((double)pitchOver2);
-    float cosPitchOver2 = (float)cos((double)pitchOver2);
-    float yawOver2 = fmod(in->y, 360.f) * RADS_DIVIDED_BY_2;
-    float sinYawOver2 = (float)sin((double)yawOver2);
-    float cosYawOver2 = (float)cos((double)yawOver2);
-    float rollOver2 = fmod(in->z, 360.f) * RADS_DIVIDED_BY_2;
-    float sinRollOver2 = (float)sin((double)rollOver2);
-    float cosRollOver2 = (float)cos((double)rollOver2);
-
-    out->x = cosRollOver2 * sinPitchOver2 * sinYawOver2 - sinRollOver2 * cosPitchOver2 * cosYawOver2;
-    out->y = -cosRollOver2 * sinPitchOver2 * cosYawOver2 - sinRollOver2 * cosPitchOver2 * sinYawOver2;
-    out->z = cosRollOver2 * cosPitchOver2 * sinYawOver2 - sinRollOver2 * sinPitchOver2 * cosYawOver2;
-    out->w = cosRollOver2 * cosPitchOver2 * cosYawOver2 + sinRollOver2 * sinPitchOver2 * sinYawOver2;
-}
-
-void FromQ2(struct Quaternion* in, struct Vector3* out)
-{
-    const float SingularityTest = in->z * in->x - in->w * in->y;
-    const float YawY = 2.f * (in->w * in->z + in->x * in->y);
-    const float YawX = (1.f - 2.f * (in->y * in->y + in->z * in->z));
-
-    // reference 
-    // http://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
-    // http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToEuler/
-
-    // this value was found from experience, the above websites recommend different values
-    // but that isn't the case for us, so I went through different testing, and finally found the case 
-    // where both of world lives happily. 
-    const float SINGULARITY_THRESHOLD = 0.4999995f;
-
-    if (SingularityTest < -SINGULARITY_THRESHOLD)
-    {
-        out->x = -90.f;
-        out->y = atan2(YawY, YawX) * RAD_TO_DEG;
-        out->z = NormalizeAxis(-out->y - (2.f * atan2(in->x, in->w) * RAD_TO_DEG));
-    }
-    else if (SingularityTest > SINGULARITY_THRESHOLD)
-    {
-        out->x = 90.f;
-        out->y = atan2(YawY, YawX) * RAD_TO_DEG;
-        out->z = NormalizeAxis(out->y - (2.f * atan2(in->x, in->w) * RAD_TO_DEG));
-    }
-    else
-    {
-        out->x = asin(2. * (SingularityTest));
-        out->y = atan2(YawY, YawX);
-        out->z = atan2(-2. * (1. * in->w * in->x + 1. * in->y * in->z), (1. - 2. * (1. * in->x * in->x + 1. * in->y * in->y)));
-
-        Degree(out, out);
-    }
-}
-
-void quatEulerAngles(struct Vector3* angles, struct Quaternion* out)
-{
-    ToQ(angles, out);
-}
-
-void quatToEulerAngles(struct Quaternion* q, struct Vector3* out)
-{
-    FromQ2(q, out);
-}
-*/

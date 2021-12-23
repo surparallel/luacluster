@@ -30,6 +30,8 @@
 #include "vector.h"
 #include "timesys.h"
 
+#define Round(x) round(x * 1000) / 1000
+
 void CurrentPosition(
 	struct Vector3* position, 
 	struct Vector3* angles, 
@@ -56,7 +58,6 @@ void CurrentPosition(
 
 static int luaB_Position(lua_State* L) {
 
-	s_fun("math3d::Position");
 	//position
 	struct Vector3 position;
 	position.x = luaL_checknumber(L, 1);
@@ -79,16 +80,16 @@ static int luaB_Position(lua_State* L) {
 	struct Vector3 out;
 	CurrentPosition(&position, &angles, velocity, stamp, stampStop, &out, 0);
 
-	lua_pushnumber(L, out.x);
-	lua_pushnumber(L, out.y);
-	lua_pushnumber(L, out.z);
+	//精度只保留后3位
+	lua_pushnumber(L, Round(out.x));
+	lua_pushnumber(L, Round(out.y));
+	lua_pushnumber(L, Round(out.z));
 
 	return 3;
 }
 
 static int luaB_Dist(lua_State* L) {
 
-	s_fun("sudoku::Dist");
 	struct Vector3 position1;
 	position1.x = luaL_checknumber(L, 1);
 	position1.y = luaL_checknumber(L, 2);;
@@ -104,6 +105,16 @@ static int luaB_Dist(lua_State* L) {
 	return 1;
 }
 
+void LookVector(struct Vector3* a, struct Vector3* b, struct Vector3* euler, float* distance) {
+	struct Vector3 forward;
+	vector3Sub(b, a, &forward);
+
+	*distance = sqrtf(vector3MagSqrd(&forward));
+	struct Quaternion out;
+	quatLookRotation(&forward, &out);
+	quatToEulerAngles(&out, euler);
+}
+
 static int luaB_LookVector(lua_State* L) {
 
 	struct Vector3 a;
@@ -116,18 +127,14 @@ static int luaB_LookVector(lua_State* L) {
 	b.y = luaL_checknumber(L, 5);
 	b.z = luaL_checknumber(L, 6);
 
-	struct Vector3 forward, euler;
-	vector3Sub(&b, &a, &forward);
-
-	float distance = sqrtf(vector3MagSqrd(&forward));
-	struct Quaternion out;
-	quatLookRotation(&forward, &out);
-	quatToEulerAngles(&out, &euler);
+	struct Vector3 euler;
+	float distance;
+	LookVector(&a, &b, &euler, &distance);
 
 	lua_pushnumber(L, distance);
-	lua_pushnumber(L, euler.x);
-	lua_pushnumber(L, euler.y);
-	lua_pushnumber(L, euler.z);
+	lua_pushnumber(L, Round(euler.x));
+	lua_pushnumber(L, Round(euler.y));
+	lua_pushnumber(L, Round(euler.z));
 	return 4;
 }
 

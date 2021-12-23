@@ -21,7 +21,7 @@ function cluster:CheckInit()
     elseif self.isBoots == 1 and (sc.cluster.nodeSize <= redishelp:scard('cluster:nodeall') or sc.cluster.nodeStar <= (os.time() - self.starTime)) then
 
         for k, v in pairs(sc.cluster.serves) do
-            entitymng.EntityToCreate(sc.entity.DockerRandom, v, {ServerName=v})
+            entitymng.EntityToCreate(sc.entity.DockerZero, v, {ServerName=v})
         end
 
         redishelp:set('cluster:init',"done")

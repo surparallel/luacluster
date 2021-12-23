@@ -5,11 +5,9 @@ local int64 = require("int64")
 local cmsgpack = require("cmsgpack")
 local redishelp = require('redishelp')
 local udpproxy = require 'udpproxy'
+local sc = require("sc")
 
 local entityMng = {}
-
-_G["__updatelast"] = docker.GetCurrentMilli()
-_G["__updatecount"] = 0
 
 function entityMng.RegistryObj(obj)
 
@@ -115,17 +113,27 @@ function entityMng.UnRegistryUpdata(obj)
     _G["__update"][tostring(myid)] = nil
 end
 
+function entityMng.InitUpdata()
+    _G["__updatelast"] = docker.GetCurrentMilli()
+    _G["__updatecount"] = 0
+end
+
 function entityMng.LoopUpdata()
 
     if _G["__update"] == nil then
-        return
+        return 0
     end
 
     local last = _G["__updatelast"]
     local count = _G["__updatecount"]
     local now = docker.GetCurrentMilli()
+
     local deltaTime = now - last
     count = count + 1
+
+    if deltaTime > (sc.glob.msec * 1.5) then
+        elog.error("entityMng::LoopUpdata::update block deltaTime > sc.glob.msec :%i dockerid: %i", deltaTime, docker.GetDockerID())
+    end
     
     for k,v in pairs(_G["__update"]) do
         if v["Update"] ~= nil then
@@ -135,6 +143,8 @@ function entityMng.LoopUpdata()
 
     _G["__updatelast"] = now
     _G["__updatecount"] = count
+    local shortDeltaTime = docker.GetCurrentMilli() - now
+    return shortDeltaTime
 end
 
 function entityMng.EntityToCreate(type, name, arg)
@@ -155,8 +165,52 @@ function entityMng.GetSev(ServerName)
     if id ~= nil then
         return udpproxy.New(id)
     else
-        elog.error(string.format("entityMng.GetSev not find %s",ServerName))
+        elog.error("entityMng.GetSev not find %s",ServerName)
         return nil
+    end
+end
+
+function entityMng.EntityDataCreate(id, data)
+    if _G["__EntityData"] == nil then
+        _G["__EntityData"] = {}
+    end
+
+    if _G["__EntityDataCount"] == nil then
+        _G["__EntityDataCount"] = {}
+    end
+
+    if _G["__EntityDataCount"][id] == nil then
+        _G["__EntityDataCount"][id] = 0
+    end
+    
+    _G["__EntityData"][id] = data
+    _G["__EntityDataCount"][id] = _G["__EntityDataCount"][id] + 1
+end
+
+function entityMng.EntityDataSet(id, data)
+
+    if _G["__EntityData"] == nil or _G["__EntityData"][id] == nil then
+        elog.error("entityMng.EntityDataSet after EntityDataCreate")
+        return
+    end
+    _G["__EntityData"][id] = data
+end
+
+function entityMng.EntityDataGet(id)
+
+    if _G["__EntityData"] == nil or _G["__EntityData"][id] == nil then
+        elog.error("entityMng.EntityDataSet after EntityDataCreate")
+        return
+    end
+    return _G["__EntityData"][id]
+end
+
+function entityMng.EntityDataFree(id)
+    _G["__EntityDataCount"][id] = _G["__EntityDataCount"][id] - 1
+
+    if _G["__EntityDataCount"][id] <= 0 then
+        _G["__EntityDataCount"][id] = nil
+        _G["__EntityData"][id]  = nil
     end
 end
 

@@ -18,18 +18,25 @@
 */
 
 typedef void* VPEID;
-typedef void* VPESID;
 
-unsigned char GetDockFromEID(VPEID pVPEID);
-void SetDockFromEID(VPEID pVPEID, unsigned char dock);
-unsigned short GetIDFromEID(VPEID pVPEID);
-void SetIDFromEID(VPEID pVPEID, unsigned int id);
-void SetAddrFromEID(VPEID pVPEID, unsigned int addr);
-unsigned int GetAddrFromEID(VPEID pVPEID);
-void SetPortFromEID(VPEID pVPEID, unsigned char port);
-unsigned char GetPortFromEID(VPEID pVPEID);
-VPEID CreateEID(unsigned int addr, unsigned char port, unsigned char dock, unsigned short id);
-void DestoryEID(VPEID pVPEID);
-VPEID CreateEIDFromLongLong(unsigned long long eid);
-void SetEID(VPEID pVPEID, unsigned long long eid);
-unsigned long long GetEID(VPEID pVPEID);
+#pragma pack(push,1)
+typedef struct _EID {
+	unsigned short id;
+	unsigned char dock;
+	unsigned char port;//UDP¶Ë¿ÚºÅµÄÆ«ÒÆ
+	unsigned int addr;//ipv4
+}*PEID, EID;
+#pragma pack(pop)
+
+unsigned char GetDockFromEID(PEID pEID);
+void SetDockFromEID(PEID pEID, unsigned char dock);
+unsigned short GetIDFromEID(PEID pEID);
+void SetIDFromEID(PEID pEID, unsigned int id);
+void SetAddrFromEID(PEID pEID, unsigned int addr);
+unsigned int GetAddrFromEID(PEID pEID);
+void SetPortFromEID(PEID pEID, unsigned char port);
+unsigned char GetPortFromEID(PEID pEID);
+void CreateEID(PEID pEID, unsigned int addr, unsigned char port, unsigned char dock, unsigned short id);
+void CreateEIDFromLongLong(unsigned long long eid, PEID pEID);
+void SetEID(PEID pEID, unsigned long long eid);
+unsigned long long GetEID(PEID pEID);

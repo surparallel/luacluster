@@ -1,4 +1,8 @@
 
+local bit32 = bit32
+if bit32 == nil then
+    bit32 = bit
+end
 local entityFactory = {}
 
 --需要回调写入事件的属性
@@ -51,7 +55,6 @@ function entityFactory.CreateSub(obj, t, name, root, rootk)
         __ipairs = function(t)
             return ipairs(t.__rawobj)
           end,
-
         __pairs = function(t)
             return pairs(t.__rawobj)
           end,

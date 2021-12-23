@@ -892,10 +892,22 @@ static const luaL_Reg meta[] = {
 
 int luaopen_int64 (lua_State *L) {
   luaL_newmetatable(L, LTYPE);
+
+#if LUA_VERSION_NUM > 501 && !defined(LUA_COMPAT_MODULE)
   luaL_setfuncs(L, meta, 0);
+#else
+  luaL_openlib(L, NULL, meta, 0);
+#endif
+
   lua_pushvalue(L, -1);
   lua_setfield(L, -2, "__index");
+
+#if LUA_VERSION_NUM > 501 && !defined(LUA_COMPAT_MODULE)
   luaL_setfuncs(L, lib, 0);
+#else
+  luaL_openlib(L, "int64", lib, 0);
+#endif
+
   lua_pushvalue(L, -1);
   lua_setmetatable(L, -2);
   return 1;
