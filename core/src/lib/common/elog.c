@@ -82,6 +82,7 @@ typedef struct _LogFileHandle
 	sds sctg_node;
 	sds sctg_dock;
 	sds sctg_script;
+	sds sctg_user;
 	
 	int maxQueueSize;
 	sds	 outDir;//Êä³öÄ¿Â¼
@@ -168,6 +169,9 @@ char* GetCategoryName(char Category) {
 	}
 	else if (Category == ctg_script) {
 		return _pLogFileHandle->sctg_script;
+	}
+	else if (Category == ctg_user) {
+		return _pLogFileHandle->sctg_user;
 	}
 	return 0;
 }
@@ -692,6 +696,7 @@ void LogInit(char* config) {
 	_pLogFileHandle->sctg_node = sdsnew("node");
 	_pLogFileHandle->sctg_dock = sdsnew("dock");
 	_pLogFileHandle->sctg_script = sdsnew("script");
+	_pLogFileHandle->sctg_user = sdsnew("user");
 
 	_pLogFileHandle->eQueue = EqCreate();
 	_pLogFileHandle->category_rule = dictCreate(&SdsRuleDictType, NULL);
@@ -729,6 +734,7 @@ void LogDestroy() {
 	sdsfree(_pLogFileHandle->sctg_node);
 	sdsfree(_pLogFileHandle->sctg_dock);
 	sdsfree(_pLogFileHandle->sctg_script);
+	sdsfree(_pLogFileHandle->sctg_user);
 
 	sdsfree(_pLogFileHandle->level_error);
 	sdsfree(_pLogFileHandle->level_warn);

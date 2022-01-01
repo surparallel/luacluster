@@ -22,6 +22,7 @@
 #include "vector.h"
 #include "sudoku.h"
 #include "timesys.h"
+#include "3dmathapi.h"
 
 void TestGirdDir(void* s) {
 
@@ -34,10 +35,36 @@ void TestGirdDir(void* s) {
 	printf("%d ", GirdDir(pSudoku, 7, 5));
 	printf("%d ", GirdDir(pSudoku, 8, 5));
 	printf("%d \n", GirdDir(pSudoku, 9, 5));
+	printf("%d \n", GirdDir(pSudoku, 69, 70));
+	printf("%d \n", GirdDir(pSudoku, 76, 77));
+	printf("%d \n", GirdDir(pSudoku, 90, 83));
 
 }
+#define Round(x) round(x * 1000) / 1000
 
 void test_sudoku() {
+	struct Vector3 a = {99, 0, 30};
+	struct Vector3 b = { 99.08, 0, 99.08};
+	struct Vector3 euler;
+	float distance;
+
+	LookVector(&b, &a, &euler, &distance);
+
+	for (float i = -1.0f; i <= 1.1f; i+=0.1)
+	{
+		for (float j = -1.0f; j <= 1.1f; j+=0.1)
+		{
+			if (i == 0 && j == 0)
+				continue;
+			struct Vector3 a = { i, 0, j };
+			struct Vector3 b = { 0, 0, 0 };
+
+			LookVector(&b, &a, &euler, &distance);
+
+			printf("%f %f %f %f %f\r\n", i, j, euler.x, euler.y, euler.z);
+		}
+	}
+
 
 	struct Vector3 gird;
 	struct Vector3 begin;

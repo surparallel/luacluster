@@ -18,7 +18,7 @@
 */
 
 
-void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short uport, const char* assetsPath, unsigned short dockerSize, int nodetype);
+void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short uport, const char* assetsPath, unsigned short dockerSize, int nodetype, int client);
 void DocksDestory();
 int DockerLoop(void* pVoid, lua_State* L, long long msec);
 unsigned int DockerSize();
@@ -26,9 +26,11 @@ unsigned long long AllocateID(void* pDockerHandle);
 void UnallocateID(void* pDockerHandle, unsigned long long id);
 
 void DockerPushMsg(unsigned int dockerId, unsigned char* b, unsigned short s);
-void DockerRandomPushMsg(unsigned char* b, unsigned short s);
+unsigned int DockerRandomPushMsg(unsigned char* b, unsigned short s);
 void DockerSend(unsigned long long id, const char* pc, size_t s);
 void DockerCreateEntity(void* pVoid, int type, const char* c, size_t s);
 void DockerSendToClient(void* pVoid, unsigned long long did, unsigned long long pid, const char* pc, size_t s);
 void DockerCopyRpcToClient(void* pVoid);
 unsigned int GetDockerID(void* pVoid);
+void DockerRunScript(unsigned char* ip, short port, int id, unsigned char* b, unsigned short s);
+unsigned int GetEntityCount(void* pVoid);

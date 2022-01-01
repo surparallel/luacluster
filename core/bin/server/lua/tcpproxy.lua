@@ -22,7 +22,7 @@ function tcpProxyFactory.New(id)
                 local arg={...}
                 local self = arg[1]
                 if self ~= obj then
-                    elog.error("tcpProxyFactory Object must be accessed by \": \")!")
+                    elog.sys_error("tcpProxyFactory Object must be accessed by \": \")!")
                     return
                 end
                 
@@ -31,7 +31,7 @@ function tcpProxyFactory.New(id)
             end
         end,
         __newindex = function (t,k,v)
-            elog.error("tcpProxy does not accept setting data!")
+            elog.sys_error("tcpProxy does not accept setting data!")
             return
         end
     })

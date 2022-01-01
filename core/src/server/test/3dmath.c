@@ -344,12 +344,13 @@ void do3dlibTest() {
     }
 
 */
+    float cosr = cosf(PI / 2);
 
     struct Quaternion rotation, rotation1;
     struct Vector3 Euler, Euler2, Euler3;
-    Euler.x = 0.f;
-    Euler.y = 45.f;
-    Euler.z = 0.f;
+    Euler.x = -180.000;
+    Euler.y = -38.614;
+    Euler.z = 180.000;
     quatEulerAngles(&Euler, &rotation1);
     quatToEulerAngles(&rotation1, &Euler2);
 

@@ -22,6 +22,8 @@ sc.entity.DockerCurrent = 0 --当前ddocker
 sc.entity.DockerRandom = 1 --当前节点的随机ddocker
 sc.entity.NodeInside = 2 --任意内部节点
 sc.entity.NodeOutside = 3 --任意有对外部通信节点
+sc.entity.NodeRandom = 4
+sc.entity.DockerZero = 5 --放入第0个节点，这个节点不会出现在DockerRandom中。当线程分配大于等于4时，0线程才不参与随机分配。
 
 --属性的标识符
 sc.keyflags = {}
@@ -54,16 +56,16 @@ sc.sudoku.girdx = 10
 sc.sudoku.girdz = 10
 sc.sudoku.beginx = 0
 sc.sudoku.beginz = 0
-sc.sudoku.endx = 100
-sc.sudoku.endz = 100
+sc.sudoku.endx = 30
+sc.sudoku.endz = 30
 sc.sudoku.radius = 15
 sc.sudoku.outsideSec = 10 * 60
 
 sc.bigworld = {}
 sc.bigworld.beginx = 0
 sc.bigworld.beginz = 0
-sc.bigworld.endx = 100
-sc.bigworld.endz = 100
+sc.bigworld.endx = 30
+sc.bigworld.endz = 30
 
 try(function()
 
@@ -77,7 +79,7 @@ try(function()
     end
 
 end).catch(function (ex)
-    elog.warn(ex)
+    elog.sys_warn(ex)
 end)
 
 return sc

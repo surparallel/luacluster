@@ -36,6 +36,7 @@ enum OutPutCategory
 	ctg_node,//整个节点管理器的日志
 	ctg_dock,//每个线程容器的日志
 	ctg_script,//脚本的日志
+	ctg_user,//用户脚本的日志
 };
 
 enum PacketCmd
@@ -106,6 +107,13 @@ size_t LogGetFileLine();
 #define s_stat(describe, ...) elog(log_stat, ctg_script, describe, ##__VA_ARGS__)
 #define s_fun(describe, ...) elog(log_fun, ctg_script, describe, ##__VA_ARGS__)
 #define s_details(describe, ...) elog(log_details, ctg_script, describe, ##__VA_ARGS__)
+
+//ctg_user
+#define u_error(describe, ...) elog(log_error, ctg_user, describe, ##__VA_ARGS__)
+#define u_warn(describe, ...) elog(log_warn, ctg_user, describe, ##__VA_ARGS__)
+#define u_stat(describe, ...) elog(log_stat, ctg_user, describe, ##__VA_ARGS__)
+#define u_fun(describe, ...) elog(log_fun, ctg_user, describe, ##__VA_ARGS__)
+#define u_details(describe, ...) elog(log_details, ctg_user, describe, ##__VA_ARGS__)
 #endif
 
 

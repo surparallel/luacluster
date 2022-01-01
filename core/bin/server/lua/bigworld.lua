@@ -5,6 +5,7 @@ local entitymng = require("entitymng")
 local elog = require("eloghelp")
 local bigworldapi = require("bigworldapi")
 local udpproxy = require 'udpproxy'
+local docker = require("docker")
 --local mri = require("MemoryReferenceInfo")
 
 local spaceFactory= {}
@@ -17,7 +18,13 @@ function spaceFactory.New()
     --注册自己的entity id到redis
     function obj:Init()
 
-        elog.fun("bigworld::init")
+        elog.sys_fun("bigworld::init")
+
+        --在客户端模式下不运行
+        if(_G["bots"]) then
+            return
+        end
+
         entitymng.RegistrySev(self.ServerName, self)
         self.apihandle = bigworldapi.Create(sc.sudoku.girdx
                          , sc.sudoku.girdz
@@ -27,7 +34,7 @@ function spaceFactory.New()
                          , sc.bigworld.endz
                         )
         --创建基本的space
-        entitymng.EntityToCreate(sc.entity.NodeInside , "sudokuex", {bigworld=self.id,
+        entitymng.EntityToCreate(sc.entity.DockerZero , "sudokuex", {bigworld=self.id,
                                                                     beginx = sc.bigworld.beginx - sc.sudoku.girdx,
                                                                     beginz = sc.bigworld.beginz - sc.sudoku.girdz,
                                                                     endx = sc.bigworld.endx + sc.sudoku.girdx,
@@ -41,6 +48,7 @@ function spaceFactory.New()
         self.endz = sc.bigworld.endz
         self.spaceType = "bigworld"
 
+        self.mycount = 1
      
         entitymng.RegistryUpdata(self)
 --[[         require "profiler"
@@ -64,14 +72,15 @@ function spaceFactory.New()
           mri.m_cMethods.DumpMemorySnapshot("./", "2-After", -1)
             os.exit()
         end]]
-        if count <= 30 then
-            print(count,"\n")
-            if count == 30 then
-                for i = 1, 10000, 1 do
+        if self.mycount <= 10 then
+            print(self.mycount,"\n")
+            if self.mycount == 10 then
+                for i = 1, 20, 1 do
                     entitymng.EntityToCreate(sc.entity.DockerRandom , "npc")
-                end 
+                end
+                docker.Script("", 0, -1, "local elog = require(\"eloghelp\") elog.node_details(\"Analysis of entity allocation dockerid:%i, dockercount:%i\", dockerID, docker.GetEntityCount())");
             end
-
+            self.mycount = self.mycount + 1
         end
     end
     
@@ -93,7 +102,7 @@ function spaceFactory.New()
         --检查空间是否已经在调整中，如果没有就开始调整根据返回创建两个新的空间数据
         local adjust, beginx, beginz, endx, endz = bigworldapi.SpaceFull(self.apihandle, id)
         if adjust == 1 then
-            entitymng.EntityToCreate(sc.entity.NodeInside , "sudokuex", {bigworld=self.id,
+            entitymng.EntityToCreate(sc.entity.DockerZero , "sudokuex", {bigworld=self.id,
                                                                         beginx = beginx,
                                                                         beginz = beginz,
                                                                         endx = endx,

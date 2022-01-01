@@ -16,7 +16,7 @@ function spaceFactory.New()
     --注册自己的entity id到redis
     function obj:Init()
 
-        elog.fun("space::init")
+        elog.sys_fun("space::init")
         entitymng.RegistrySev(self.ServerName, self)
         self.spaceType = "space"
         --entitymng.RegistryUpdata(self)
@@ -30,7 +30,7 @@ function spaceFactory.New()
     function obj:EntryWorld(id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop, isGhost)
         local entryid = tostring(int64.new_unsigned(id))
 
-        elog.fun("space::LeaveWorld %s",entryid)
+        elog.sys_fun("space::LeaveWorld %s",entryid)
         if self.entities[entryid] ~= nil then
             elog.n_error(string.format("EntryWorld::Repeat into space error %s", entryid))
             return
@@ -68,7 +68,7 @@ function spaceFactory.New()
         --从redis获取对象并调用空间的LeaveWorld  
         local entryid = tostring(int64.new_unsigned(id))
         
-        elog.fun("space::LeaveWorld"..entryid)
+        elog.sys_fun("space::LeaveWorld"..entryid)
         if self.entities[entryid] == nil then
             elog.n_error(string.format("LeaveWorld::level from space no find id error %s", entryid))
             return

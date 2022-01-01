@@ -16,7 +16,7 @@ function cluster:CheckInit()
             self.isBoots = 1
         else
             self.isBoots = 2
-            elog.details("cluster:CheckInit() Win a silver medal")
+            elog.sys_details("cluster:CheckInit() Win a silver medal")
         end
     elseif self.isBoots == 1 and (sc.cluster.nodeSize <= redishelp:scard('cluster:nodeall') or sc.cluster.nodeStar <= (os.time() - self.starTime)) then
 

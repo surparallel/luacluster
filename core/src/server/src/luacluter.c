@@ -46,6 +46,10 @@ static unsigned short port = 0;
 static unsigned short dockerSize = 1;
 static unsigned char nodetype = 0;//默认情况下是有外网的
 static unsigned short listentcp = 0;
+static unsigned short bots = 0;
+static char* bip = 0;
+static unsigned short bport = 0;
+static unsigned short bcount = 0;
 
 /* Print generic help. */
 void CliOutputGenericHelp(void) {
@@ -153,23 +157,7 @@ int IssueCommand(int argc, char** argv, int noFind) {
 			return 1;
 		}
 
-		int strsize = strlen(argv[1]);
-		unsigned short len = sizeof(ProtoRPC) + strsize;
-		PProtoHead pProtoHead = malloc(len);
-		pProtoHead->len = len;
-		pProtoHead->proto = proto_run_lua;
-
-		PProtoRunLua pProtoRunLua = (PProtoRunLua)pProtoHead;
-		memcpy(pProtoRunLua->luaString, argv[1], strsize);
-
-		if (ip == 0 && port == 0) {
-			DockerPushMsg(dockerid, (unsigned char*)pProtoHead, len);
-		}
-		else
-		{
-			NetSendToNode(ip, port, (unsigned char*)pProtoHead, len);
-		}
-		free(pProtoHead);
+		DockerRunScript(ip, port, dockerid, (unsigned char*)argv[1], strlen(argv[1]));
 	}
 	else if (!strcasecmp(command, "client")) {
 
@@ -190,19 +178,24 @@ int IssueCommand(int argc, char** argv, int noFind) {
 	}
 	else if (!strcasecmp(command, "btcp")) {
 
-		if (argc < 3) {
+		if (argc < 4) {
 			printf("botstcp Parameter does not enough the requirement\n");
 			return 1;
 		}
 
-		int len = sizeof(ProtoConnect);
-		PProtoConnect pbuf = calloc(1, len);
-		pbuf->protoHead.len = len;
-		pbuf->protoHead.proto = proto_net_connect;
-		memcpy(pbuf->ip, argv[1], sdslen(argv[1]));
-		pbuf->port = atoi(argv[2]);
+		int count = atoi(argv[3]);
 
-		NetSendToClient(0, (const char*)pbuf, len);
+		for (size_t i = 0; i < count; i++)
+		{
+			int len = sizeof(ProtoConnect);
+			PProtoConnect pbuf = calloc(1, len);
+			pbuf->protoHead.len = len;
+			pbuf->protoHead.proto = proto_net_connect;
+			memcpy(pbuf->ip, argv[1], sdslen(argv[1]));
+			pbuf->port = atoi(argv[2]);
+
+			NetSendToClient(0, (const char*)pbuf, len);
+		}
 	}
 	else if (!strcasecmp(command, "sudoku")) {
 		test_sudoku();
@@ -267,12 +260,11 @@ int ReadArgFromParam(int argc, char** argv) {
 		}
 		else if (strcmp(argv[i], "--inside") == 0)
 		{
-			if (checkArg(argv[i + 1])) {
-				nodetype = atoi(argv[i + 1]);
-			}
-			else {
-				printf("Not enough parameters found!\n");
-			}
+			nodetype |= NO_TCP_LISTEN;
+		}
+		else if (strcmp(argv[i], "--noudp") == 0)
+		{
+			nodetype |= NO_UDP_LISTEN;
 		}
 		else if (strcmp(argv[i], "--listentcp") == 0)
 		{
@@ -282,6 +274,22 @@ int ReadArgFromParam(int argc, char** argv) {
 			else {
 				printf("Not enough parameters found!\n");
 			};
+		}
+		else if (strcmp(argv[i], "--bots") == 0)
+		{
+			bots = 1;
+		}
+		else if (strcmp(argv[i], "--btcp") == 0)
+		{
+			if (checkArg(argv[i + 1])) {
+				bip = argv[i + 1];
+			}
+			if (checkArg(argv[i + 2])) {
+				bport = atoi(argv[i + 2]);
+			}
+			if (checkArg(argv[i + 3])) {
+				bcount = atoi(argv[i + 3]);
+			}
 		}
 	}
 
@@ -356,6 +364,9 @@ int main(int argc, char** argv) {
 	s_details("********************************************");
 	s_details("*              hello luacluter!             *");
 	s_details("********************************************");
+	u_details("********************************************");
+	u_details("*              hello luacluter!             *");
+	u_details("********************************************");
 
 	doJsonParseFile(NULL);
 
@@ -369,7 +380,22 @@ int main(int argc, char** argv) {
 		unsigned char uportOffset = 0;
 		unsigned short uport = 0;
 		NetUDPAddr2(&ip, &uportOffset, &uport);
-		DocksCreate(ip, uportOffset, uport, assetsPath, dockerSize, nodetype);
+		DocksCreate(ip, uportOffset, uport, assetsPath, dockerSize, nodetype, bots);
+
+		//命令行的方式启动机器人
+		if (bip != 0) {
+			for (size_t i = 0; i < bcount; i++)
+			{
+				int len = sizeof(ProtoConnect);
+				PProtoConnect pbuf = calloc(1, len);
+				pbuf->protoHead.len = len;
+				pbuf->protoHead.proto = proto_net_connect;
+				memcpy(pbuf->ip, bip, strlen(bip));
+				pbuf->port = bport;
+
+				NetSendToClient(0, (const char*)pbuf, len);
+			}
+		}
 
 		ret = ArgsInteractive(IssueCommand);
 	}

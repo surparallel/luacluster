@@ -46,7 +46,7 @@ static int luaB_SendToClient(lua_State* L) {
 	unsigned long long did = luaL_tou64be(L, 1, 0, 0);
 	unsigned long long pid = luaL_tou64be(L, 2, 0, 0);
 
-	s_fun("Docker::SendToClient %U %U", did, pid);
+	//s_fun("Docker::SendToClient %U %U", did, pid);
 
 	size_t ret;
 	const char* pc = luaL_checklstring(L, 3, &ret);
@@ -187,6 +187,25 @@ static int luaB_GetDockerID(lua_State* L) {
 	return 1;
 }
 
+static int luaB_Script(lua_State* L) {
+	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
+	char* ip = (unsigned char*)luaL_checkstring(L, 1);
+	short port = luaL_checkinteger(L, 2);
+	int id = luaL_checkinteger(L, 3);
+	size_t len;
+	char* script = (unsigned char*)luaL_checklstring(L, 4, &len);
+
+	DockerRunScript(ip, port, id, script, len);
+	return 0;
+}
+
+static int luaB_GetEntityCount(lua_State* L) {
+	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
+
+	lua_pushinteger(L, GetEntityCount(pVoid));
+	return 1;
+}
+
 static const luaL_Reg docker_funcs[] = {
 	{"GetCurrentMilli", luaB_GetCurrentMilli},
 	{"BindNet", luaB_BindNet},
@@ -199,6 +218,8 @@ static const luaL_Reg docker_funcs[] = {
 	{"Send", luaB_Send},
 	{"Wait", luaB_Wait},
 	{"GetDockerID", luaB_GetDockerID},
+	{"Script", luaB_Script},
+	{"GetEntityCount", luaB_GetEntityCount},
 	{NULL, NULL}
 };
 

@@ -22,7 +22,7 @@ function movepluginFactory.New()
     function obj:MoveTo(x, y, z)
 
         if (x < self.spaceInfo.beginx or  x > self.spaceInfo.endx) and (z < self.spaceInfo.beginz or  z > self.spaceInfo.endz) then
-            elog.error("space::MoveTo outside error x:%f y:%f z:%f",x,y,z)
+            elog.sys_error("space::MoveTo outside error x:%f y:%f z:%f",x,y,z)
             return
         end
 
@@ -39,7 +39,7 @@ function movepluginFactory.New()
         self.transform.stampStop = self.transform.stamp + d / self.transform.velocity
 
         local myid = int64.new_unsigned(self.id)
-        elog.fun("spaceplugin(%s)::MoveTo (x:%f y:%f z:%f)=>(x:%f y:%f z:%f) d:%f b:%f e:%f rx:%f ry:%f rz:%f"
+        elog.sys_fun("spaceplugin(%s)::MoveTo (x:%f y:%f z:%f)=>(x:%f y:%f z:%f) d:%f b:%f e:%f rx:%f ry:%f rz:%f"
         ,tostring(myid)
         , self.transform.poition.x, self.transform.poition.y, self.transform.poition.z
         , x, y, z, d, self.transform.stamp, self.transform.stampStop

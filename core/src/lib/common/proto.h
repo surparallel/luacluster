@@ -68,6 +68,7 @@ typedef struct _ProtoRoute {
 //转发的客户端调用协议, 客户端调用服务器只能调用对应sid不能转发，所以不需要转发id
 typedef struct _ProtoRunLua {
 	ProtoHead		protoHead;
+	int				dockerid;
 	unsigned char luaString[];
 }*PProtoRunLua, ProtoRunLua;
 

@@ -16,6 +16,11 @@ function spaceFactory.New()
 
     --注册自己的entity id到redis
     function obj:Init()
+
+        if(_G["bots"]) then
+            return
+        end
+        
         entitymng.RegistrySev(self.ServerName, self)
         entitymng.RegistryUpdata(self)
         self.mysudoku = sudokuapi.Create(sc.sudoku.girdx

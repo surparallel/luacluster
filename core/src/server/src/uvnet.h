@@ -16,6 +16,8 @@
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
 
+#define NO_TCP_LISTEN (1<<1)
+#define NO_UDP_LISTEN (1<<2)
 
 void* NetCreate(int nodetype, unsigned short listentcp);
 void NetDestory();

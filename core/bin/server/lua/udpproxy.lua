@@ -5,6 +5,11 @@ local docker = require("docker")
 local udpProxyFactory = {}
 
 function udpProxyFactory.New(id)
+
+    if id == 0 or id == nil then
+        error("udpProxyFactory id == 0")
+    end
+
     local obj = {}
     obj.id = id
     obj.__entity = 1
@@ -16,7 +21,7 @@ function udpProxyFactory.New(id)
                 local arg={...}
                 local self = arg[1]
                 if self ~= obj then
-                    elog.error("udpProxyFactory Object must be accessed by \": \")!")
+                    elog.sys_error("udpProxyFactory Object must be accessed by \": \")!")
                     return
                 end
                 arg[1] = k
@@ -24,7 +29,7 @@ function udpProxyFactory.New(id)
             end
         end,
         __newindex = function (t,k,v)
-            elog.error("updProxy does not accept setting data!")
+            elog.sys_error("updProxy does not accept setting data!")
             return
         end
     })

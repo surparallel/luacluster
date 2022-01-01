@@ -33,7 +33,7 @@ function npcFactory.New()
 
     function obj:Init()
 
-        elog.fun("npc::init")
+        elog.sys_fun("npc::init")
         entitymng.RegistryUpdata(self)
 
         if(self.clientid ~= nil)then
@@ -59,17 +59,10 @@ function npcFactory.New()
     function obj:Update(count, deltaTime)
         self.__allparant["spaceplugin"].Update(self, count, deltaTime)
 
-        if os.time() > self.transform.stampStop and self.spaceInfo.endx ~= nil and self.spaceInfo.endz ~= nil then
-            self:MoveTo(math.random(0, self.spaceInfo.endx), 0, math.random(0, self.spaceInfo.endz))
-
-            --[[
-            if self.status == 1 then
-                self.status = 2
-                self:MoveTo(0, 0, 0)
-            else
-                self.status = 1
-                self:MoveTo(self.spaceInfo.endx, 0, self.spaceInfo.endz)
-            end]]
+        if self.status == 1 then
+            if os.time() > self.transform.stampStop and self.spaceInfo.endx ~= nil and self.spaceInfo.endz ~= nil then
+                self:MoveTo(math.random(0, self.spaceInfo.endx), 0, math.random(0, self.spaceInfo.endz))
+            end
         end
     end
 

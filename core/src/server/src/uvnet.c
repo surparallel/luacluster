@@ -95,10 +95,12 @@ typedef struct _NetClient {
     char udp_recv_buf[PACKET_MAX_SIZE_UDP];
 
     unsigned int id;//client的id
+    unsigned int dockerid;
     unsigned long long entityId;//对应entiy的id
 
     uv_stream_t* stream;
     PNetServer pNetServer;
+
 }*PNetClient, NetClient;
 
 typedef struct {
@@ -123,8 +125,8 @@ static void freeClient(NetClient* c) {
             dictDelete(c->pNetServer->entity_client, (void*)&c->entityId);
     }
 
-    //如果在entityId创建过程中或者切换过程中销毁会导致entity对象的残留，需要加入pingpong机制来销毁。
-    if (c->entityId != 0 && c->flags & _TCP_SOCKET) {
+    //如果在entityId创建过程中或者切换过程中销毁会导致entity对象的残留。
+    if (c->dockerid != 0 && (c->flags & _TCP_SOCKET || c->flags & _TCP_CONNECT)) {
         mp_buf* pmp_buf = mp_buf_new();
         mp_encode_int(pmp_buf, c->entityId);
 
@@ -136,11 +138,7 @@ static void freeClient(NetClient* c) {
         PProtoRPCCreate protoRPCCreate = (PProtoRPCCreate)pProtoHead;
         memcpy(protoRPCCreate->callArg, pmp_buf->b, pmp_buf->len);
 
-        EID eID;
-        CreateEIDFromLongLong(c->entityId, &eID);
-        unsigned int dockerid = GetDockFromEID(&eID);
-
-        DockerPushMsg(dockerid, (unsigned char*)pProtoHead, len);
+        DockerPushMsg(c->dockerid, (unsigned char*)pProtoHead, len);
     }
 
     if (c->stream != 0) {
@@ -241,30 +239,39 @@ static void RecvCallback(PNetClient c, char* buf, size_t buffsize) {
                 }
             }
         }
+        else if (pProtoHead->proto == proto_run_lua) {
+            PProtoRunLua pProtoRunLua = (PProtoRunLua)buf;
+            DockerRunScript("", 0, pProtoRunLua->dockerid, pProtoRunLua->luaString, pProtoRunLua->protoHead.len - sizeof(PProtoRunLua));
+        }
     }
     else if (c->flags & _TCP_SOCKET || c->flags & _TCP_CONNECT) {
         if (pProtoHead->proto == proto_route_call) {
             //因为机器人的存在，这里会存在node <=> client
             //虽然工程上说是对等的，但因为安全的原因，客户端的npc不能调用服务器的npc方法
 
-            PProtoRoute  pProtoRoute = (PProtoRoute)buf;
-            unsigned char docker;
-            if (c->flags & _TCP_CONNECT) {
-                pProtoRoute->pid = c->entityId;//替换掉对应的id
-            }
-            else
-            {
-                pProtoRoute->did = c->entityId;//替换掉对应的id
-                pProtoRoute->pid = c->entityId;//替换掉对应的id
-            }
-            EID eID;
-            CreateEIDFromLongLong(pProtoRoute->pid, &eID);
-            docker = GetDockFromEID(&eID);
+            if (c->entityId != 0) {
+                PProtoRoute  pProtoRoute = (PProtoRoute)buf;
+                unsigned char docker;
+                if (c->flags & _TCP_CONNECT) {
+                    pProtoRoute->pid = c->entityId;//替换掉对应的id
+                }
+                else
+                {
+                    pProtoRoute->did = c->entityId;//替换掉对应的id
+                    pProtoRoute->pid = c->entityId;//替换掉对应的id
+                }
+                EID eID;
+                CreateEIDFromLongLong(pProtoRoute->pid, &eID);
+                docker = GetDockFromEID(&eID);
 
-            DockerPushMsg(docker, buf, buffsize);
+                DockerPushMsg(docker, buf, buffsize);
+            }
+            else {
+                n_error("Client is initializing!")
+            }
         }
         else {
-            n_error("Discard the error packet")
+            n_error("Discard the error packet!")
         }
     }
 }
@@ -275,7 +282,7 @@ static void tcp_read(uv_stream_t* handle,
     const uv_buf_t* buf)
 {
     PNetClient c = uv_handle_get_data((uv_handle_t*)handle);
-    n_details("tcp_read stream:;%i client::%i", handle, c->id);
+    //n_details("tcp_read stream:;%i client::%i", handle, c->id);
     if (nread < 0) {
         /* Error or EOF */
         n_error("tcp_read error %s %s", uv_err_name(nread), uv_strerror(nread));
@@ -337,7 +344,7 @@ static void on_connection(uv_stream_t* server, int status) {
     c->stream->data = c;
     c->pNetServer = pNetServer;
     c->id = ++pNetServer->allClientID;
-    c->flags = _TCP_SOCKET;
+    c->flags |= _TCP_SOCKET;
     c->tcp_recv_buf = sdsempty();
 
     r = uv_accept(server, c->stream);
@@ -375,7 +382,7 @@ static void on_connection(uv_stream_t* server, int status) {
         PProtoRPCCreate protoRPCCreate = (PProtoRPCCreate)pProtoHead;
         memcpy(protoRPCCreate->callArg, pmp_buf->b, pmp_buf->len);
 
-        DockerRandomPushMsg((unsigned char*)pProtoHead, len);
+        c->dockerid = DockerRandomPushMsg((unsigned char*)pProtoHead, len);
     }
 }
 
@@ -566,12 +573,6 @@ static void connect_cb(uv_connect_t* req, int status) {
 
     NetClient* c = req->data;
     free(req);
-    int r = uv_read_start(c->stream, tcp_alloc, tcp_read);
-    if (r) {
-        n_error("Socket read_start error %s %s", uv_err_name(r), uv_strerror(r));
-        free(c);
-        return;
-    }
 
     dictAddWithUint(c->pNetServer->id_client, c->id, c);
     listAddNodeTail(c->pNetServer->clients, c);
@@ -594,9 +595,15 @@ static void connect_cb(uv_connect_t* req, int status) {
         PProtoRPCCreate protoRPCCreate = (PProtoRPCCreate)pProtoHead;
         memcpy(protoRPCCreate->callArg, pmp_buf->b, pmp_buf->len);
 
-        DockerRandomPushMsg((unsigned char*)pProtoHead, len);
+        c->dockerid = DockerRandomPushMsg((unsigned char*)pProtoHead, len);
     }
 
+    int r = uv_read_start(c->stream, tcp_alloc, tcp_read);
+    if (r) {
+        n_error("Socket read_start error %s %s", uv_err_name(r), uv_strerror(r));
+        freeClient(c);
+        return;
+    }
 }
 
 static void NetCommand(char* pBuf, PNetServer pNetServer) {
@@ -657,7 +664,7 @@ static void NetCommand(char* pBuf, PNetServer pNetServer) {
         c->stream->data = c;
         c->pNetServer = pNetServer;
         c->id = ++pNetServer->allClientID;
-        c->flags = _TCP_CONNECT;
+        c->flags |= _TCP_CONNECT;
         c->tcp_recv_buf = sdsempty();
 
         r = uv_tcp_init(pNetServer->loop, (uv_tcp_t*)c->stream);
@@ -947,17 +954,17 @@ static uv_udp_t* udp4_start(uv_loop_t* loop, char* ip, int port) {
         return NULL;
     }
 
-    PNetClient pNetClient = malloc(sizeof(NetClient));
-    pNetClient->id = ++pNetServer->allClientID;
-    pNetClient->pNetServer = uv_loop_get_data(loop);
-    uv_handle_set_data((uv_handle_t*)udpServer, pNetClient);
-    pNetClient->flags = _UDP_SOCKET;
+    PNetClient c = malloc(sizeof(NetClient));
+    c->id = ++pNetServer->allClientID;
+    c->pNetServer = uv_loop_get_data(loop);
+    uv_handle_set_data((uv_handle_t*)udpServer, c);
+    c->flags |= _UDP_SOCKET;
 
     r = uv_udp_recv_start(udpServer, slab_alloc, udp_read);
     if (r) {
         n_error("udp4_start::uv_udp_recv_start error %s %s", uv_err_name(r), uv_strerror(r));
         free(udpServer);
-        free(pNetClient);
+        free(c);
         return NULL;
     }
 
@@ -970,8 +977,9 @@ static void once_cb(uv_timer_t* handle) {
 }
 
 void* NetCreate(int nodetype, unsigned short listentcp) {
+    
+    int r = 0;
     _pNetServer = calloc(1, sizeof(NetServer));
-
     _pNetServer->hz = 10;
 
     if (listentcp)
@@ -1003,43 +1011,48 @@ void* NetCreate(int nodetype, unsigned short listentcp) {
  
     _pNetServer->loop = uv_default_loop();
     uv_loop_set_data(_pNetServer->loop, _pNetServer);
-    
-    int r = uv_udp_init(_pNetServer->loop, &_pNetServer->sendUdp);
-    if (r) {
-        n_error("NetCreate::uv_udp_init error %s %s", uv_err_name(r), uv_strerror(r));
-        return NULL;
-    }  
-    if (!nodetype) {
+
+    if (!(nodetype & NO_TCP_LISTEN)) {
         /* Open the TCP listening socket for the user commands. */
         if (_pNetServer->port != 0 &&
             listenToPort(_pNetServer, _pNetServer->port) == 0)
             exit(1);
     }
 
-    for (_pNetServer->uportOffset = 0; _pNetServer->uportOffset < 256; _pNetServer->uportOffset++) {
-        /* Open the UDP listening socket for the user commands. */
-        _pNetServer->udp_port = _pNetServer->uport + _pNetServer->uportOffset;
-        _pNetServer->udp4 = udp4_start(_pNetServer->loop, "0.0.0.0", _pNetServer->udp_port);
-        if (_pNetServer->uport != 0 && _pNetServer->udp4 != NULL) {
-
-            if (_pNetServer->udp_ip == 0) {
-                uv_os_fd_t socket;
-                uv_fileno((uv_handle_t*)_pNetServer->udp4, &socket);
-                IntConfigPrimary((unsigned long long)socket, &_pNetServer->udp_ip, &_pNetServer->udp_port);
-                if (_pNetServer->udp_ip == 0 || _pNetServer->udp_port == 0) {
-                    n_error("InitServer:: udp_ip or udp_port is empty! ip:%i port:%i", _pNetServer->udp_ip, _pNetServer->udp_port);
-                }
-            }
-
-            if (_pNetServer->nodetype) {
-                SetUpdIPAndPortToInside(_pNetServer->udp_ip, _pNetServer->udp_port);
-            }
-            else {
-                SetUpdIPAndPortToOutside(_pNetServer->udp_ip, _pNetServer->udp_port);
-            }
-
-            break;
+    if (!(nodetype & NO_UDP_LISTEN)) {
+        //udp
+        r = uv_udp_init(_pNetServer->loop, &_pNetServer->sendUdp);
+        if (r) {
+            n_error("NetCreate::uv_udp_init error %s %s", uv_err_name(r), uv_strerror(r));
+            return NULL;
         }
+
+        for (_pNetServer->uportOffset = 0; _pNetServer->uportOffset < 256; _pNetServer->uportOffset++) {
+            /* Open the UDP listening socket for the user commands. */
+            _pNetServer->udp_port = _pNetServer->uport + _pNetServer->uportOffset;
+            _pNetServer->udp4 = udp4_start(_pNetServer->loop, "0.0.0.0", _pNetServer->udp_port);
+            if (_pNetServer->uport != 0 && _pNetServer->udp4 != NULL) {
+
+                if (_pNetServer->udp_ip == 0) {
+                    uv_os_fd_t socket;
+                    uv_fileno((uv_handle_t*)_pNetServer->udp4, &socket);
+                    IntConfigPrimary((unsigned long long)socket, &_pNetServer->udp_ip, &_pNetServer->udp_port);
+                    if (_pNetServer->udp_ip == 0 || _pNetServer->udp_port == 0) {
+                        n_error("InitServer:: udp_ip or udp_port is empty! ip:%i port:%i", _pNetServer->udp_ip, _pNetServer->udp_port);
+                    }
+                }
+
+                if (_pNetServer->nodetype) {
+                    SetUpdIPAndPortToInside(_pNetServer->udp_ip, _pNetServer->udp_port);
+                }
+                else {
+                    SetUpdIPAndPortToOutside(_pNetServer->udp_ip, _pNetServer->udp_port);
+                }
+
+                break;
+            }
+        }
+        n_details("InitServer::udp_port on:%i", _pNetServer->udp_port);
     }
 
     //init async for send

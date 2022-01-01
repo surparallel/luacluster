@@ -39,12 +39,12 @@ function entityMng.NewEntity(name, arg)
         entityMng.RegistryObj(e)
 
         local myid = tostring(int64.new_unsigned(e.id))
-        elog.details("New::id::%s(%s)",name, myid)
+        elog.sys_details("New::id::%s(%s)",name, myid)
 
         if(e.clientid ~= nil)then
             entityMng.BindObj(e.id, e.clientid)
         else
-            elog.details("main::proto_rpc_create::not BindObj::%s", name)
+            elog.sys_details("main::proto_rpc_create::not BindObj::%s", name)
         end
 
         if type(e.Init) == "function" then
@@ -63,7 +63,7 @@ function entityMng.NewEntity(name, arg)
             redishelp:select(0)
         end
     else
-        elog.error("main::proto_rpc_create:: New error::%s",name)
+        elog.sys_error("main::proto_rpc_create:: New error::%s",name)
     end
 end
 
@@ -120,10 +120,6 @@ end
 
 function entityMng.LoopUpdata()
 
-    if _G["__update"] == nil then
-        return 0
-    end
-
     local last = _G["__updatelast"]
     local count = _G["__updatecount"]
     local now = docker.GetCurrentMilli()
@@ -132,12 +128,14 @@ function entityMng.LoopUpdata()
     count = count + 1
 
     if deltaTime > (sc.glob.msec * 1.5) then
-        elog.error("entityMng::LoopUpdata::update block deltaTime > sc.glob.msec :%i dockerid: %i", deltaTime, docker.GetDockerID())
+        elog.sys_error("entityMng::LoopUpdata::update block deltaTime > sc.glob.msec :%i dockerid: %i count:%i", deltaTime, _G["dockerID"], count)
     end
-    
-    for k,v in pairs(_G["__update"]) do
-        if v["Update"] ~= nil then
-            v:Update(count, deltaTime)
+
+    if _G["__update"] ~= nil then
+        for k,v in pairs(_G["__update"]) do
+            if v["Update"] ~= nil then
+                v:Update(count, deltaTime)
+            end
         end
     end
 
@@ -165,7 +163,7 @@ function entityMng.GetSev(ServerName)
     if id ~= nil then
         return udpproxy.New(id)
     else
-        elog.error("entityMng.GetSev not find %s",ServerName)
+        elog.sys_error("entityMng.GetSev not find %s",ServerName)
         return nil
     end
 end
@@ -190,7 +188,7 @@ end
 function entityMng.EntityDataSet(id, data)
 
     if _G["__EntityData"] == nil or _G["__EntityData"][id] == nil then
-        elog.error("entityMng.EntityDataSet after EntityDataCreate")
+        elog.sys_error("entityMng.EntityDataSet after EntityDataCreate")
         return
     end
     _G["__EntityData"][id] = data
@@ -199,7 +197,7 @@ end
 function entityMng.EntityDataGet(id)
 
     if _G["__EntityData"] == nil or _G["__EntityData"][id] == nil then
-        elog.error("entityMng.EntityDataSet after EntityDataCreate")
+        elog.sys_error("entityMng.EntityDataSet after EntityDataCreate")
         return
     end
     return _G["__EntityData"][id]

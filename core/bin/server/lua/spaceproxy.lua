@@ -18,7 +18,7 @@ function spaceProxyFactory.New(entity)
                 local arg={...}
                 local self = arg[1]
                 if self ~= obj then
-                    elog.error("spaceProxy Object must be accessed by \": \")!")
+                    elog.sys_error("spaceProxy Object must be accessed by \": \")!")
                     return
                 end
                 
@@ -30,7 +30,7 @@ function spaceProxyFactory.New(entity)
             end
         end,
         __newindex = function (t,k,v)
-            elog.error("spaceProxy does not accept setting data!")
+            elog.sys_error("spaceProxy does not accept setting data!")
             return
         end
     })

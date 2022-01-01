@@ -41,13 +41,13 @@ function accountFactory.New()
     function obj:Init()
 
         local myid = tostring(int64.new_unsigned(self.id))
-        elog.fun("account::init %s", myid)
+        elog.sys_fun("account::init %s", myid)
         if(obj.clientid ~= nil)then
             obj.client = tcpproxy.New(self.id)
         end
 
         --obj:EntryWorld("bigworld")
-        obj:ping(1)
+        --obj:ping(1)
     end
 
     function obj:Destory()
@@ -55,8 +55,7 @@ function accountFactory.New()
     end
     
     function obj:ping(a)
-        a = a + 1
-        print("account ping::", a)
+        --print("account ping::", a)
         obj.client:pong(a)
     end
 

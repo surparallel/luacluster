@@ -41,6 +41,8 @@
 
 #define MAX_DOCKER 255
 
+static int global_bots = 0;
+
 enum entity {
 	DockerCurrent = 0, //当前ddocker
 	DockerRandom,//当前节点的随机ddocker
@@ -189,6 +191,9 @@ static void doJsonParseFile(char* config, PDocksHandle pDocksHandle)
 				sdsfree(pDocksHandle->entryfunction);
 				pDocksHandle->entryfunction = sdsnew(cJSON_GetStringValue(item));
 			}
+			else if (strcmp(item->string, "bots") == 0) {
+				global_bots = (int)cJSON_GetNumberValue(item);
+			}
 			item = item->next;
 		}
 	}
@@ -205,8 +210,11 @@ void DockerRun(void* pVoid) {
 
 	PDockerHandle pDockerHandle = pVoid;
 
+	srand(pDockerHandle->id);
+
 	LVMSetGlobleLightUserdata(pDockerHandle->LVMHandle, "dockerHandle", pVoid);
 	LVMSetGlobleInt(pDockerHandle->LVMHandle, "dockerid", pDockerHandle->id);
+	LVMSetGlobleInt(pDockerHandle->LVMHandle, "bots", global_bots);
 
 	//调用脚本的初始化
 	LVMCallFunction(pDockerHandle->LVMHandle, pDocksHandle->entryfile, pDocksHandle->entryfunction);
@@ -214,14 +222,13 @@ void DockerRun(void* pVoid) {
 	return;
 }
 
-void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short uport, const char* assetsPath, unsigned short dockerSize, int nodetype) {
+void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short uport
+	, const char* assetsPath
+	, unsigned short dockerSize
+	, int nodetype
+	, int bots) {
 
 	if (pDocksHandle) return;
-
-	if (ip == 0) {
-		n_error("DocksCreate udp_ip or udp_port is empty! ip:%i port:%i", ip, uportOffset);
-		return;
-	}
 
 	pDocksHandle = malloc(sizeof(DocksHandle));
 	pDocksHandle->dockerSize = dockerSize;
@@ -235,6 +242,8 @@ void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short upor
 	pDocksHandle->entryfunction = sdsnew("main");
 
 	doJsonParseFile(NULL, pDocksHandle);
+	
+	global_bots = bots;
 
 	//因为使用的是list所以0开头
 	for (unsigned int i = 0; i < pDocksHandle->dockerSize; i++) {
@@ -248,6 +257,7 @@ void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short upor
 		pDockerHandle->entityCount = 0;
 		pDockerHandle->eventQueueLength = 0;
 		pDockerHandle->pBuf = 0;
+
 		uv_thread_create(&pDockerHandle->pthreadHandle, DockerRun, pDockerHandle);
 
 		pDocksHandle->listPDockerHandle[i] = pDockerHandle;
@@ -362,7 +372,7 @@ void DockerPushMsg(unsigned int dockerId, unsigned char* b, unsigned short s) {
 	}	
 }
 
-void DockerRandomPushMsg(unsigned char* b, unsigned short s) {
+unsigned int DockerRandomPushMsg(unsigned char* b, unsigned short s) {
 
 	unsigned int dockerId = 0;
 
@@ -376,8 +386,47 @@ void DockerRandomPushMsg(unsigned char* b, unsigned short s) {
 
 	sds msg = sdsnewlen(b, s);
 	EqPush(pDocksHandle->listPDockerHandle[dockerId]->eQueue, msg);
+
+	return dockerId;
 }
 
+void DockerRunScript(unsigned char*  ip, short port, int id, unsigned char* b, unsigned short s) {
+
+	if (*ip == '\0' && id < 0) {
+		for (unsigned int i = 0; i < pDocksHandle->dockerSize; i++) {
+			PDockerHandle pDockerHandle = pDocksHandle->listPDockerHandle[i];
+
+			unsigned short len = sizeof(PProtoRunLua) + s;
+			PProtoHead pProtoHead = (PProtoHead)sdsnewlen(0, len);
+			pProtoHead->len = len;
+			pProtoHead->proto = proto_run_lua;
+
+			PProtoRunLua pProtoRunLua = (PProtoRunLua)pProtoHead;
+			pProtoRunLua->dockerid = id;
+			memcpy(pProtoRunLua->luaString, b, s);
+			EqPush(pDockerHandle->eQueue, pProtoHead);
+		}
+	}
+	else {
+		PDockerHandle pDockerHandle = pDocksHandle->listPDockerHandle[id];
+
+		unsigned short len = sizeof(PProtoRunLua) + s;
+		PProtoHead pProtoHead = (PProtoHead)sdsnewlen(0, len);
+		pProtoHead->len = len;
+		pProtoHead->proto = proto_run_lua;
+
+		PProtoRunLua pProtoRunLua = (PProtoRunLua)pProtoHead;
+		memcpy(pProtoRunLua->luaString, b, s);
+
+		if (*ip == '\0') {
+			EqPush(pDockerHandle->eQueue, pProtoHead);
+		}
+		else {
+			NetSendToNode(ip, port, (unsigned char*)pProtoHead, len);
+			sdsfree((sds)pProtoHead);
+		}
+	}
+}
 
 void DockerSend(unsigned long long id, const char* pc, size_t s) {
 
@@ -502,4 +551,9 @@ void DockerCreateEntity(void* pVoid, int type, const char* c, size_t s) {
 unsigned int GetDockerID(void* pVoid) {
 	PDockerHandle pDockerHandle = pVoid;
 	return pDockerHandle->id;
+}
+
+unsigned int GetEntityCount(void* pVoid) {
+	PDockerHandle pDockerHandle = pVoid;
+	return pDockerHandle->entityCount;
 }
