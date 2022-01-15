@@ -575,7 +575,7 @@ void LogRun(void* pVoid) {
 
 				if (eventQueueLength > pLogFileHandle->maxQueueSize) {
 					//如果长度超过限制要释放掉队列	
-					printf("error elog lost eventQueueLength %ll greater than maxQueueSize %ll", eventQueueLength, pLogFileHandle->maxQueueSize);
+					printf("error elog lost eventQueueLength %lld greater than maxQueueSize %lld", eventQueueLength, pLogFileHandle->maxQueueSize);
 					EqEmpty(pLogFileHandle->eQueue, PacketFree);
 				}
 			}
@@ -724,7 +724,7 @@ void LogInit(char* config) {
 	sigar_pid_t pid = sigar_pid_get(sigar);
 	sigar_close(sigar);
 
-	char num[MAX_PATH] = {0};
+	char num[256] = {0};
 	sprintf(num, "%lld", pid);
 	_pLogFileHandle->pid = sdsnew(num);
 
