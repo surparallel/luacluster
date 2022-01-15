@@ -1,9 +1,10 @@
 
 #include <math.h>
 #include <float.h>
+#include "matrix4.h"
 #include "quaternion.h"
 #include "mathf.h"
-#include "matrix4.h"
+
 //https://quaternions.online/
 
 void Radians(struct Vector3* in, struct Vector3* out) {
