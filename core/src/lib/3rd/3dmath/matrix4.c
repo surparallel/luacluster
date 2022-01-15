@@ -1,7 +1,7 @@
 #include <math.h>
 #include <float.h>
-#include "matrix4.h"
 #include "vector.h"
+#include "matrix4.h"
 #include "mathf.h"
 #include "quaternion.h"
 
