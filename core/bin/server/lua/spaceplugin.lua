@@ -15,25 +15,26 @@ function spacepluginFactory.New()
     local obj = entity.New()
     obj.spaceInfo = {}
     obj.transform = {}
-    obj.transform.poition = {}
-    obj.transform.nowPotion = {}
+    obj.transform.position = {}
+    obj.transform.nowPosition = {}
     obj.transform.rotation = {}
     obj.entities = {}
 
     --这里要改为链接bigworld
     function obj:EntryWorld(sapceName)
+       
         --从redis获取对象并调用空间的EntryWorld
         --entitymng.RegistryUpdata(self) 需要在子类的updata调用，引用self数据错误
         local space = entitymng.GetSev(sapceName)
-        space:EntryWorld(self.id, self.transform.poition.x, self.transform.poition.y, self.transform.poition.z
+
+        space:EntryWorld(self.id, self.transform.position.x, self.transform.position.y, self.transform.position.z
             , self.transform.rotation.x
             , self.transform.rotation.y
             , self.transform.rotation.z
             , self.transform.velocity
             , self.transform.stamp
             , self.transform.stampStop
-            , self.isGhost
-        )
+            , self.isGhost)
         self.clients = spaceproxy.New(self)
         self.spaces = {}
     end
@@ -44,7 +45,6 @@ function spacepluginFactory.New()
         self.spaceInfo.beginz = beginz
         self.spaceInfo.endx = endx
         self.spaceInfo.endz = endz
-
     end
 
     --当entity在bigworld模式下获得空间时
@@ -95,7 +95,7 @@ function spacepluginFactory.New()
         for k, v1 in pairs(self.entities) do
             local v = entitymng.EntityDataGet(k)
             local x,y,z =math3d.Position(v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10])
-            local dist = math3d.Dist(self.transform.poition.x, 0, self.transform.poition.z, x, y, z)
+            local dist = math3d.Dist(self.transform.position.x, 0, self.transform.position.z, x, y, z)
             if dist > limit then
                 self.entities[k] = nil
                 entitymng.EntityDataFree(k)
@@ -147,9 +147,9 @@ function spacepluginFactory.New()
                 self.spaces[key] = tspaces[key]
 
                 if isGhost == 0 then
-                    self.spaces[key]:EntryWorld(self.id, self.transform.poition.x,
-                    self.transform.poition.y,
-                    self.transform.poition.z,
+                    self.spaces[key]:EntryWorld(self.id, self.transform.position.x,
+                    self.transform.position.y,
+                    self.transform.position.z,
                     self.transform.rotation.x,
                     self.transform.rotation.y,
                     self.transform.rotation.z,
@@ -160,9 +160,9 @@ function spacepluginFactory.New()
             else
                 self.spaces[key] = udpproxy.New(id64.tonumber(id64))
                 --首次登录
-                self.spaces[key]:EntryWorld(self.id, self.transform.poition.x,
-                self.transform.poition.y,
-                self.transform.poition.z,
+                self.spaces[key]:EntryWorld(self.id, self.transform.position.x,
+                self.transform.position.y,
+                self.transform.position.z,
                 self.transform.rotation.x,
                 self.transform.rotation.y,
                 self.transform.rotation.z,
@@ -183,9 +183,9 @@ function spacepluginFactory.New()
             local id64 = int64.new_unsigned(spaces[1])
             local key = tostring(id64)
             local proxy = self.spaces[key]
-            proxy:EntryWorld(self.id, self.transform.poition.x,
-            self.transform.poition.y,
-            self.transform.poition.z,
+            proxy:EntryWorld(self.id, self.transform.position.x,
+            self.transform.position.y,
+            self.transform.position.z,
             self.transform.rotation.x,
             self.transform.rotation.y,
             self.transform.rotation.z,
@@ -263,15 +263,12 @@ function spacepluginFactory.New()
         end
     end
 
-    function obj:Move(poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
+    function obj:SpaceMove(poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
 
         --通知空间
         for k, v in pairs(self.spaces) do
             v:Move(self.id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
         end
-
-        --通知客户端这里可以使用转发省去了序列化
-        self.clients:OnMove(self.id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
     end
 
     return obj

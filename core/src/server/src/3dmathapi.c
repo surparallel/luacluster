@@ -29,6 +29,7 @@
 #include "quaternion.h"
 #include "vector.h"
 #include "timesys.h"
+#include "matrix4.h"
 
 #define Round(x) round(x * 1000) / 1000
 
@@ -41,18 +42,18 @@ void CurrentPosition(
 	struct Vector3* out,
 	unsigned int current
 ) {
+	unsigned int mycurrent = current;
+	if(mycurrent == 0)
+		mycurrent = GetCurrentSec();
 
-	if(current == 0)
-		current = GetCurrentSec();
-
-	if (stampStop && current >= stampStop)
-		current = stampStop;
+	if (stampStop && mycurrent >= stampStop)
+		mycurrent = stampStop;
 
 	struct Quaternion quaternion;
 	quatEulerAngles(angles, &quaternion);
-	quatMultVector(&quaternion, &gForward, out);
+	quatMultVector(&quaternion, &gRight, out);
 
-	vector3Scale(out, out, (current - stamp) * velocity);
+	vector3Scale(out, out, velocity*(mycurrent - stamp));
 	vector3Add(position, out, out);
 }
 
@@ -114,6 +115,20 @@ void LookVector(struct Vector3* a, struct Vector3* b, struct Vector3* euler, flo
 	quatLookRotation(&forward, &out);
 	quatToEulerAngles(&out, euler);
 }
+
+/*
+void LookVector(struct Vector3* a, struct Vector3* b, struct Vector3* euler, float* distance) {
+	struct Vector3 forward;
+	vector3Sub(a, b, &forward);
+
+	*distance = sqrtf(vector3MagSqrd(&forward));
+
+	struct Matrix4 mout;
+	matrix4LookAt(a, b, &gUp, &mout);
+	struct Quaternion qout;
+	quatFromRotationMatrix(&mout, &qout);
+	quatToEulerAngles(&qout, euler);
+}*/
 
 static int luaB_LookVector(lua_State* L) {
 

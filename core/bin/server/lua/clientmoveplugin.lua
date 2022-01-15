@@ -5,12 +5,16 @@ local udpproxy = require 'udpproxy'
 local math3d = require 'math3d'
 local elog = require("eloghelp")
 local entity = require("entity")
+local sc = require("sc")
 
-local movepluginFactory = {}
+local clientMovepluginFactory = {}
 
-function movepluginFactory.New()
+function clientMovepluginFactory.New()
     local obj = entity.New()
-    obj:Inherit("spaceplugin")
+    obj.transform = {}
+    obj.transform.position = {}
+    obj.transform.nowPosition = {}
+    obj.transform.rotation = {}
 
     function obj:UpdatePosition()
         self.transform.nowPosition.x, self.transform.nowPosition.y, self.transform.nowPosition.z = math3d.Position(
@@ -21,7 +25,7 @@ function movepluginFactory.New()
 
     function obj:MoveTo(x, y, z)
 
-        if (x < self.spaceInfo.beginx or  x > self.spaceInfo.endx) and (z < self.spaceInfo.beginz or  z > self.spaceInfo.endz) then
+        if (x < sc.bigworld.beginx or  x > sc.bigworld.endx) and (z < sc.bigworld.beginz or  z > sc.bigworld.endz) then
             elog.sys_error("space::MoveTo outside error x:%f y:%f z:%f",x,y,z)
             return
         end
@@ -35,29 +39,23 @@ function movepluginFactory.New()
         self.transform.rotation.x = rx
         self.transform.rotation.y = ry
         self.transform.rotation.z = rz
+        self.transform.velocity = 0.2
         self.transform.stamp = os.time()
         self.transform.stampStop = self.transform.stamp + d / self.transform.velocity
 
         local myid = int64.new_unsigned(self.id)
-        elog.sys_fun("spaceplugin(%s)::MoveTo (x:%f y:%f z:%f)=>(x:%f y:%f z:%f) d:%f b:%f e:%f rx:%f ry:%f rz:%f"
+        elog.sys_fun("clientMoveplugin(%s)::MoveTo (x:%f y:%f z:%f)=>(x:%f y:%f z:%f) d:%f b:%f e:%f rx:%f ry:%f rz:%f"
         ,tostring(myid)
         , self.transform.position.x, self.transform.position.y, self.transform.position.z
         , x, y, z, d, self.transform.stamp, self.transform.stampStop
         , self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z)
 
-        for k, v in pairs(self.entities) do
-            local entity = udpproxy.New(v[1])
-            entity:OnMove(self.id, self.transform.position.x, self.transform.position.y, self.transform.position.z
-            ,self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z, self.transform.velocity, self.transform.stamp, self.transform.stampStop);
-        end
-
-        --调用spalceplugin得方法通知所有空间
-        self:SpaceMove(self.transform.position.x, self.transform.position.y, self.transform.position.z
-        ,self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z, self.transform.velocity, self.transform.stamp, self.transform.stampStop);
-
+        self.server:Move(self.transform.position.x, self.transform.position.y, self.transform.position.z
+        , self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z
+        , self.transform.velocity, self.transform.stamp, self.transform.stampStop)
     end
 
     return obj
 end
 
-return movepluginFactory
+return clientMovepluginFactory

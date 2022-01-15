@@ -31,8 +31,9 @@
 #include "dicthelp.h"
 #include "cJSON.h"
 #include "sdshelp.h"
+#include "sigar.h"
 
-#define FILEFORMDEFAULT "@dir/@ctg_@data.log"
+#define FILEFORMDEFAULT "@dir/@pid_@ctg_@data.log"
 
 enum logform {
 	logform_simple = 0,
@@ -89,6 +90,8 @@ typedef struct _LogFileHandle
 	unsigned long long setFileSec;//设定文件日志的间隔时间
 	PLogRule rule_default;//当所有规则都无效时默认的规则从配置文件读取
 	sds form;//日志文件输出格式
+
+	sds pid;
 }*PLogFileHandle, LogFileHandle;
 
 typedef struct _LogFile
@@ -391,6 +394,11 @@ static void CreateLogFile(PLogFile pLogFile, char category) {
 	newFielPath = sdscatsrlen(sdsempty(), fielPath, sdslen(fielPath), "@dir", 4, _pLogFileHandle->outDir, sdslen(_pLogFileHandle->outDir));
 	sdsfree(fielPath);
 	fielPath = newFielPath;
+
+	//替换输出目录
+	newFielPath = sdscatsrlen(sdsempty(), fielPath, sdslen(fielPath), "@pid", 4, _pLogFileHandle->pid, sdslen(_pLogFileHandle->pid));
+	sdsfree(fielPath);
+	fielPath = newFielPath;
 	
 	MkDirs(_pLogFileHandle->outDir);
 	pLogFile->fileHandle = fopen_t(fielPath, "ab");
@@ -464,7 +472,6 @@ void LogRun(void* pVoid) {
 		EqWait(pLogFileHandle->eQueue);
 		size_t eventQueueLength = 0;
 		do {
-			//如果长度超过限制要释放掉队列	
 			PLogPacket pLogPacket = (PLogPacket)EqPopWithLen(pLogFileHandle->eQueue, &eventQueueLength);
 
 			if (pLogPacket != 0) {
@@ -567,6 +574,8 @@ void LogRun(void* pVoid) {
 				}
 
 				if (eventQueueLength > pLogFileHandle->maxQueueSize) {
+					//如果长度超过限制要释放掉队列	
+					printf("error elog lost eventQueueLength %ll greater than maxQueueSize %ll", eventQueueLength, pLogFileHandle->maxQueueSize);
 					EqEmpty(pLogFileHandle->eQueue, PacketFree);
 				}
 			}
@@ -710,6 +719,15 @@ void LogInit(char* config) {
 	_pLogFileHandle->_setMinlevel = log_null;
 	_pLogFileHandle->rule_default = NULL;
 
+	sigar_t* sigar;
+	sigar_open(&sigar);
+	sigar_pid_t pid = sigar_pid_get(sigar);
+	sigar_close(sigar);
+
+	char num[MAX_PATH] = {0};
+	sprintf(num, "%lld", pid);
+	_pLogFileHandle->pid = sdsnew(num);
+
 	doJsonParseFile(config);
 
 	uv_thread_create(&_pLogFileHandle->thread, LogRun, _pLogFileHandle);
@@ -741,6 +759,7 @@ void LogDestroy() {
 	sdsfree(_pLogFileHandle->level_stat);
 	sdsfree(_pLogFileHandle->level_function);
 	sdsfree(_pLogFileHandle->level_details);
+	sdsfree(_pLogFileHandle->pid);
 
 	if (_pLogFileHandle->rule_default) {
 		sdsfree(_pLogFileHandle->rule_default->fileName);

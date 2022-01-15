@@ -17,9 +17,9 @@ function npcFactory.New()
     
     obj:AddFlagFun(sc.keyflags.private, npcFactory.OnFreshKey)
 
-    obj.transform.poition.x = 0
-    obj.transform.poition.y = 0
-    obj.transform.poition.z = 0
+    obj.transform.position.x = 0
+    obj.transform.position.y = 0
+    obj.transform.position.z = 0
 
     obj.transform.rotation.x = 0
     obj.transform.rotation.z = 0

@@ -3,6 +3,7 @@
 #include <float.h>
 #include "quaternion.h"
 #include "mathf.h"
+#include "matrix4.h"
 //https://quaternions.online/
 
 void Radians(struct Vector3* in, struct Vector3* out) {
@@ -127,35 +128,58 @@ void quatMultiply(struct Quaternion* a, struct Quaternion* b, struct Quaternion*
     out->w = a->w*b->w - a->x*b->x - a->y*b->y - a->z*b->z;
 }
 
-void quatToMatrix(struct Quaternion* q, float out[4][4]) {
-    float xx = q->x*q->x;
-    float yy = q->y*q->y;
-    float zz = q->z*q->z;
+void quatFromRotationMatrix(struct Matrix4* m, struct Quaternion* q) {
 
-    float xy = q->x*q->y;
-    float yz = q->y*q->z;
-    float xz = q->x*q->z;
+    // http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/index.htm
 
-    float xw = q->x*q->w;
-    float yw = q->y*q->w;
-    float zw = q->z*q->w;
+    // assumes the upper 3x3 of m is a pure rotation matrix (i.e, unscaled)
 
-    out[0][0] = 1.0f - 2.0f * (yy + zz);
-    out[0][1] = 2.0f * (xy + zw);
-    out[0][2] = 2.0f * (xz - yw);
-    out[0][3] = 0.0f;
-    out[1][0] = 2.0f * (xy - zw);
-    out[1][1] = 1.0f - 2.0f * (xx + zz);
-    out[1][2] = 2.0f * (yz + xw);
-    out[1][3] = 0.0f;
-    out[2][0] = 2.0f * (xz + yw);
-    out[2][1] = 2.0f * (yz - xw);
-    out[2][2] = 1.0f - 2.0f * (xx + yy);
-    out[2][3] = 0.0f;
-    out[3][0] = 0.0f;
-    out[3][1] = 0.0f;
-    out[3][2] = 0.0f;
-    out[3][3] = 1.0f;
+    float m11 = m->el_16[0], m12 = m->el_16[4], m13 = m->el_16[8],
+        m21 = m->el_16[1], m22 = m->el_16[5], m23 = m->el_16[9],
+        m31 = m->el_16[2], m32 = m->el_16[6], m33 = m->el_16[10],
+
+        trace = m11 + m22 + m33;
+
+    if (trace > 0) {
+
+        const float s = 0.5 / sqrtf(trace + 1.0);
+
+        q->w = 0.25 / s;
+        q->x = (m32 - m23) * s;
+        q->y = (m13 - m31) * s;
+        q->z = (m21 - m12) * s;
+
+    }
+    else if (m11 > m22 && m11 > m33) {
+
+        const float s = 2.0 * sqrtf(1.0 + m11 - m22 - m33);
+
+        q->w = (m32 - m23) / s;
+        q->x = 0.25 * s;
+        q->y = (m12 + m21) / s;
+        q->z = (m13 + m31) / s;
+
+    }
+    else if (m22 > m33) {
+
+        const float s = 2.0 * sqrtf(1.0 + m22 - m11 - m33);
+
+        q->w = (m13 - m31) / s;
+        q->x = (m12 + m21) / s;
+        q->y = 0.25 * s;
+        q->z = (m23 + m32) / s;
+
+    }
+    else {
+
+        const float s = 2.0 * sqrtf(1.0 + m33 - m11 - m22);
+
+        q->w = (m21 - m12) / s;
+        q->x = (m13 + m31) / s;
+        q->y = (m23 + m32) / s;
+        q->z = 0.25 * s;
+
+    }
 }
 
 void quatNormalize(struct Quaternion* q, struct Quaternion* out) {
@@ -235,7 +259,7 @@ void quatFromToRotation(struct Vector3* fromDirection, struct Vector3* toDirecti
 
 void quatLookRotation(struct Vector3* forward, struct Quaternion* out)
 {
-    quatFromToRotation(&gForward, forward, out);
+    quatFromToRotation(&gRight, forward, out);
     return;
 }
 

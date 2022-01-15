@@ -4,6 +4,8 @@
 #include "vector.h"
 #include "transform.h"
 #include <math.h>
+#include "3dmathapi.h"
+
 static double PIOver2 = 0xc.90fdaa22168cp-3;
 
 //方向向量转欧拉角
@@ -348,9 +350,9 @@ void do3dlibTest() {
 
     struct Quaternion rotation, rotation1;
     struct Vector3 Euler, Euler2, Euler3;
-    Euler.x = -180.000;
-    Euler.y = -38.614;
-    Euler.z = 180.000;
+    Euler.x = -180.000f;
+    Euler.y = -38.614f;
+    Euler.z = 180.000f;
     quatEulerAngles(&Euler, &rotation1);
     quatToEulerAngles(&rotation1, &Euler2);
 
@@ -370,7 +372,45 @@ void do3dlibTest() {
             quatLookRotation(&forwd, &rotation);
             quatToEulerAngles(&rotation, &Euler2);
 
-            printf("in.x:%f in.z:%f q.x:%f q.y:%f q.z:%f q.w:%f out.x:%f out.y:%f out.z:%f\n", forwd.x, forwd.z, rotation.x, rotation.y, rotation.z, rotation.w, Euler2.x, Euler2.y, Euler2.z);
+            struct Vector3 out;
+            quatMultVector(&rotation, &gRight, &out);
+
+            printf("in(%f,%f) q(%f,%f,%f,%f) Euler2(%f,%f,%f) out(%f,%f,%f)\n", forwd.x, forwd.z, rotation.x, rotation.y, rotation.z, rotation.w, Euler2.x, Euler2.y, Euler2.z, out.x, out.y, out.z);
+        }
+    }
+    
+    for (float x = -1; x <= 1; x++) {
+        for (float z = -1; z <= 1; z++) {
+
+            struct Vector3 forwd = { x, 0, z };
+            struct Vector3 a = { 0, 0, 0 };
+            float distance;
+
+            LookVector(&a, &forwd, &Euler2, &distance);
+
+            quatEulerAngles(&Euler2, &rotation);
+            struct Vector3 out;
+            quatMultVector(&rotation, &gRight, &out);
+            printf("s in(%f,%f) Euler2(%f,%f,%f) out(%f,%f,%f)\n", forwd.x, forwd.z, Euler2.x, Euler2.y, Euler2.z, out.x, out.y, out.z);
+        }
+    }
+
+    for (float i = -1.0f; i <= 1.1f; i += 0.1f)
+    {
+        for (float j = -1.0f; j <= 1.1f; j += 0.1f)
+        {
+            if (i == 0 && j == 0)
+                continue;
+            struct Vector3 b = { i, 0, j };
+            struct Vector3 a = { 0, 0, 0 };
+            float distance;
+
+            LookVector(&a, &b, &Euler2, &distance);
+
+            quatEulerAngles(&Euler2, &rotation);
+            struct Vector3 out;
+            quatMultVector(&rotation, &gRight, &out);
+            printf("in(%f,%f) Euler2(%f,%f,%f) out(%f,%f,%f)\r\n", i, j, Euler2.x, Euler2.y, Euler2.z, out.x, out.y, out.z);
         }
     }
 

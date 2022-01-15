@@ -15,6 +15,7 @@ extern struct Vector3 gRight;
 extern struct Vector3 gUp;
 extern struct Vector3 gForward;
 extern struct Vector3 gZeroVec;
+extern struct Vector3 gOneVec;
 
 void vector3Negate(struct Vector3* in, struct Vector3* out);
 void vector3Scale(struct Vector3* in, struct Vector3* out, float scale);
@@ -30,5 +31,6 @@ void vector3Cross(struct Vector3* a, struct Vector3* b, struct Vector3* out);
 void vector3Project(struct Vector3* in, struct Vector3* normal, struct Vector3* out);
 void vector3ProjectPlane(struct Vector3* in, struct Vector3* normal, struct Vector3* out);
 void vector3MoveTowards(struct Vector3* from, struct Vector3* towards, float maxDistance, struct Vector3* out);
+float vector3MagLength(struct Vector3* a);
 
 #endif

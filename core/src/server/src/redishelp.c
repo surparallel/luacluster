@@ -27,12 +27,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "uv.h"
 #include "plateform.h"
 #include "hiredis.h"
 #include "elog.h"
 #include "sds.h"
 #include "cJSON.h"
 #include "filesys.h"
+
+static uv_key_t redis = { 0 };
 
 static sds redis_ip;
 static unsigned redis_port;
@@ -99,10 +102,15 @@ void InitRedisHelp() {
 	redis_port = 6379;
 
 	doJsonParseFile(NULL);
+
+	if (0 != uv_key_create(&redis)) {
+		assert(0);
+	}
 }
 
 void FreeRedisHelp() {
 	sdsfree(redis_ip);
+	uv_key_delete(&redis);
 }
 
 void SetUpdToAll(redisContext* c, unsigned int ip, unsigned short port) {
@@ -113,6 +121,8 @@ void SetUpdToAll(redisContext* c, unsigned int ip, unsigned short port) {
 	if (NULL == r)
 	{
 		n_error("Execut command failure");
+		redisFree(c);
+		uv_key_set(&redis, 0);
 		return;
 	}
 
@@ -127,11 +137,18 @@ void SetUpdToAll(redisContext* c, unsigned int ip, unsigned short port) {
 }
 
 void GetUpdFromAll(unsigned int* ip, unsigned short* port) {
+
 	//redis默认监听端口为6387 可以再配置文件中修改
-	redisContext* c = redisConnect(redis_ip, redis_port);
+	redisContext* c = uv_key_get(&redis);
+	if (c == 0) {
+		c = redisConnect(redis_ip, redis_port);
+		uv_key_set(&redis, c);
+	}
+
 	if (c->err)
 	{
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		n_error("Connect to redisServer faile");
 		return;
 	}
@@ -142,6 +159,7 @@ void GetUpdFromAll(unsigned int* ip, unsigned short* port) {
 	{
 		n_error("Execut command failure");
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		return;
 	}
 
@@ -149,7 +167,6 @@ void GetUpdFromAll(unsigned int* ip, unsigned short* port) {
 	{
 		n_warn("Failed to execute command[%s]", command);
 		freeReplyObject(r);
-		redisFree(c);
 		return;
 	}
 
@@ -163,16 +180,21 @@ void GetUpdFromAll(unsigned int* ip, unsigned short* port) {
 	sdsfree(s);
 	sdsfreesplitres(tokens, count);
 	freeReplyObject(r);
-	redisFree(c);
 }
 
 void SetUpdIPAndPortToOutside(unsigned int ip, unsigned short port) {
 
 	//redis默认监听端口为6387 可以再配置文件中修改
-	redisContext* c = redisConnect(redis_ip, redis_port);
+	redisContext* c = uv_key_get(&redis);
+	if (c == 0) {
+		c = redisConnect(redis_ip, redis_port);
+		uv_key_set(&redis, c);
+	}
+		
 	if (c->err)
 	{
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		n_error("Connect to redisServer faile");
 		return;
 	}
@@ -186,6 +208,7 @@ void SetUpdIPAndPortToOutside(unsigned int ip, unsigned short port) {
 	{
 		n_error("Execut command failure");
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		return;
 	}
 
@@ -193,21 +216,24 @@ void SetUpdIPAndPortToOutside(unsigned int ip, unsigned short port) {
 	{
 		n_warn("Failed to execute command[%s]", command);
 		freeReplyObject(r);
-		redisFree(c);
 		return;
 	}
 
 	freeReplyObject(r);
-	redisFree(c);
 }
 
 void SetUpdIPAndPortToInside(unsigned int ip, unsigned short port) {
 
 	//redis默认监听端口为6387 可以再配置文件中修改
-	redisContext* c = redisConnect(redis_ip, redis_port);
+	redisContext* c = uv_key_get(&redis);
+	if (c == 0) {
+		c = redisConnect(redis_ip, redis_port);
+		uv_key_set(&redis, c);
+	}
 	if (c->err)
 	{
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		n_error("Connect to redisServer faile");
 		return;
 	}
@@ -221,6 +247,7 @@ void SetUpdIPAndPortToInside(unsigned int ip, unsigned short port) {
 	{
 		n_error("Execut command failure");
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		return;
 	}
 
@@ -228,20 +255,24 @@ void SetUpdIPAndPortToInside(unsigned int ip, unsigned short port) {
 	{
 		n_warn("Failed to execute command[%s]", command);
 		freeReplyObject(r);
-		redisFree(c);
 		return;
 	}
 
 	freeReplyObject(r);
-	redisFree(c);
 }
 
 void GetUpdInside(unsigned int* ip, unsigned short* port) {
+
 	//redis默认监听端口为6387 可以再配置文件中修改
-	redisContext* c = redisConnect(redis_ip, redis_port);
+	redisContext* c = uv_key_get(&redis);
+	if (c == 0) {
+		c = redisConnect(redis_ip, redis_port);
+		uv_key_set(&redis, c);
+	}
 	if (c->err)
 	{
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		n_error("Connect to redisServer faile");
 		return;
 	}
@@ -252,6 +283,7 @@ void GetUpdInside(unsigned int* ip, unsigned short* port) {
 	{
 		n_error("Execut command failure");
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		return;
 	}
 
@@ -259,8 +291,6 @@ void GetUpdInside(unsigned int* ip, unsigned short* port) {
 	{
 		n_warn("Failed to execute command[%s]", command);
 		freeReplyObject(r);
-		redisFree(c);
-
 		//如果失败就从全局列表随机选一个
 		GetUpdFromAll(ip, port);
 		return;
@@ -276,15 +306,20 @@ void GetUpdInside(unsigned int* ip, unsigned short* port) {
 	sdsfree(s);
 	sdsfreesplitres(tokens, count);
 	freeReplyObject(r);
-	redisFree(c);
 }
 
 void GetUpdOutside(unsigned int* ip, unsigned short* port) {
+
 	//redis默认监听端口为6387 可以再配置文件中修改
-	redisContext* c = redisConnect(redis_ip, redis_port);
+	redisContext* c = uv_key_get(&redis);
+	if (c == 0) {
+		c = redisConnect(redis_ip, redis_port);
+		uv_key_set(&redis, c);
+	}
 	if (c->err)
 	{
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		n_error("Connect to redisServer faile");
 		return;
 	}
@@ -295,6 +330,7 @@ void GetUpdOutside(unsigned int* ip, unsigned short* port) {
 	{
 		n_error("Execut command failure");
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		return;
 	}
 
@@ -302,8 +338,6 @@ void GetUpdOutside(unsigned int* ip, unsigned short* port) {
 	{
 		n_warn("Failed to execute command[%s]", command);
 		freeReplyObject(r);
-		redisFree(c);
-
 		//如果失败就从全局列表随机选一个
 		GetUpdFromAll(ip, port);
 		return;
@@ -319,16 +353,20 @@ void GetUpdOutside(unsigned int* ip, unsigned short* port) {
 	sdsfree(s);
 	sdsfreesplitres(tokens, count);
 	freeReplyObject(r);
-	redisFree(c);
 }
 
 void SetEntityToDns(const char* name, unsigned long long id) {
 
 	//redis默认监听端口为6387 可以再配置文件中修改
-	redisContext* c = redisConnect(redis_ip, redis_port);
+	redisContext* c = uv_key_get(&redis);
+	if (c == 0) {
+		c = redisConnect(redis_ip, redis_port);
+		uv_key_set(&redis, c);
+	}
 	if (c->err)
 	{
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		n_error("Connect to redisServer faile");
 		return;
 	}
@@ -340,6 +378,7 @@ void SetEntityToDns(const char* name, unsigned long long id) {
 	{
 		n_error("Execut command failure");
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		return;
 	}
 
@@ -349,15 +388,20 @@ void SetEntityToDns(const char* name, unsigned long long id) {
 	}
 
 	freeReplyObject(r);
-	redisFree(c);
 }
 
 void GetEntityFromDns(const char* name, unsigned long long* id) {
+
 	//redis默认监听端口为6387 可以再配置文件中修改
-	redisContext* c = redisConnect(redis_ip, redis_port);
+	redisContext* c = uv_key_get(&redis);
+	if (c == 0) {
+		c = redisConnect(redis_ip, redis_port);
+		uv_key_set(&redis, c);
+	}
 	if (c->err)
 	{
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		n_error("Connect to redisServer faile");
 		return;
 	}
@@ -368,6 +412,7 @@ void GetEntityFromDns(const char* name, unsigned long long* id) {
 	{
 		n_error("Execut command failure");
 		redisFree(c);
+		uv_key_set(&redis, 0);
 		return;
 	}
 
@@ -381,5 +426,4 @@ void GetEntityFromDns(const char* name, unsigned long long* id) {
 	}
 
 	freeReplyObject(r);
-	redisFree(c);
 }

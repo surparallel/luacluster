@@ -213,7 +213,7 @@ void DockerRun(void* pVoid) {
 	srand(pDockerHandle->id);
 
 	LVMSetGlobleLightUserdata(pDockerHandle->LVMHandle, "dockerHandle", pVoid);
-	LVMSetGlobleInt(pDockerHandle->LVMHandle, "dockerid", pDockerHandle->id);
+	LVMSetGlobleInt(pDockerHandle->LVMHandle, "dockerID", pDockerHandle->id);
 	LVMSetGlobleInt(pDockerHandle->LVMHandle, "bots", global_bots);
 
 	//调用脚本的初始化

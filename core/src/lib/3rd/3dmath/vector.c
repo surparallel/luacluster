@@ -6,6 +6,7 @@ struct Vector3 gRight = {1.0f, 0.0f, 0.0f};
 struct Vector3 gUp = {0.0f, 1.0f, 0.0f};
 struct Vector3 gForward = {0.0f, 0.0f, 1.0f};
 struct Vector3 gZeroVec = {0.0f, 0.0f, 0.0f};
+struct Vector3 gOneVec = { 1.0f, 1.0f, 1.0f };
 
 void vector3Negate(struct Vector3* in, struct Vector3* out) {
     out->x = -in->x;
@@ -63,6 +64,10 @@ float vector3Dot(struct Vector3* a, struct Vector3* b) {
 
 float vector3MagSqrd(struct Vector3* a) {
     return a->x * a->x + a->y * a->y + a->z * a->z;
+}
+
+float vector3MagLength(struct Vector3* a) {
+    return sqrtf(a->x * a->x + a->y * a->y + a->z * a->z);
 }
 
 float vector3DistSqrd(struct Vector3* a, struct Vector3* b) {

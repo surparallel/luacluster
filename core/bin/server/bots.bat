@@ -1,0 +1,1 @@
+luacluter_d.exe --bots --noudp --inside --btcp 127.0.0.1 9577 3000

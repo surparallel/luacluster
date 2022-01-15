@@ -17,7 +17,7 @@ function spaceFactory.New()
     --注册自己的entity id到redis
     function obj:Init()
 
-        if(_G["bots"]) then
+        if(_G["bots"] == 1) then
             return
         end
         

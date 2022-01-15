@@ -17,11 +17,10 @@ function spaceFactory.New()
     
     --注册自己的entity id到redis
     function obj:Init()
-
-        elog.sys_fun("bigworld::init")
-
+        
+        elog.sys_fun("bigworld::init %i", _G["bots"])
         --在客户端模式下不运行
-        if(_G["bots"]) then
+        if(_G["bots"] == 1) then
             return
         end
 
@@ -71,17 +70,19 @@ function spaceFactory.New()
             outfile:close()
           mri.m_cMethods.DumpMemorySnapshot("./", "2-After", -1)
             os.exit()
-        end]]
+        end
         if self.mycount <= 10 then
             print(self.mycount,"\n")
             if self.mycount == 10 then
-                for i = 1, 20, 1 do
+                for i = 1, 10, 1 do
                     entitymng.EntityToCreate(sc.entity.DockerRandom , "npc")
                 end
-                docker.Script("", 0, -1, "local elog = require(\"eloghelp\") elog.node_details(\"Analysis of entity allocation dockerid:%i, dockercount:%i\", dockerID, docker.GetEntityCount())");
+                --打印每个线程的创建npc数量
+                docker.Script("", 0, -1, "local elog = require(\"eloghelp\") elog.node_details(\"Analysis of entity allocation dockerid:%i, \
+                 dockercount:%i\", dockerID, docker.GetEntityCount())");
             end
             self.mycount = self.mycount + 1
-        end
+        end]]
     end
     
     --引导entity进入space 如果是多个就进入多个

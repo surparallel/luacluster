@@ -31,7 +31,6 @@ typedef struct _SafeMutex
 
 static uv_key_t exclusionZone = { 0 };
 static uv_key_t environmental = { 0 };
-static uv_key_t logfile = { 0 };
 
 void LevelLocksCreate() {
 	if (0 != uv_key_create(&exclusionZone)) {
@@ -39,16 +38,12 @@ void LevelLocksCreate() {
 	}
 	if (0 != uv_key_create(&environmental)) {
 		assert(0);
-	}
-	if (0 != uv_key_create(&logfile)) {
-		assert(0);
-	}
+	}	
 }
 
 void LevelLocksDestroy() {
 	uv_key_delete(&exclusionZone);
 	uv_key_delete(&environmental);
-	uv_key_delete(&logfile);
 }
 
 char LevelLocksEntry(void* pvSafeMutex) {

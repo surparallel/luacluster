@@ -231,6 +231,7 @@ void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position,
 	struct Vector3 nowPosition;
 	unsigned int current = GetCurrentSec();
 	CurrentPosition(&position, &rotation, velocity, stamp, stampStop, &nowPosition, current);
+
 	if (nowPosition.x < s->begin.x || nowPosition.x > s->end.x || nowPosition.z < s->begin.z || nowPosition.z > s->end.z) {
 
 		s_warn("sudoku(%U)::move entry out limit %U x:%f z:%f  bx:%f bz:%f  ex:%f ez:%f cc:%i",s->spaceId, id, nowPosition.x, nowPosition.z
@@ -256,13 +257,14 @@ void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position,
 	}
 
 	PEntity pEntity = dictGetVal(entry);
-	
+
 	//position
 	pEntity->transform.position.x = position.x;
 	pEntity->transform.position.y = position.y;
 	pEntity->transform.position.z = position.z;
-
 	quatEulerAngles(&rotation, &pEntity->transform.rotation);
+
+	//s_details("Sudoku(%U)::SudokuMove id:%U Euler(%f, %f, %f) pos(%f, %f, %f) rotation(%f, %f, %f, %f)", s->spaceId, pEntity->entityid, rotation.x, rotation.y, rotation.z, nowPosition.x, nowPosition.y, nowPosition.z, pEntity->transform.rotation.w, pEntity->transform.rotation.x, pEntity->transform.rotation.y, pEntity->transform.rotation.z);
 
 	//velocity 每秒移动的速度
 	pEntity->velocity = velocity;
@@ -363,9 +365,12 @@ void SendAddView(PEntity pEntity, PEntity pViewEntity) {
 	mp_encode_double(pmp_buf, pViewEntity->transform.position.x);
 	mp_encode_double(pmp_buf, pViewEntity->transform.position.y);
 	mp_encode_double(pmp_buf, pViewEntity->transform.position.z);
-	mp_encode_double(pmp_buf, pViewEntity->transform.rotation.x);
-	mp_encode_double(pmp_buf, pViewEntity->transform.rotation.y);
-	mp_encode_double(pmp_buf, pViewEntity->transform.rotation.z);
+
+	struct Vector3 Euler = { 0 };
+	quatToEulerAngles(&pEntity->transform.rotation, &Euler);
+	mp_encode_double(pmp_buf, Euler.x);
+	mp_encode_double(pmp_buf, Euler.y);
+	mp_encode_double(pmp_buf, Euler.z);
 	mp_encode_double(pmp_buf, pViewEntity->velocity);
 	mp_encode_int(pmp_buf, pViewEntity->stamp);
 	mp_encode_int(pmp_buf, pViewEntity->stampStop);
@@ -449,7 +454,6 @@ void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position,
 	struct Vector3 nowPosition = { 0 };
 	unsigned int current = GetCurrentSec();
 	CurrentPosition(&position, &rotation, velocity, stamp, stampStop, &nowPosition, current);
-
 	if (entry != NULL) {
 		pEntity = dictGetVal(entry);
 		s_details("sudoku(%U)::Entry find is %U", s->spaceId, id);
@@ -503,6 +507,8 @@ void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position,
 
 		GirdPut(s, pEntity);
 	}
+
+	//s_details("Sudoku(%U)::SudokuEntry id:%U Euler(%f, %f, %f) pos(%f, %f, %f)", s->spaceId, pEntity->entityid, rotation.x, rotation.y, rotation.z, nowPosition.x, nowPosition.y, nowPosition.z);
 
 	if (nowPosition.x < s->begin.x || nowPosition.x > s->end.x || nowPosition.z < s->begin.z || nowPosition.z > s->end.z) {
 		s_warn("sudoku(%U)::Entry entry out limit %U x:%f z:%f  bx:%f bz:%f  ex:%f ez:%f cc:%i", s->spaceId, id, nowPosition.x, nowPosition.z, s->begin.x, s->begin.z, s->end.x, s->end.z, current);
@@ -709,6 +715,7 @@ void SudokuUpdate(void* pSudoku, unsigned int count, float deltaTime) {
 		struct Vector3 Euler = { 0 };
 		quatToEulerAngles(&pEntity->transform.rotation, &Euler);
 		CurrentPosition(&pEntity->transform.position, &Euler, pEntity->velocity, pEntity->stamp, pEntity->stampStop, &nowPosition, 0);
+		//s_details("Sudoku(%U)::SudokuUpdate::nowPosition id:%U Euler(%f, %f, %f) pos(%f, %f, %f)", s->spaceId, pEntity->entityid, Euler.x, Euler.y, Euler.z, nowPosition.x, nowPosition.y, nowPosition.z);
 
 		pEntity->nowPosition = nowPosition;
 		pEntity->newGird = GirdId(s, &pEntity->nowPosition);
@@ -717,7 +724,7 @@ void SudokuUpdate(void* pSudoku, unsigned int count, float deltaTime) {
 			pEntity->update = 0;
 		}
 		else {
-			s_details("Sudoku(%U)::SudokuUpdate::nowPosition id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, nowPosition.x, nowPosition.y, nowPosition.z);
+			s_details("Sudoku(%U)::SudokuUpdate::nowPosition id:%U Euler(%f, %f, %f) pos(%f, %f, %f)", s->spaceId, pEntity->entityid, Euler.x, Euler.y, Euler.z, nowPosition.x, nowPosition.y, nowPosition.z);
 
 			if (GirdExchang(s, pEntity, pEntity->newGird)) {
 				//更换gird

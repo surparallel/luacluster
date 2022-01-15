@@ -214,9 +214,16 @@ static int checkArg(char* argv) {
 		return 1;
 }
 
-int ReadArgFromParam(int argc, char** argv) {
-
+int ReadArgFromParam(int argc, char** argv, sds* allarg) {
 	for (int i = 0; i < argc; i++) {
+
+		if (i == argc - 1) {
+			*allarg = sdscatprintf(*allarg, "%s", argv[i]);
+		}
+		else {
+			*allarg = sdscatprintf(*allarg, "%s ", argv[i]);
+		}
+		
 		/* Handle special options --help and --version */
 		if (strcmp(argv[i], "-v") == 0 ||
 			strcmp(argv[i], "--version") == 0)
@@ -358,22 +365,24 @@ int main(int argc, char** argv) {
 	LevelLocksCreate();
 
 	//这里有需要输入参数的，指定要绑定的地址之类的
-	n_details("********************************************");
-	n_details("*              hello luacluter!             *");
-	n_details("********************************************");
-	s_details("********************************************");
-	s_details("*              hello luacluter!             *");
-	s_details("********************************************");
-	u_details("********************************************");
-	u_details("*              hello luacluter!             *");
-	u_details("********************************************");
+	n_details("**********************************************");
+	n_details("*              hello luacluter!              *");
+	n_details("**********************************************");
+	s_details("**********************************************");
+	s_details("*              hello luacluter!              *");
+	s_details("**********************************************");
+	u_details("**********************************************");
+	u_details("*              hello luacluter!              *");
+	u_details("**********************************************");
 
 	doJsonParseFile(NULL);
 
 	Version();
 	int ret = 1;
-	if (ReadArgFromParam(argc, argv)) {
+	sds allgrg = sdsempty();
+	if (ReadArgFromParam(argc, argv, &allgrg)) {
 
+		n_details(allgrg);
 		InitRedisHelp();
 		NetCreate(nodetype, listentcp);
 		unsigned int ip = 0;
@@ -400,6 +409,7 @@ int main(int argc, char** argv) {
 		ret = ArgsInteractive(IssueCommand);
 	}
 
+	sdsfree(allgrg);
 	DocksDestory();
 	NetDestory();
 	LogDestroy();

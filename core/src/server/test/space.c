@@ -43,12 +43,22 @@ void TestGirdDir(void* s) {
 #define Round(x) round(x * 1000) / 1000
 
 void test_sudoku() {
+
+	struct Vector3 cp_p = { 8.132000, 13.683000, 28.117000 };
+	struct Vector3 cp_r = { 41.789000, -16.738000, -137.851000 };
+	struct Vector3 cp_out;
+	for (size_t i = 0; i < 105; i+=10)
+	{
+		CurrentPosition(&cp_p, &cp_r, 0.2f, 641796365.f, 1641796471.4f, &cp_out, 641796365 + i);
+	}
+	//105
+
 	struct Vector3 a = {99, 0, 30};
 	struct Vector3 b = { 99.08, 0, 99.08};
 	struct Vector3 euler;
 	float distance;
 
-	LookVector(&b, &a, &euler, &distance);
+	LookVector(&a, &b, &euler, &distance);
 
 	for (float i = -1.0f; i <= 1.1f; i+=0.1)
 	{
@@ -56,10 +66,10 @@ void test_sudoku() {
 		{
 			if (i == 0 && j == 0)
 				continue;
-			struct Vector3 a = { i, 0, j };
-			struct Vector3 b = { 0, 0, 0 };
+			struct Vector3 b = { i, 0, j };
+			struct Vector3 a = { 0, 0, 0 };
 
-			LookVector(&b, &a, &euler, &distance);
+			LookVector(&a, &b, &euler, &distance);
 
 			printf("%f %f %f %f %f\r\n", i, j, euler.x, euler.y, euler.z);
 		}

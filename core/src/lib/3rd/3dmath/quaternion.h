@@ -21,7 +21,6 @@ void quatAxisComplex(struct Vector3* axis, struct Vector2* complex, struct Quate
 void quatConjugate(struct Quaternion* in, struct Quaternion* out);
 void quatMultVector(struct Quaternion* q, struct Vector3* a, struct Vector3* out);
 void quatMultiply(struct Quaternion* a, struct Quaternion* b, struct Quaternion* out);
-void quatToMatrix(struct Quaternion* q, float out[4][4]);
 void quatNormalize(struct Quaternion* q, struct Quaternion* out);
 void quatRandom(struct Quaternion* q);
 void quatEulerAngles(struct Vector3* angles, struct Quaternion* out);
@@ -31,6 +30,7 @@ void quatFromToRotation(struct Vector3* fromDirection, struct Vector3* toDirecti
 void quatLookRotationWithUpwards(struct Vector3* forward, struct Vector3* upwards, struct Quaternion* out);
 void Radians(struct Vector3* in, struct Vector3* out);
 void Degree(struct Vector3* in, struct Vector3* out);
+void quatFromRotationMatrix(struct Matrix4* m, struct Quaternion* q);
 
 void ToQ(struct Vector3* in, struct Quaternion* out);
 void FromQ2(struct Quaternion* in, struct Vector3* out);

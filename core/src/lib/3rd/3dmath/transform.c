@@ -73,5 +73,5 @@ void transformIdentity(struct BasicTransform* trans) {
 }
 
 void transformForward(struct BasicTransform* in, struct Vector3* out) {
-    quatMultVector(&in->rotation, &gForward, out);
+    quatMultVector(&in->rotation, &gRight, out);
 }

@@ -25,7 +25,7 @@ function main()
             end
 
             if waittime <= 0 then
-                elog.sys_error("dockerrun::waittime's time is consumed: %i %i", docker.GetDockerID(), waittime)
+                elog.sys_error("dockerrun::waittime's time is consumed: %i %i", _G["dockerID"], waittime)
                 waittime = 0
             end
         end
