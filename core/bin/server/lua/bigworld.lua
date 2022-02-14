@@ -74,7 +74,7 @@ function spaceFactory.New()
         if self.mycount <= 10 then
             print(self.mycount,"\n")
             if self.mycount == 10 then
-                for i = 1, 10, 1 do
+                for i = 1, 500, 1 do
                     entitymng.EntityToCreate(sc.entity.DockerRandom , "npc")
                 end
                 --打印每个线程的创建npc数量

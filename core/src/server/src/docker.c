@@ -357,6 +357,11 @@ int DockerLoop(void* pVoid, lua_State* L, long long msec) {
 			lua_pushlstring(L, pProtoRoute->callArg, len);
 			return 4;
 		}
+		else if (pProtoHead->proto == proto_rpc_destory) {
+			PProtoRPC pProtoRPC = (PProtoRPC)(pDockerHandle->pBuf);
+			luaL_u64pushnumber(L, pProtoRPC->id);
+			return 2;
+		}
 	}
 	return 0;
 }
@@ -487,13 +492,18 @@ void DockerSendToClient(void* pVoid, unsigned long long did, unsigned long long 
 	free(pProtoHead);
 }
 
-void DockerCopyRpcToClient(void* pVoid) {
+void DockerCopyRpcToClient(void* pVoid, unsigned long long did) {
 	PDockerHandle pDockerHandle = pVoid;
 
 	PProtoHead pProtoHead = (PProtoHead)pDockerHandle->pBuf;
 	if (pProtoHead->proto == proto_rpc_call) {
 		PProtoRPC pProtoRPC = (PProtoRPC)pDockerHandle->pBuf;
-		DockerSendToClient(pVoid, pProtoRPC->id, pProtoRPC->id, pProtoRPC->callArg, pProtoRPC->protoHead.len - sizeof(ProtoRPC));
+		if (did != 0){
+			DockerSendToClient(pVoid, did, pProtoRPC->id, pProtoRPC->callArg, pProtoRPC->protoHead.len - sizeof(ProtoRPC));
+		}
+		else {
+			DockerSendToClient(pVoid, pProtoRPC->id, pProtoRPC->id, pProtoRPC->callArg, pProtoRPC->protoHead.len - sizeof(ProtoRPC));
+		}
 	}
 	else {
 		elog_error(ctg_script, "DockerCopyRpcToClient not find proto_rpc_call");

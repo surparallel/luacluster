@@ -12,6 +12,7 @@ function udpProxyFactory.New(id)
 
     local obj = {}
     obj.id = id
+    --当前是一个entity代理对象不需要对属性进行监控
     obj.__entity = 1
     return setmetatable(obj,{
         __index = function (t,k)

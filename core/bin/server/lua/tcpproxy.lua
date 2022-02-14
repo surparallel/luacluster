@@ -4,10 +4,15 @@ local docker = require("docker")
 
 local tcpProxyFactory = {}
 
-function tcpProxyFactory.New(id)
+function tcpProxyFactory.New(did, sid)
     local obj = {}
-    obj.did = id
-    obj.sid = id
+    obj.did = did
+    if sid == nil then
+        obj.sid = did
+    else
+        obj.sid = sid
+    end
+    --当前是一个entity代理对象不需要对属性进行监控
     obj.__entity = 1
     function obj:PID(pid)
         obj.pid = pid
@@ -25,8 +30,10 @@ function tcpProxyFactory.New(id)
                     elog.sys_error("tcpProxyFactory Object must be accessed by \": \")!")
                     return
                 end
-                
+
                 arg[1] = k
+                --npc 试图控制可见范围内客户端对象状态时
+                --这个接口会直接通过网络层转发到客户端
                 docker.SendToClient(obj.did, obj.sid, cmsgpack.pack(table.unpack(arg)))
             end
         end,

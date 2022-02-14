@@ -73,7 +73,12 @@ function entityMng.UnRegistryObj(id)
         return
     else
         local myid = int64.new_unsigned(id)
-        _G["__entity"][tostring(myid)] = nil
+        local smyid = tostring(myid)
+        if _G["__entity"][smyid] ~= nil then
+            _G["__entity"][smyid] = nil
+        else
+            elog.sys_error("main::UnRegistryObj:: error::%s", smyid)
+        end
     end
    
     docker.UnallocateID(id)

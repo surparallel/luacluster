@@ -4,6 +4,8 @@ local sc = require("sc")
 local docker = require("docker")
 local int64 = require("int64")
 local elog = require("eloghelp")
+local entitymng = require("entitymng")
+local udpproxy = require 'udpproxy'
 
 local accountFactory = {}
 
@@ -47,7 +49,10 @@ function accountFactory.New()
     end
 
     function obj:Destory()
+        --正常流程要加延迟处理，否则在注册空间过程中退出会导致空间残留
         obj:LeaveWorld("bigworld")
+        --通知管理器销毁对象，当对象有多个继承时要考虑销毁顺序
+        entitymng.UnRegistryObj(self.id)
     end
     
     function obj:Ping(a)
@@ -88,7 +93,15 @@ function accountFactory.New()
         obj.transform.stampStop = stampStop
 
         self:SpaceMove(self.transform.position.x, self.transform.position.y, self.transform.position.z
-        ,self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z, self.transform.velocity, self.transform.stamp, self.transform.stampStop);
+        ,self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z, self.transform.velocity, 
+        self.transform.stamp, self.transform.stampStop);
+
+        for k, v1 in pairs(self.entities) do
+            local v = entitymng.EntityDataGet(k)
+            local view = udpproxy.New(v[1])
+            view:OnMove(self.id, self.transform.position.x, self.transform.position.y, self.transform.position.z
+            ,self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z, self.transform.velocity, self.transform.stamp, self.transform.stampStop);
+        end
     end
 
     return obj

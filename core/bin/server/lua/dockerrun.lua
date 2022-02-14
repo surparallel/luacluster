@@ -1,5 +1,10 @@
 local sc = require("sc")
-local LuaPanda = require("LuaPanda").start(sc.LuaPanda.ip,sc.LuaPanda.port)
+
+local LuaPanda = nil
+if sc.LuaPanda.close == 0 then
+    LuaPanda = require("LuaPanda").start(sc.LuaPanda.ip,sc.LuaPanda.port)
+end
+
 local cmsgpack = require("cmsgpack")
 local entitymng = require("entitymng")
 local docker = require("docker")
@@ -48,12 +53,8 @@ function main()
                 --来自网络层通知网络断开销毁对应的对象
                 local obj = entitymng.FindObj(ret[2])
                 if obj ~= nil then
-
                     --通知对象销毁
                     obj:DoInheritFun(obj, "Destory")
-
-                    --管理器销毁
-                    entitymng.UnRegistryObj(ret[2])
                 else
                     local myid = tostring(int64.new_unsigned(ret[2]))
                     elog.sys_error("main::proto_rpc_destory:: not find obj: %s" ,myid)

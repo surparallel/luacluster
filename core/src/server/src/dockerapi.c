@@ -46,8 +46,6 @@ static int luaB_SendToClient(lua_State* L) {
 	unsigned long long did = luaL_tou64be(L, 1, 0, 0);
 	unsigned long long pid = luaL_tou64be(L, 2, 0, 0);
 
-	//s_fun("Docker::SendToClient %U %U", did, pid);
-
 	size_t ret;
 	const char* pc = luaL_checklstring(L, 3, &ret);
 
@@ -60,10 +58,9 @@ static int luaB_SendToClient(lua_State* L) {
 
 static int luaB_CopyRpcToClient(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
+	unsigned long long did = luaL_tou64be(L, 1, 0, 0);
 
-	s_fun("Docker::CopyRpcToClient");
-
-	DockerCopyRpcToClient(pVoid);
+	DockerCopyRpcToClient(pVoid, did);
 	return 0;
 }
 
@@ -79,7 +76,6 @@ static int luaB_Send(lua_State* L) {
 	size_t ret;
 	const char* pc = luaL_checklstring(L, 2, &ret);
 
-	//s_fun("Docker::Send %U", id);
 	DockerSend(id, pc, ret);
 	return 0;
 }
@@ -94,8 +90,6 @@ static int luaB_AllocateID(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 
 	unsigned long long id = AllocateID(pVoid);
-
-	s_fun("Docker::AllocateID %U", id);
 	luaL_u64pushnumber(L, id);
 	return 1;
 }
@@ -104,8 +98,6 @@ static int luaB_UnallocateID(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 
 	unsigned long long id = luaL_tou64(L, 1);
-
-	s_fun("Docker::UnallocateID %U", id);
 	UnallocateID(pVoid, id);
 	return 0;
 }
@@ -125,8 +117,6 @@ static int luaB_CreateEntity(lua_State* L) {
 	unsigned int type = luaL_checkinteger(L, 1);
 	size_t ret;
 	const char* pc = luaL_checklstring(L, 2, &ret);
-
-	s_fun("Docker::CreateEntity %i", type);
 	DockerCreateEntity(pVoid, type, pc, ret);
 	return 0;
 }
@@ -146,8 +136,6 @@ static int luaB_BindNet(lua_State* L) {
 	pProtoNetBind->entityId = entityId;
 	pProtoNetBind->clientId = clientId;
 
-	s_fun("Docker::BindNet %U %u", pProtoNetBind->entityId, pProtoNetBind->clientId);
-
 	NetSendToClient(0, (const char*)pProtoHead, len);
 	free(pProtoHead);
 	return 0;
@@ -165,8 +153,6 @@ static int luaB_DestoryNet(lua_State* L) {
 
 	PProtoNetDestory pProtoNetDestory = (PProtoNetDestory)pProtoHead;
 	pProtoNetDestory->clientId = clientId;
-
-	s_fun("Docker::BindNet %u", pProtoNetDestory->clientId);
 
 	NetSendToClient(0, (const char*)pProtoHead, len);
 	free(pProtoHead);

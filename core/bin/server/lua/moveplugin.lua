@@ -5,6 +5,7 @@ local udpproxy = require 'udpproxy'
 local math3d = require 'math3d'
 local elog = require("eloghelp")
 local entity = require("entity")
+local entitymng = require("entitymng")
 
 local movepluginFactory = {}
 
@@ -35,6 +36,7 @@ function movepluginFactory.New()
         self.transform.rotation.x = rx
         self.transform.rotation.y = ry
         self.transform.rotation.z = rz
+        self.transform.velocity = 2.0
         self.transform.stamp = os.time()
         self.transform.stampStop = self.transform.stamp + d / self.transform.velocity
 
@@ -45,9 +47,10 @@ function movepluginFactory.New()
         , x, y, z, d, self.transform.stamp, self.transform.stampStop
         , self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z)
 
-        for k, v in pairs(self.entities) do
-            local entity = udpproxy.New(v[1])
-            entity:OnMove(self.id, self.transform.position.x, self.transform.position.y, self.transform.position.z
+        for k, v1 in pairs(self.entities) do
+            local v = entitymng.EntityDataGet(k)
+            local view = udpproxy.New(v[1])
+            view:OnMove(self.id, self.transform.position.x, self.transform.position.y, self.transform.position.z
             ,self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z, self.transform.velocity, self.transform.stamp, self.transform.stampStop);
         end
 

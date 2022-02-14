@@ -22,6 +22,7 @@ function botsFactory.New()
     obj.transform.velocity = 0
     obj.transform.stamp = os.time()
     obj.transform.stampStop = 0
+    obj.entities = {}
 
     function obj:Init()
         self.server = tcpproxy.New(self.id)
@@ -58,9 +59,10 @@ function botsFactory.New()
         local id64 = tostring(int64.new_unsigned(entity[1]))
 
         if self.entities[id64] == nil then
-            entitymng:EntityDataCreate(id64, entity)
+            entitymng.EntityDataCreate(id64, entity)
+            self.entities[id64] = 1
         else
-            entitymng:EntityDataSet(id64, entity)
+            entitymng.EntityDataSet(id64, entity)
         end
     end
 

@@ -30,7 +30,7 @@ unsigned int DockerRandomPushMsg(unsigned char* b, unsigned short s);
 void DockerSend(unsigned long long id, const char* pc, size_t s);
 void DockerCreateEntity(void* pVoid, int type, const char* c, size_t s);
 void DockerSendToClient(void* pVoid, unsigned long long did, unsigned long long pid, const char* pc, size_t s);
-void DockerCopyRpcToClient(void* pVoid);
+void DockerCopyRpcToClient(void* pVoid, unsigned long long did);
 unsigned int GetDockerID(void* pVoid);
 void DockerRunScript(unsigned char* ip, short port, int id, unsigned char* b, unsigned short s);
 unsigned int GetEntityCount(void* pVoid);

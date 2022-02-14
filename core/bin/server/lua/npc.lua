@@ -1,5 +1,4 @@
 local entity = require("entity")
-local tcpproxy = require("tcpproxy")
 local sc = require("sc")
 local docker = require("docker")
 local int64 = require("int64")
@@ -13,8 +12,6 @@ end
 function npcFactory.New()
     local obj = entity.New()
     obj:Inherit("moveplugin")
-    obj.client = tcpproxy.New(obj.id)
-    
     obj:AddFlagFun(sc.keyflags.private, npcFactory.OnFreshKey)
 
     obj.transform.position.x = 0
@@ -25,7 +22,7 @@ function npcFactory.New()
     obj.transform.rotation.z = 0
     obj.transform.rotation.y = 0
 
-    obj.transform.velocity = 0.5
+    obj.transform.velocity = 0
     obj.transform.stamp = os.time()
     obj.transform.stampStop = 0
 

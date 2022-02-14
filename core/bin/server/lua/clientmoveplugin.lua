@@ -39,7 +39,7 @@ function clientMovepluginFactory.New()
         self.transform.rotation.x = rx
         self.transform.rotation.y = ry
         self.transform.rotation.z = rz
-        self.transform.velocity = 0.2
+        self.transform.velocity = 2.0
         self.transform.stamp = os.time()
         self.transform.stampStop = self.transform.stamp + d / self.transform.velocity
 

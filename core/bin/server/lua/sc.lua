@@ -40,6 +40,7 @@ sc.glob.mysc = nil--客户资产的配置文件名，如果存在将使用客户
 sc.LuaPanda = {}
 sc.LuaPanda.ip = "127.0.0.1"
 sc.LuaPanda.port = 8818
+sc.LuaPanda.close = 0
 
 sc.redis = {}
 sc.redis.ip = "127.0.0.1"
@@ -52,20 +53,20 @@ sc.cluster.nodeSize = 1 --集群的数量
 sc.cluster.nodeStar = 5 --集群服务的启动延迟时间
 
 sc.sudoku = {}
-sc.sudoku.girdx = 10
-sc.sudoku.girdz = 10
+sc.sudoku.girdx = 100
+sc.sudoku.girdz = 100
 sc.sudoku.beginx = 0
 sc.sudoku.beginz = 0
-sc.sudoku.endx = 30
-sc.sudoku.endz = 30
+sc.sudoku.endx = 100
+sc.sudoku.endz = 100
 sc.sudoku.radius = 15
 sc.sudoku.outsideSec = 10 * 60
 
 sc.bigworld = {}
 sc.bigworld.beginx = 0
 sc.bigworld.beginz = 0
-sc.bigworld.endx = 30
-sc.bigworld.endz = 30
+sc.bigworld.endx = 100
+sc.bigworld.endz = 100
 
 try(function()
 

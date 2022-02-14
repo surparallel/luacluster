@@ -45,7 +45,7 @@ float NormalizeAngle(float angle)
     return angle;
 }
 
-NormalizeAngles(struct Vector3* angles, struct Vector3* out)
+void NormalizeAngles(struct Vector3* angles, struct Vector3* out)
 {
     out->x = NormalizeAngle(angles->x);
     out->y = NormalizeAngle(angles->y);

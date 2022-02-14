@@ -52,34 +52,52 @@ function spacepluginFactory.New()
 
     end
 
-    --用户主动离开
+    --用户主动离开所有空间
     function obj:LeaveWorld(sapceName)
-        --从redis获取对象并调用空间的LeaveWorld
+
+        if next(self.spaces) == nil  then
+            elog.sys_error("spaceplugin::LeaveWorld:: self.spaces is empty")
+        end
+
         for k, v in pairs(self.spaces) do
-            v.LeaveWorld(self.id)
+            v:LeaveWorld(self.id)
             self.spaces[k] = nil
+        end
+		--通知视野内对象删除可见
+        for k, v1 in pairs(self.entities) do
+            local v = entitymng.EntityDataGet(k)
+            local view = udpproxy.New(v[1])
+            view:OnDelView(self.id);
         end
     end
 
     --可能会收到多个空间的进入可见列表
+    --在初始化过程中可能会导致客户端无法收到
     function obj:OnAddView(entity)
         local id64 = tostring(int64.new_unsigned(entity[1]))
 
         if self.entities[id64] == nil then
-            entitymng:EntityDataCreate(id64, entity)
+            entitymng.EntityDataCreate(id64, entity)
+            self.entities[id64] = 1
         else
-            entitymng:EntityDataSet(id64, entity)
+            entitymng.EntityDataSet(id64, entity)
         end
 
         --转发到客户端
         if self.clientid ~= nil then
-            docker.CopyRpcToClient()
+            docker.CopyRpcToClient(entity[1])
         end
     end
 
-    --废弃
-    function obj:OnDelView(entityList)
+    function obj:OnDelView(id)
+        local k = tostring(int64.new_unsigned(id))
+        self.entities[k] = nil
+        entitymng.EntityDataFree(k)
 
+        --转发到客户端
+        if self.clientid ~= nil then
+            docker.CopyRpcToClient(id)
+        end
     end
 
     function obj:Destory()
@@ -103,10 +121,10 @@ function spacepluginFactory.New()
         end
     end
 
-    --引导进入其他空间
+    --引导进入其他空间可能有多个空间
     function obj:OnRedirectToSpace(spaces)
 
-        if #spaces == 0 then
+        if next(spaces) == nil  then
             elog.sys_error("spaceplugin::OnRedirectToSpace:: spaces is empty")
             return
         end
@@ -198,7 +216,7 @@ function spacepluginFactory.New()
         end
     end
 
-    --空间管理器通知离开
+    --在多个空间切换时空间管理器通知离开
     function obj:OnLeaveSpace(id)
         local id64 = int64.new_unsigned(id)
         self.spaces[tostring(id64)] = nil
@@ -259,7 +277,7 @@ function spacepluginFactory.New()
 
         --转发到客户端
         if self.clientid ~= nil then
-            docker.CopyRpcToClient()
+            docker.CopyRpcToClient(id)
         end
     end
 

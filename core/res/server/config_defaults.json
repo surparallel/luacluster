@@ -8,6 +8,6 @@
     "inside": 1
   },
   "docke_config":{
-    "dockerSize": 16
+    "dockerSize":12
   }
 }

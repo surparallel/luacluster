@@ -1,1 +1,1 @@
-redis-server.exe redis.conf
+redis-server.exe redis.windows.conf

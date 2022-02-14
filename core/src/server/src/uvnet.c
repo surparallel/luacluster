@@ -126,19 +126,18 @@ static void freeClient(NetClient* c) {
     }
 
     //如果在entityId创建过程中或者切换过程中销毁会导致entity对象的残留。
-    if (c->dockerid != 0 && (c->flags & _TCP_SOCKET || c->flags & _TCP_CONNECT)) {
-        mp_buf* pmp_buf = mp_buf_new();
-        mp_encode_int(pmp_buf, c->entityId);
+    if (c->flags & _TCP_SOCKET || c->flags & _TCP_CONNECT) {
 
-        unsigned short len = sizeof(ProtoRPCCreate) + pmp_buf->len;
-        PProtoHead pProtoHead = malloc(len);
+        int len = sizeof(ProtoRPC);
+        PProtoRPC pProtoRPC = malloc(len);
+        pProtoRPC->id = c->entityId;
+
+        PProtoHead pProtoHead = (PProtoHead)pProtoRPC;
         pProtoHead->len = len;
         pProtoHead->proto = proto_rpc_destory;
 
-        PProtoRPCCreate protoRPCCreate = (PProtoRPCCreate)pProtoHead;
-        memcpy(protoRPCCreate->callArg, pmp_buf->b, pmp_buf->len);
-
         DockerPushMsg(c->dockerid, (unsigned char*)pProtoHead, len);
+        free(pProtoRPC);
     }
 
     if (c->stream != 0) {
