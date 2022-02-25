@@ -30,3 +30,4 @@ void SudokuLeave(void* pSudoku, unsigned long long id);
 void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position, struct Vector3 rotation, float velocity, unsigned int stamp, unsigned int stampStop);
 void PrintAllPoition(void* pSudoku);
 int GirdDir(void* pSudoku, unsigned int entry, unsigned int centre);
+unsigned int GirdId(void* pVoid, struct Vector3* position);

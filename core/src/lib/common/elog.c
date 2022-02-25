@@ -575,7 +575,7 @@ void LogRun(void* pVoid) {
 
 				if (eventQueueLength > pLogFileHandle->maxQueueSize) {
 					//如果长度超过限制要释放掉队列	
-					printf("error elog lost eventQueueLength %lld greater than maxQueueSize %lld", eventQueueLength, pLogFileHandle->maxQueueSize);
+					printf("error elog lost eventQueueLength %lld greater than maxQueueSize %d \n", eventQueueLength, pLogFileHandle->maxQueueSize);
 					EqEmpty(pLogFileHandle->eQueue, PacketFree);
 				}
 			}
@@ -712,7 +712,7 @@ void LogInit(char* config) {
 	_pLogFileHandle->fileList = dictCreate(&SdsFileDictType, NULL);
 
 
-	_pLogFileHandle->maxQueueSize = 2000;
+	_pLogFileHandle->maxQueueSize = 20000;
 	_pLogFileHandle->outDir = sdsnew("./logs");
 	_pLogFileHandle->setFileSec = 60 * 60 * 24;
 	_pLogFileHandle->_setMaxlevel = log_all;

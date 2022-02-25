@@ -30,6 +30,8 @@ void* EqPop(void* pEventQueue);
 void EqEmpty(void* pvEventQueue, QueuerDestroyFun fun);
 void* EqPopWithLen(void* pvEventQueue, size_t*len);
 void EqDestory(void* pEventQueue, QueuerDestroyFun fun);
-void* EqPopWithLen(void* pvEventQueue, size_t* len);
+void EqPopNodeWithLen(void* pvEventQueue, size_t limite, list* out, size_t* len);
+void EqPushNode(void* pvEventQueue, listNode* node);
+void EqPushList(void* pvEventQueue, list* in);
 
 #endif

@@ -26,6 +26,7 @@
 
 #define dictAddWithLonglong(d, key, val) do {\
 	unsigned long long* mkey = malloc(sizeof(unsigned long long));\
+	if (mkey == 0)break;\
 	*mkey = key;\
 	if (DICT_ERR == dictAdd(d, mkey, val)) {\
 		free(mkey);\
@@ -35,6 +36,7 @@
 
 #define dictAddWithUint(d, key, val) do {\
 	unsigned int* mkey = malloc(sizeof(unsigned int));\
+	if (mkey == 0)break;\
 	*mkey = key;\
 	if (DICT_ERR == dictAdd(d, mkey, val)) {\
 		free(mkey);\
@@ -48,6 +50,7 @@
 		*mvalue += val;\
 	} else {\
 		unsigned int* mvalue = malloc(sizeof(unsigned int));\
+		if (mkey == 0)break;\
 		*mvalue = val; \
 		if (DICT_ERR == dictAdd(d, key, mvalue)) {\
 			free(mvalue); \
@@ -69,3 +72,6 @@ void sdsDestructor(void* privdata, void* key);
 unsigned int hashCallback(const void* key);
 int uintCompareCallback(void* privdata, const void* key1, const void* key2);
 void memFreeCallback(void* privdata, void* val);
+
+unsigned int longlongHashCallback(const void* key);
+int LonglongCompareCallback(void* privdata, const void* key1, const void* key2);

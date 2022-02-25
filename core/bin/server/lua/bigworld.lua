@@ -17,7 +17,7 @@ function spaceFactory.New()
     
     --注册自己的entity id到redis
     function obj:Init()
-        
+
         elog.sys_fun("bigworld::init %i", _G["bots"])
         --在客户端模式下不运行
         if(_G["bots"] == 1) then

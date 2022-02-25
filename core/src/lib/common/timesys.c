@@ -114,3 +114,15 @@ char* GetDayForm() {
 		rt.tm_mday);
 	return x;
 }
+
+//GetTickCount64 精度55ms CLOCK_MONOTONIC_COARSE精度也不高
+unsigned long long GetTick()
+{
+#ifdef _WIN32
+	return (unsigned long)GetTickCount64();
+#else
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
+	return (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+#endif
+}

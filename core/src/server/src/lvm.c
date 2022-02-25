@@ -110,9 +110,7 @@ void LVMDestory(void* pvlVMHandle) {
 int LVMCallFunction(void* pvLVMHandle, char* sdsFile, char* fun) {
 
 	PLVMHandle pLVMHandle = pvLVMHandle;
-
 	int top = lua_gettop(pLVMHandle->luaVM);
-
 	sds allPath = sdscatfmt(sdsempty(), "%s%s.lua", pLVMHandle->scriptPath, sdsFile);
 
 	if (luaL_loadfile(pLVMHandle->luaVM, allPath)) {
@@ -124,7 +122,7 @@ int LVMCallFunction(void* pvLVMHandle, char* sdsFile, char* fun) {
 
 	//load fun
 	if (lua_pcall(pLVMHandle->luaVM, 0, LUA_MULTRET, 0)) {
-		elog(log_error, ctg_script, "plg_LvmCallFile.plua_pcall:%s lua:%s", allPath, lua_tolstring(pLVMHandle->luaVM, -1, NULL));
+		elog(log_error, ctg_script, "LVMCallFunction.plua_pcall:%s lua:%s", allPath, lua_tolstring(pLVMHandle->luaVM, -1, NULL));
 		lua_settop(pLVMHandle->luaVM, top);
 		sdsfree(allPath);
 		return 0;
@@ -135,7 +133,7 @@ int LVMCallFunction(void* pvLVMHandle, char* sdsFile, char* fun) {
 	//call fun
 	lua_getglobal(pLVMHandle->luaVM, fun);
 	if (lua_pcall(pLVMHandle->luaVM, 0, LUA_MULTRET, 0)) {
-		elog(log_error, ctg_script, "plg_LvmCallFile.plua_pcall:%s lua:%s", fun, lua_tolstring(pLVMHandle->luaVM, -1, NULL));
+		elog(log_error, ctg_script, "LVMCallFunction.plua_pcall:%s lua:%s", fun, lua_tolstring(pLVMHandle->luaVM, -1, NULL));
 		lua_settop(pLVMHandle->luaVM, 0);
 		return 0;
 	}

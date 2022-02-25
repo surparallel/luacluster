@@ -72,6 +72,7 @@ typedef struct list {
 /* Prototypes */
 list *listCreate(void);
 void listRelease(list *list);
+void listEmpty(list* list);
 list *listAddNodeHead(list *list, void *value);
 list *listAddNodeTail(list *list, void *value);
 list *listInsertNode(list *list, listNode *old_node, void *value, int after);
@@ -91,6 +92,10 @@ list* listAddNodeHeadForNode(list* list, listNode* node);
 list* listAddNodeTailForNode(list* list, listNode* node);
 list* listInsertNodeForNode(list* list, listNode* old_node, listNode* node, int after);
 listNode* listPickNode(list* list, listNode* node);
+listNode* listCreateNode(void* value);
+list* listAddNodeHeadForList(list* masterList, list* slaveList);
+list* listAddNodeTailForList(list* masterList, list* slaveList);
+
 /* Directions for iterators */
 #define AL_START_HEAD 0
 #define AL_START_TAIL 1

@@ -65,8 +65,22 @@ typedef struct _DockerHandle {
 	//entity的短id和长id的对应表
 	dict* id_unallocate;
 	dict* id_allocate;
-	unsigned char* pBuf;
+	unsigned char* pBuf;//每轮消息缓存
 	size_t eventQueueLength;
+
+	dict* entitiesCache;
+	size_t bufCur;
+
+	list* bufList;
+
+	unsigned int stat_send_count;//发送给客户端的封包总数
+	unsigned int stat_packet_count;//其中封包打包的数量
+	unsigned int stat_packet_client;//其中打包后发送的数量
+
+	unsigned int bufCount;//buflist的处理次数
+	unsigned int bufCountLast;
+	unsigned long long bufCountStamp;
+	unsigned long long bufListLen;
 }*PDockerHandle, DockerHandle;
 
 typedef struct _DocksHandle {
@@ -79,8 +93,20 @@ typedef struct _DocksHandle {
 	unsigned short uport;
 	int	nodetype;
 
-	sds entryfile;
-	sds entryfunction;
+	sds entryFile;
+	sds entryFunction;
+	sds entryUpdate;
+	sds entryProcess;
+
+	size_t congestion;
+	unsigned int cacheTime;
+	unsigned int cacheForce;
+
+	unsigned int updateCache;
+	unsigned int updateScript;
+
+	unsigned int popNodeSize;
+	unsigned int packetLimit;
 }*PDocksHandle, DocksHandle;
 
 static PDocksHandle pDocksHandle = 0;
@@ -104,22 +130,25 @@ unsigned long long AllocateID(void* pVoid) {
 	}
 	else {
 		n_error("AllocateID::entity number is greater than 65535!");
+		return 0;
 	}
-	EID eID;
-	CreateEID(&eID, pDocksHandle->ip, pDocksHandle->uportOffset, pDockerHandle->id, id);
-	unsigned long long retId = GetEID(&eID);
-
+	idl64 eid;
+	eid.eid.addr = pDocksHandle->ip;
+	eid.eid.port = pDocksHandle->uportOffset;
+	eid.eid.dock = pDockerHandle->id;
+	eid.eid.id = id;
+	unsigned long long retId = eid.u;
 	return retId;
 }
 
 void UnallocateID(void* pVoid, unsigned long long id) {
 
 	PDockerHandle pDockerHandle = pVoid;
-	EID eID;
-	CreateEIDFromLongLong(id, &eID);
-	unsigned int t_id = GetIDFromEID(&eID);
-	if (!(pDocksHandle->ip == GetAddrFromEID(&eID) && pDocksHandle->uportOffset == GetPortFromEID(&eID) && pDockerHandle->id == GetDockFromEID(&eID))) {
-		n_error("UnallocateID::entity id is error! ip:%i port:%i dock:%i", GetAddrFromEID(&eID), GetPortFromEID(&eID), GetDockFromEID(&eID));
+	idl64 eid;
+	eid.u = id;
+	unsigned int t_id = eid.eid.id;
+	if (!(pDocksHandle->ip == eid.eid.addr && pDocksHandle->uportOffset == eid.eid.port && pDockerHandle->id == eid.eid.dock)) {
+		n_error("UnallocateID::entity id is error! ip:%i port:%i dock:%i", eid.eid.addr, eid.eid.port, eid.eid.dock);
 		return;
 	}
 
@@ -183,16 +212,45 @@ static void doJsonParseFile(char* config, PDocksHandle pDocksHandle)
 				sdsfree(pDocksHandle->assetsPath);
 				pDocksHandle->assetsPath = sdsnew(cJSON_GetStringValue(item));
 			}
-			else if (strcmp(item->string, "entryfile") == 0 && sdslen(pDocksHandle->assetsPath) == 0) {
-				sdsfree(pDocksHandle->entryfile);
-				pDocksHandle->entryfile = sdsnew(cJSON_GetStringValue(item));
+			else if (strcmp(item->string, "entryFile") == 0 && sdslen(pDocksHandle->assetsPath) == 0) {
+				sdsfree(pDocksHandle->entryFile);
+				pDocksHandle->entryFile = sdsnew(cJSON_GetStringValue(item));
 			}
-			else if (strcmp(item->string, "entryfunction") == 0 && sdslen(pDocksHandle->assetsPath) == 0) {
-				sdsfree(pDocksHandle->entryfunction);
-				pDocksHandle->entryfunction = sdsnew(cJSON_GetStringValue(item));
+			else if (strcmp(item->string, "entryFunction") == 0 && sdslen(pDocksHandle->assetsPath) == 0) {
+				sdsfree(pDocksHandle->entryFunction);
+				pDocksHandle->entryFunction = sdsnew(cJSON_GetStringValue(item));
+			}
+			else if (strcmp(item->string, "entryUpdate") == 0 && sdslen(pDocksHandle->assetsPath) == 0) {
+				sdsfree(pDocksHandle->entryUpdate);
+				pDocksHandle->entryUpdate = sdsnew(cJSON_GetStringValue(item));
+			}
+			else if (strcmp(item->string, "entryProcess") == 0 && sdslen(pDocksHandle->assetsPath) == 0) {
+				sdsfree(pDocksHandle->entryProcess);
+				pDocksHandle->entryProcess = sdsnew(cJSON_GetStringValue(item));
 			}
 			else if (strcmp(item->string, "bots") == 0) {
 				global_bots = (int)cJSON_GetNumberValue(item);
+			}
+			else if (strcmp(item->string, "congestion") == 0) {
+				pDocksHandle->congestion = (size_t)cJSON_GetNumberValue(item);
+			}
+			else if (strcmp(item->string, "cacheTime") == 0) {
+				pDocksHandle->cacheTime = (size_t)cJSON_GetNumberValue(item);
+			}
+			else if (strcmp(item->string, "cacheForce") == 0) {
+				pDocksHandle->cacheForce = (size_t)cJSON_GetNumberValue(item);
+			}
+			else if (strcmp(item->string, "updateCache") == 0) {
+				pDocksHandle->updateCache = (size_t)cJSON_GetNumberValue(item);
+			}
+			else if (strcmp(item->string, "updateScript") == 0) {
+				pDocksHandle->updateScript = (size_t)cJSON_GetNumberValue(item);
+			}
+			else if (strcmp(item->string, "popNodeSize") == 0) {
+				pDocksHandle->popNodeSize = (size_t)cJSON_GetNumberValue(item);
+			}
+			else if (strcmp(item->string, "packetLimit") == 0) {
+				pDocksHandle->packetLimit = (size_t)cJSON_GetNumberValue(item);
 			}
 			item = item->next;
 		}
@@ -217,9 +275,27 @@ void DockerRun(void* pVoid) {
 	LVMSetGlobleInt(pDockerHandle->LVMHandle, "bots", global_bots);
 
 	//调用脚本的初始化
-	LVMCallFunction(pDockerHandle->LVMHandle, pDocksHandle->entryfile, pDocksHandle->entryfunction);
+	LVMCallFunction(pDockerHandle->LVMHandle, pDocksHandle->entryFile, pDocksHandle->entryFunction);
 
 	return;
+}
+
+void memFreeCallbackBuf(void* privdata, void* val) {
+	DICT_NOTUSED(privdata);
+	if(val)sdsfree(val);
+}
+
+static dictType LongLongDictTypeBuf = {
+	longlongHashCallback,
+	NULL,
+	NULL,
+	LonglongCompareCallback,
+	memFreeCallback,
+	memFreeCallbackBuf,
+};
+
+void* DefaultLonglongPtrBuf() {
+	return &LongLongDictTypeBuf;
 }
 
 void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short uport
@@ -231,6 +307,7 @@ void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short upor
 	if (pDocksHandle) return;
 
 	pDocksHandle = malloc(sizeof(DocksHandle));
+	if (pDocksHandle == 0)return;
 	pDocksHandle->dockerSize = dockerSize;
 	pDocksHandle->scriptPath = sdsnew("./lua/");
 	pDocksHandle->assetsPath = sdsnew(assetsPath);
@@ -238,8 +315,17 @@ void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short upor
 	pDocksHandle->ip = ip;
 	pDocksHandle->uportOffset = uportOffset;
 	pDocksHandle->uport = uport;
-	pDocksHandle->entryfile = sdsnew("dockerrun");
-	pDocksHandle->entryfunction = sdsnew("main");
+	pDocksHandle->entryFile = sdsnew("dockerrun");
+	pDocksHandle->entryFunction = sdsnew("main");
+	pDocksHandle->entryUpdate = sdsnew("EntryUpdate");
+	pDocksHandle->entryProcess = sdsnew("EntryProcess");
+	pDocksHandle->congestion = 640625;
+	pDocksHandle->cacheTime = 100;
+	pDocksHandle->cacheForce = 0;
+	pDocksHandle->updateCache = 100;
+	pDocksHandle->updateScript = 1000;
+	pDocksHandle->popNodeSize = 350000;
+	pDocksHandle->packetLimit = 625;
 
 	doJsonParseFile(NULL, pDocksHandle);
 	
@@ -248,6 +334,8 @@ void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short upor
 	//因为使用的是list所以0开头
 	for (unsigned int i = 0; i < pDocksHandle->dockerSize; i++) {
 		PDockerHandle pDockerHandle = malloc(sizeof(DockerHandle));
+		if (pDockerHandle == 0)break;
+
 		pDockerHandle->eQueue = EqCreate();
 		pDockerHandle->LVMHandle = LVMCreate(pDocksHandle->scriptPath, pDocksHandle->assetsPath);
 		pDockerHandle->id = i;
@@ -257,6 +345,14 @@ void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short upor
 		pDockerHandle->entityCount = 0;
 		pDockerHandle->eventQueueLength = 0;
 		pDockerHandle->pBuf = 0;
+		pDockerHandle->bufCur = 0;
+		
+		pDockerHandle->entitiesCache = dictCreate(DefaultLonglongPtrBuf(), NULL);
+		pDockerHandle->bufList = listCreate();
+
+		pDockerHandle->stat_send_count = 0;
+		pDockerHandle->stat_packet_count = 0;
+		pDockerHandle->stat_packet_client = 0;
 
 		uv_thread_create(&pDockerHandle->pthreadHandle, DockerRun, pDockerHandle);
 
@@ -264,6 +360,11 @@ void DocksCreate(unsigned int ip, unsigned char uportOffset, unsigned short upor
 	}
 
 	return ;
+}
+
+static void ListDestroyFun(void* value)
+{
+	sdsfree(value);
 }
 
 void DockerCancel() {
@@ -280,6 +381,12 @@ void DockerCancel() {
 		EqDestory(pDockerHandle->eQueue, PacketFree);
 		if (pDockerHandle->pBuf != 0)
 			sdsfree(pDockerHandle->pBuf);
+
+		dictRelease(pDockerHandle->entitiesCache);
+
+		listSetFreeMethod(pDockerHandle->bufList, ListDestroyFun);
+		listRelease(pDockerHandle->bufList);
+
 		free(pDockerHandle);
 	}
 }
@@ -290,94 +397,386 @@ void DocksDestory() {
 		sdsfree(pDocksHandle->scriptPath);
 		sdsfree(pDocksHandle->assetsPath);
 
-		sdsfree(pDocksHandle->entryfile);
-		sdsfree(pDocksHandle->entryfunction);
+		sdsfree(pDocksHandle->entryFile);
+		sdsfree(pDocksHandle->entryFunction);
+		sdsfree(pDocksHandle->entryUpdate);
+		sdsfree(pDocksHandle->entryProcess);
 
 		pDocksHandle = 0;
 	}
 }
 
-int DockerLoop(void* pVoid, lua_State* L, long long msec) {
+int DockerLoopProcessBuf(PDockerHandle pDockerHandle, lua_State* L, char* pBuf) {
 
-	PDockerHandle pDockerHandle = pVoid;
-	if (pDockerHandle->eventQueueLength == 0 && msec != 0) {
-		EqTimeWait(pDockerHandle->eQueue, msec);
-	}
-
-	sdsfree(pDockerHandle->pBuf);
-	//如果长度超过限制要释放掉队列
-	pDockerHandle->pBuf = EqPopWithLen(pDockerHandle->eQueue, &pDockerHandle->eventQueueLength);
-	PProtoHead pProtoHead = (PProtoHead)pDockerHandle->pBuf;
+	PProtoHead pProtoHead = (PProtoHead)pBuf;
 	if (pProtoHead != 0) {
 		//可以用table的方式来处理lua的不确定多返回值的情况ret={fun()}
-		lua_pushnumber(L, pProtoHead->proto);
-		if (pProtoHead->proto == proto_ctr_cancel) {
+		if (pProtoHead->proto == proto_packet) {
+			PProtoRPC pProtoRPC = (PProtoRPC)(pBuf);
 			//由脚本退出循环
+			if (pDockerHandle->bufCur == 0) {
+
+				//开始处理第一个
+				PProtoHead pProtoHeadFirst = (PProtoHead)pProtoRPC->callArg;
+				pDockerHandle->bufCur = sizeof(ProtoRPC) + pProtoHeadFirst->len;
+
+				//也最后一个结束处理
+				if (pDockerHandle->bufCur < pProtoHeadFirst->len) {
+					n_error("DockerLoop::DockerProcessBuf::pProtoHeadFirst pDockerHandle->bufCur < pProtoHeadFirst->len %i %i", pDockerHandle->bufCur, pProtoHeadFirst->len);
+					return 0;
+				}
+
+				if (pDockerHandle->bufCur > pProtoHead->len) {
+					n_error("DockerLoop::DockerProcessBuf::pProtoHeadFirst pDockerHandle->bufCur > pProtoHead->len %i %i", pDockerHandle->bufCur, pProtoHead->len);
+					return 0;
+				}
+
+				if (pProtoHeadFirst->proto != proto_route_call) {
+					n_error("DockerLoop::DockerProcessBuf::pProtoHeadOther pProtoHeadOther->proto != proto_route_call");
+					return 0;
+				}
+
+				if (pDockerHandle->bufCur == pProtoHead->len) {
+					pDockerHandle->bufCur = 0;
+				}
+				//始终为1，结束后需要检查队列后退出
+				pDockerHandle->eventQueueLength = 1;
+				if (pProtoHeadFirst->proto == proto_route_call) {
+					PProtoRoute pProtoRoute = (PProtoRoute)(pProtoHeadFirst);
+					pProtoRoute->pid = pProtoRPC->id;
+				}
+
+				return DockerLoopProcessBuf(pDockerHandle, L, pProtoRPC->callArg);
+			}
+			else {
+				PProtoHead pProtoHeadOther = (PProtoHead)(pBuf + pDockerHandle->bufCur);
+				pDockerHandle->bufCur += pProtoHeadOther->len;
+
+				//最后一个结束处理
+				if (pDockerHandle->bufCur < pProtoHeadOther->len) {
+					n_error("DockerLoop::DockerProcessBuf::pProtoHeadOther pDockerHandle->bufCur < pProtoHeadOther->len %i %i", pDockerHandle->bufCur, pProtoHead->len);
+					return 0;
+				}
+
+				if (pDockerHandle->bufCur > pProtoHead->len) {
+					n_error("DockerLoop::DockerProcessBuf::pProtoHeadOther pDockerHandle->bufCur > pProtoHead->len %i %i", pDockerHandle->bufCur, pProtoHead->len);
+					return 0;
+				}
+
+				if (pProtoHeadOther->proto != proto_route_call) {
+					n_error("DockerLoop::DockerProcessBuf::pProtoHeadOther pProtoHeadOther->proto != proto_route_call");
+					return 0;
+				}
+
+				if (pDockerHandle->bufCur == pProtoHead->len) {
+					pDockerHandle->bufCur = 0;
+				}
+
+				if (pProtoHeadOther->proto == proto_route_call) {
+					PProtoRoute pProtoRoute = (PProtoRoute)(pProtoHeadOther);
+					pProtoRoute->pid = pProtoRPC->id;
+				}
+
+				return DockerLoopProcessBuf(pDockerHandle, L, (char*)pProtoHeadOther);
+			}
+		}
+		else if (pProtoHead->proto == proto_ctr_cancel) {
+			//由脚本退出循环
+			lua_newtable(L);
+			lua_pushnumber(L, 1);
+			lua_pushnumber(L, pProtoHead->proto);
+			lua_settable(L, -3);
 			return 1;
 		}
 		else if (pProtoHead->proto == proto_rpc_create) {
-			PProtoRPCCreate pProtoRPCCreate = (PProtoRPCCreate)(pDockerHandle->pBuf);
+
+			PProtoRPCCreate pProtoRPCCreate = (PProtoRPCCreate)(pBuf);
 
 			if (pProtoHead->len < sizeof(ProtoRPCCreate)) {
 				elog_error(ctg_script, "DockerLoop::proto_rpc_create len error %i %i", pProtoHead->len, sizeof(ProtoRPCCreate));
 				return 0;
 			}
+
+			lua_newtable(L);
+			lua_pushnumber(L, 1);
+			lua_pushnumber(L, pProtoHead->proto);
+			lua_settable(L, -3);
 			size_t len = pProtoHead->len - sizeof(ProtoRPCCreate);
+
+			lua_pushnumber(L, 2);
 			lua_pushlstring(L, pProtoRPCCreate->callArg, len);
-			return 2;
+			lua_settable(L, -3);
+			return 1;
 		}
 		else if (pProtoHead->proto == proto_rpc_call) {
-
-			PProtoRPC pProtoRPC = (PProtoRPC)(pDockerHandle->pBuf);
-			luaL_u64pushnumber(L, pProtoRPC->id);
-			//初始化参数
 
 			if (pProtoHead->len < sizeof(ProtoRPC)) {
 				elog_error(ctg_script, "DockerLoop::proto_rpc_call len error %i %i", pProtoHead->len, sizeof(ProtoRPC));
 				return 0;
 			}
+			lua_newtable(L);
+			lua_pushnumber(L, 1);
+			lua_pushnumber(L, pProtoHead->proto);
+			lua_settable(L, -3);
+
+			PProtoRPC pProtoRPC = (PProtoRPC)(pBuf);
+
+			lua_pushnumber(L, 2);
+			luaL_u64pushnumber(L, pProtoRPC->id);
+			lua_settable(L, -3);
+
+			//初始化参数
 			size_t len = pProtoHead->len - sizeof(ProtoRPC);
+			lua_pushnumber(L, 3);
 			lua_pushlstring(L, pProtoRPC->callArg, len);
-			return 3;
+			lua_settable(L, -3);
+			return 1;
 		}
 		else if (pProtoHead->proto == proto_run_lua) {
-			PProtoRunLua pProtoRunLua = (PProtoRunLua)(pDockerHandle->pBuf);
+			PProtoRunLua pProtoRunLua = (PProtoRunLua)(pBuf);
 			luaL_dostring(L, pProtoRunLua->luaString);
+			return 0;
 		}
 		else if (pProtoHead->proto == proto_route_call) {
-			PProtoRoute pProtoRoute = (PProtoRoute)(pDockerHandle->pBuf);
-			luaL_u64pushnumber(L, pProtoRoute->did);
-			luaL_u64pushnumber(L, pProtoRoute->pid);
 
 			if (pProtoHead->len < sizeof(ProtoRoute)) {
 				elog_error(ctg_script, "DockerLoop::proto_route_call len error %i %i", pProtoHead->len, sizeof(ProtoRoute));
 				return 0;
 			}
+
+			lua_newtable(L);
+			lua_pushnumber(L, 1);
+			lua_pushnumber(L, pProtoHead->proto);
+			lua_settable(L, -3);
+
+			PProtoRoute pProtoRoute = (PProtoRoute)(pBuf);
+			lua_pushnumber(L, 2);
+			luaL_u64pushnumber(L, pProtoRoute->did);
+			lua_settable(L, -3);
+
+			lua_pushnumber(L, 3);
+			luaL_u64pushnumber(L, pProtoRoute->pid);
+			lua_settable(L, -3);
+
 			size_t len = pProtoHead->len - sizeof(ProtoRoute);
+
+			lua_pushnumber(L, 4);
 			lua_pushlstring(L, pProtoRoute->callArg, len);
-			return 4;
+			lua_settable(L, -3);
+			return 1;
 		}
 		else if (pProtoHead->proto == proto_rpc_destory) {
-			PProtoRPC pProtoRPC = (PProtoRPC)(pDockerHandle->pBuf);
+
+			lua_newtable(L);
+			lua_pushnumber(L, 1);
+			lua_pushnumber(L, pProtoHead->proto);
+			lua_settable(L, -3);
+
+			PProtoRPC pProtoRPC = (PProtoRPC)(pBuf);
+			lua_pushnumber(L, 2);
 			luaL_u64pushnumber(L, pProtoRPC->id);
-			return 2;
+			lua_settable(L, -3);
+			return 1;
 		}
 	}
 	return 0;
+}
+
+void DockerCache(PDockerHandle pDockerHandle, unsigned long long stamp) {
+
+	dictIterator* cacheIter = dictGetIterator(pDockerHandle->entitiesCache);
+	dictEntry* cacheNode;
+	while ((cacheNode = dictNext(cacheIter)) != NULL) {
+
+		unsigned long long* key = dictGetKey(cacheNode);
+		sds pBuf = dictGetVal(cacheNode);
+
+		if (pBuf != 0) {
+			//将拼包发送走
+			unsigned int s = sdslen(pBuf);
+			unsigned int len = sizeof(ProtoRPC) + s;
+			PProtoRPC pProtoRPC = malloc(len);
+			if (pProtoRPC == NULL)return;
+			pProtoRPC->protoHead.len = len;
+			pProtoRPC->protoHead.proto = proto_packet;
+			pProtoRPC->id = *key;
+
+			memcpy(pProtoRPC->callArg, pBuf, s);
+
+			//n_error("PipeHandler::DockerLoop proto_packet len %i", len);
+			NetSendToEntity(pProtoRPC->id, (const char*)pProtoRPC, len);
+			free(pProtoRPC);
+			pDockerHandle->stat_packet_client ++;
+		}
+	}
+	dictReleaseIterator(cacheIter);
+
+	//释放上一次
+	if (dictSize(pDockerHandle->entitiesCache))dictEmpty(pDockerHandle->entitiesCache, NULL);
+}
+
+int DockerLoop(void* pVoid, lua_State* L) {
+
+	PDockerHandle pDockerHandle = pVoid;
+	long long waittime = 0;
+	unsigned long long beginstamp = GetTick();
+	unsigned long long endstamp = beginstamp;
+	unsigned long long updateStamp = beginstamp;
+	unsigned long long count = 1;
+	unsigned long long deltaTime = beginstamp - updateStamp;
+	pDockerHandle->bufCount = 0;//buflist的处理次数
+	pDockerHandle->bufCountLast = 0;
+	pDockerHandle->bufCountStamp = beginstamp;
+	pDockerHandle->bufListLen = 0;
+
+	do {
+		if (listLength(pDockerHandle->bufList) == 0 && pDockerHandle->eventQueueLength == 0 && waittime != 0) {
+			EqTimeWait(pDockerHandle->eQueue, waittime);
+		}
+
+		beginstamp = GetTick();
+
+		deltaTime = beginstamp - updateStamp;
+		if (updateStamp == 0 || deltaTime > pDocksHandle->updateScript) {
+
+			int top = lua_gettop(L);
+			lua_getglobal(L, pDocksHandle->entryUpdate);
+			lua_pushnumber(L, (double)deltaTime);
+			lua_pushnumber(L, (double)count);
+			if (lua_pcall(L, 2, LUA_MULTRET, 0)) {
+				n_error("LVMCallFunction.plua_pcall:%s lua:%s", pDocksHandle->entryUpdate, lua_tolstring(L, -1, NULL));
+			}
+			lua_settop(L, top);
+
+			count = count + 1;
+			updateStamp = beginstamp;
+
+			if (deltaTime > pDocksHandle->updateScript * 2) {
+				n_error("dockerrun::update's time is consumed: %i %i", pDockerHandle->id, deltaTime);
+			}
+		}
+
+		if (pDockerHandle->bufCountLast != pDockerHandle->bufCount) {
+
+			if (dictSize(pDockerHandle->entitiesCache)) {
+				DockerCache(pDockerHandle, beginstamp);
+
+				n_stat("DockerLoop::stat(%i) stat_send_count %i/%i/%i", pDockerHandle->id, pDockerHandle->stat_send_count, pDockerHandle->stat_packet_count, pDockerHandle->stat_packet_client);
+			}		
+			pDockerHandle->bufCountLast = pDockerHandle->bufCount;
+
+			if (pDockerHandle->stat_send_count != 0) {
+				pDockerHandle->stat_send_count = 0;
+				pDockerHandle->stat_packet_count = 0;
+				pDockerHandle->stat_packet_client = 0;
+			}
+		}
+
+		if (pDockerHandle->bufCur != 0) {
+			//当前packet封包还没有处理完成
+			int top = lua_gettop(L);
+			lua_getglobal(L, pDocksHandle->entryProcess);
+			if (DockerLoopProcessBuf(pDockerHandle, L, pDockerHandle->pBuf)) {
+				if (lua_pcall(L, 1, LUA_MULTRET, 0)) {
+					n_error("LVMCallFunction.plua_pcall:%s lua:%s", pDocksHandle->entryProcess, lua_tolstring(L, -1, NULL));
+				}
+			}
+			lua_settop(L, top);
+		}
+		else {
+			//如果加上最小间隔时间戳，可能会导致单个封包反应不即时的问题
+			if (listLength(pDockerHandle->bufList) == 0 && pDockerHandle->bufCountStamp - beginstamp > pDocksHandle->updateCache) {
+				EqPopNodeWithLen(pDockerHandle->eQueue, pDocksHandle->popNodeSize, pDockerHandle->bufList, &pDockerHandle->eventQueueLength);
+				
+				//开始新的一轮
+				pDockerHandle->bufCountStamp = beginstamp;
+				pDockerHandle->bufListLen = listLength(pDockerHandle->bufList);
+				if (pDockerHandle->bufListLen != 0) {
+					pDockerHandle->bufCount += 1;
+				}		
+			}
+
+			if (listLength(pDockerHandle->bufList) != 0) {
+				sdsfree(pDockerHandle->pBuf);
+				listNode* node = listFirst(pDockerHandle->bufList);
+				pDockerHandle->pBuf = listNodeValue(node);
+				listDelNode(pDockerHandle->bufList, node);
+
+				if (pDocksHandle->congestion && pDockerHandle->eventQueueLength > pDocksHandle->congestion) {
+					n_error("PipeHandler::DockerLoop(%i) Massive packet congestion %i ", pDockerHandle->id, pDockerHandle->eventQueueLength);
+				}
+				if (pDockerHandle->pBuf != 0 && strlen(pDockerHandle->pBuf) != 0) {
+					int top = lua_gettop(L);
+					lua_getglobal(L, pDocksHandle->entryProcess);
+					if (DockerLoopProcessBuf(pDockerHandle, L, pDockerHandle->pBuf)) {
+						if (lua_pcall(L, 1, LUA_MULTRET, 0)) {
+							n_error("LVMCallFunction.plua_pcall:%s lua:%s", pDocksHandle->entryProcess, lua_tolstring(L, -1, NULL));
+						}
+					}
+					lua_settop(L, top);
+				}
+			}
+		}
+
+		endstamp = GetTick();
+		waittime = waittime - (endstamp - beginstamp);
+		//本轮结束重置
+		//最糟糕的情况是在每轮读秒要结束的时候触发了封包处理导致整体超时。
+		if (waittime < 0) {
+			waittime = pDocksHandle->updateCache;
+		}
+	} while (true);
 }
 
 unsigned int DockerSize() {
 	return pDocksHandle->dockerSize;
 }
 
-void DockerPushMsg(unsigned int dockerId, unsigned char* b, unsigned short s) {
+list** DockerCreateMsgList() {
+	list** retList = malloc(sizeof(list*) * pDocksHandle->dockerSize);
+	if (retList == NULL) return NULL;
+	for (int i = 0; i < pDocksHandle->dockerSize; i++) {
+		retList[i] = listCreate();
+	}
+
+	return retList;
+}
+
+static void DestroyFun(void* value) {
+	sdsfree(value);
+}
+
+void DockerDestoryMsgList(list* retList[]) {
+	for (int i = 0; i < pDocksHandle->dockerSize; i++) {
+		listSetFreeMethod(retList[i], DestroyFun);
+		listRelease(retList[i]);
+	}
+	free(retList);
+}
+
+void DockerPushAllMsgList(list* retList[]) {
+	for (int i = 0; i < pDocksHandle->dockerSize; i++) {
+		EqPushList(pDocksHandle->listPDockerHandle[i]->eQueue, retList[i]);
+	}
+}
+
+void DockerPushMsgList(list* retList[], unsigned int dockerId, unsigned char* b, unsigned int s) {
 	if (dockerId < pDocksHandle->dockerSize) {
 		sds msg = sdsnewlen(b, s);
-		EqPush(pDocksHandle->listPDockerHandle[dockerId]->eQueue, msg);
+		listNode* node = listCreateNode(msg);
+		listAddNodeHeadForNode(retList[dockerId], node);
+	}
+}
+
+void DockerPushMsg(unsigned int dockerId, unsigned char* b, unsigned int s) {
+	if (dockerId < pDocksHandle->dockerSize) {
+		sds msg = sdsnewlen(b, s);
+		listNode* node = listCreateNode(msg);
+		EqPushNode(pDocksHandle->listPDockerHandle[dockerId]->eQueue, node);
 	}	
 }
 
-unsigned int DockerRandomPushMsg(unsigned char* b, unsigned short s) {
+unsigned int DockerRandomPushMsg(unsigned char* b, unsigned int s) {
 
 	unsigned int dockerId = 0;
 
@@ -395,13 +794,13 @@ unsigned int DockerRandomPushMsg(unsigned char* b, unsigned short s) {
 	return dockerId;
 }
 
-void DockerRunScript(unsigned char*  ip, short port, int id, unsigned char* b, unsigned short s) {
+void DockerRunScript(unsigned char*  ip, short port, int id, unsigned char* b, unsigned int s) {
 
 	if (*ip == '\0' && id < 0) {
 		for (unsigned int i = 0; i < pDocksHandle->dockerSize; i++) {
 			PDockerHandle pDockerHandle = pDocksHandle->listPDockerHandle[i];
 
-			unsigned short len = sizeof(PProtoRunLua) + s;
+			unsigned int len = sizeof(PProtoRunLua) + s;
 			PProtoHead pProtoHead = (PProtoHead)sdsnewlen(0, len);
 			pProtoHead->len = len;
 			pProtoHead->proto = proto_run_lua;
@@ -415,7 +814,7 @@ void DockerRunScript(unsigned char*  ip, short port, int id, unsigned char* b, u
 	else {
 		PDockerHandle pDockerHandle = pDocksHandle->listPDockerHandle[id];
 
-		unsigned short len = sizeof(PProtoRunLua) + s;
+		unsigned int len = sizeof(PProtoRunLua) + s;
 		PProtoHead pProtoHead = (PProtoHead)sdsnewlen(0, len);
 		pProtoHead->len = len;
 		pProtoHead->proto = proto_run_lua;
@@ -433,17 +832,48 @@ void DockerRunScript(unsigned char*  ip, short port, int id, unsigned char* b, u
 	}
 }
 
+void DockerSendWithList(unsigned long long id, const char* pc, size_t s, list** list) {
+
+	//n_fun("docker::DockerSend");
+	idl64 eid;
+	eid.u = id;
+	unsigned int addr = eid.eid.addr;
+	unsigned char port = eid.eid.port;
+	unsigned char docker = eid.eid.dock;
+
+	unsigned int len = sizeof(ProtoRPC) + s;
+	PProtoHead pProtoHead = malloc(len);
+	if (pProtoHead == NULL)return;
+	pProtoHead->len = len;
+	pProtoHead->proto = proto_rpc_call;
+
+	PProtoRPC pProtoRPC = (PProtoRPC)pProtoHead;
+	pProtoRPC->id = id;
+
+	memcpy(pProtoRPC->callArg, pc, s);
+
+	if (pDocksHandle->ip == addr && pDocksHandle->uportOffset == port) {
+		DockerPushMsgList(list, docker, (unsigned char*)pProtoHead, len);
+	}
+	else {
+		NetSendToNodeWithUINT(addr, pDocksHandle->uport + port, (unsigned char*)pProtoHead, len);
+	}
+
+	free(pProtoHead);
+}
+
 void DockerSend(unsigned long long id, const char* pc, size_t s) {
 
 	//n_fun("docker::DockerSend");
-	EID eID;
-	CreateEIDFromLongLong(id, &eID);
-	unsigned int addr = GetAddrFromEID(&eID);
-	unsigned char port =  GetPortFromEID(&eID);
-	unsigned char docker = GetDockFromEID(&eID);
+	idl64 eid;
+	eid.u = id;
+	unsigned int addr = eid.eid.addr;
+	unsigned char port = eid.eid.port;
+	unsigned char docker = eid.eid.dock;
 
-	unsigned short len = sizeof(ProtoRPC) + s;
+	unsigned int len = sizeof(ProtoRPC) + s;
 	PProtoHead pProtoHead = malloc(len);
+	if (pProtoHead == NULL)return;
 	pProtoHead->len = len;
 	pProtoHead->proto = proto_rpc_call;
 
@@ -464,15 +894,20 @@ void DockerSend(unsigned long long id, const char* pc, size_t s) {
 
 void DockerSendToClient(void* pVoid, unsigned long long did, unsigned long long pid, const char* pc, size_t s) {
 
+	if (pVoid == 0)return;
 	PDockerHandle pDockerHandle = pVoid;
-	EID eID;
-	CreateEIDFromLongLong(pid, &eID);
-	unsigned int addr = GetAddrFromEID(&eID);
-	unsigned char port = GetPortFromEID(&eID);
-	unsigned char docker = GetDockFromEID(&eID);
+	idl64 eid;
+	eid.u = pid;
+	unsigned int addr = eid.eid.addr;
+	unsigned char port = eid.eid.port;
+	unsigned char docker = eid.eid.dock;
 
-	unsigned short len = sizeof(ProtoRoute) + s;
+	unsigned int len = sizeof(ProtoRoute) + s;
 	PProtoHead pProtoHead = malloc(len);
+	if (pProtoHead == 0)
+		return;
+
+	pDockerHandle->stat_send_count ++;
 	pProtoHead->len = len;
 	pProtoHead->proto = proto_route_call;
 
@@ -483,7 +918,66 @@ void DockerSendToClient(void* pVoid, unsigned long long did, unsigned long long 
 	memcpy(pProtoRoute->callArg, pc, s);
 
 	if (pDocksHandle->ip == addr && pDocksHandle->uportOffset == port) {
-		NetSendToEntity(pid, (unsigned char*)pProtoHead, len);
+		if (pVoid == 0) {
+			NetSendToEntity(pid, (unsigned char*)pProtoHead, len);
+		}
+		else {
+
+			if (pDocksHandle->cacheForce) {
+				//前一次有记录的这次必然堆叠
+				dictEntry* entryCurrent = dictFind(pDockerHandle->entitiesCache, &pid);
+				if (entryCurrent == 0) {
+					sds pbuf = sdsnewlen(0, len);
+					memcpy(pbuf, pProtoHead, len);
+					dictAddWithLonglong(pDockerHandle->entitiesCache, pid, pbuf);
+				}
+				else {
+					sds pbuf = dictGetVal(entryCurrent);
+					size_t l = sdslen(pbuf) + len;
+					if (l > 100 * 1024 * 1024) {
+						n_error("DockerLoop::entitiesCacheLast l > 100 * 1024 * 1024");
+						NetSendToEntity(pid, (unsigned char*)pProtoHead, len);
+						return;
+					}
+					if (sdsavail(pbuf) < len) {
+						pbuf = sdsMakeRoomFor(pbuf, len);
+						dictSetVal(pDockerHandle->entitiesCache, entryCurrent, pbuf);
+					}
+					memcpy(pbuf + sdslen(pbuf), pProtoHead, len);
+					sdsIncrLen(pbuf, (int)len);					
+				}
+			}
+			else {
+				if (pDockerHandle->bufListLen < pDocksHandle->packetLimit) {
+					NetSendToEntity(pid, (unsigned char*)pProtoHead, len);
+					return;
+				}
+
+				dictEntry* entryCurrent = dictFind(pDockerHandle->entitiesCache, &pid);
+				if (entryCurrent == 0) {
+					sds pbuf = sdsnewlen(0, len);
+					memcpy(pbuf, pProtoHead, len);
+					dictAddWithLonglong(pDockerHandle->entitiesCache, pid, pbuf);
+				}
+				else {
+					sds pbuf = dictGetVal(entryCurrent);
+					size_t l = sdslen(pbuf) + len;
+					if (l > 100 * 1024 * 1024) {
+						n_error("DockerLoop::entitiesCacheLast l > 100 * 1024 * 1024");
+						NetSendToEntity(pid, (unsigned char*)pProtoHead, len);
+						return;
+					}
+					if (sdsavail(pbuf) < len) {
+						pbuf = sdsMakeRoomFor(pbuf, len);
+						dictSetVal(pDockerHandle->entitiesCache, entryCurrent, pbuf);
+					}
+					memcpy(pbuf + sdslen(pbuf), pProtoHead, len);
+					sdsIncrLen(pbuf, (int)len);
+				}
+			}
+
+			pDockerHandle->stat_packet_count++;
+		}
 	}
 	else {
 		NetSendToNodeWithUINT(addr, pDocksHandle->uport + port, (unsigned char*)pProtoHead, len);
@@ -515,7 +1009,7 @@ void DockerCreateEntity(void* pVoid, int type, const char* c, size_t s) {
 
 	PDockerHandle pDockerHandle = pVoid;
 
-	unsigned short len = sizeof(ProtoRPCCreate) + s;
+	unsigned int len = sizeof(ProtoRPCCreate) + s;
 	PProtoHead pProtoHead = malloc(len);
 	pProtoHead->len = len;
 	pProtoHead->proto = proto_rpc_create;

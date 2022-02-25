@@ -44,7 +44,7 @@ unsigned int hashCallback(const void* key) {
 	return dictGenHashFunction((unsigned char*)key, sizeof(unsigned int));
 }
 
-static unsigned int longlongHashCallback(const void* key) {
+unsigned int longlongHashCallback(const void* key) {
 	return dictGenHashFunction((unsigned char*)key, sizeof(unsigned long long));
 }
 
@@ -56,7 +56,7 @@ int uintCompareCallback(void* privdata, const void* key1, const void* key2) {
 		return 1;
 }
 
-static int LonglongCompareCallback(void* privdata, const void* key1, const void* key2) {
+int LonglongCompareCallback(void* privdata, const void* key1, const void* key2) {
 	DICT_NOTUSED(privdata);
 	if (*(unsigned long long*)key1 != *(unsigned long long*)key2)
 		return 0;

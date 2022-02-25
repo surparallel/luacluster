@@ -12,8 +12,15 @@ local entityMng = {}
 function entityMng.RegistryObj(obj)
 
     local id = docker.AllocateID()
-    if id == nil then
+    if id == nil or id == 0 then
+        elog.sys_error("RegistryObj::AllocateID error")
         return nil
+    end
+
+    local myid,error = int64.new_unsigned(id)
+    if(myid == nil)then
+        elog.node_error("RegistryObj:: name:%s error:%s", obj.__class, error)
+        return
     end
 
     --注册到全局对象
@@ -21,10 +28,9 @@ function entityMng.RegistryObj(obj)
         _G["__entity"] = {}
     end
 
-    local myid = int64.new_unsigned(id)
     _G["__entity"][tostring(myid)] = obj
     obj.id = id
-    
+
     return id
 end
 
@@ -37,8 +43,19 @@ function entityMng.NewEntity(name, arg)
         e:EntityClass(name)
 
         entityMng.RegistryObj(e)
+        local myint64,error = int64.new_unsigned(e.id)
+        local myid = tostring(myint64)
 
-        local myid = tostring(int64.new_unsigned(e.id))
+        if(myint64 == nil)then
+            elog.node_error("New::id name:%s error:%s", name, error)
+            return
+        end
+
+        if(myid == '0')then
+            elog.node_error("New::id is zero name:%s", name)
+            return
+        end
+
         elog.sys_details("New::id::%s(%s)",name, myid)
 
         if(e.clientid ~= nil)then
@@ -119,23 +136,11 @@ function entityMng.UnRegistryUpdata(obj)
 end
 
 function entityMng.InitUpdata()
-    _G["__updatelast"] = docker.GetCurrentMilli()
+    _G["__updatelast"] = docker.GetTick()
     _G["__updatecount"] = 0
 end
 
-function entityMng.LoopUpdata()
-
-    local last = _G["__updatelast"]
-    local count = _G["__updatecount"]
-    local now = docker.GetCurrentMilli()
-
-    local deltaTime = now - last
-    count = count + 1
-
-    if deltaTime > (sc.glob.msec * 1.5) then
-        elog.sys_error("entityMng::LoopUpdata::update block deltaTime > sc.glob.msec :%i dockerid: %i count:%i", deltaTime, _G["dockerID"], count)
-    end
-
+function entityMng.LoopUpdata(deltaTime, count)
     if _G["__update"] ~= nil then
         for k,v in pairs(_G["__update"]) do
             if v["Update"] ~= nil then
@@ -143,11 +148,6 @@ function entityMng.LoopUpdata()
             end
         end
     end
-
-    _G["__updatelast"] = now
-    _G["__updatecount"] = count
-    local shortDeltaTime = docker.GetCurrentMilli() - now
-    return shortDeltaTime
 end
 
 function entityMng.EntityToCreate(type, name, arg)
@@ -193,8 +193,7 @@ end
 function entityMng.EntityDataSet(id, data)
 
     if _G["__EntityData"] == nil or _G["__EntityData"][id] == nil then
-        elog.sys_error("entityMng.EntityDataSet after EntityDataCreate")
-        return
+        entityMng.EntityDataCreate(id, data)
     end
     _G["__EntityData"][id] = data
 end
@@ -202,18 +201,21 @@ end
 function entityMng.EntityDataGet(id)
 
     if _G["__EntityData"] == nil or _G["__EntityData"][id] == nil then
-        elog.sys_error("entityMng.EntityDataSet after EntityDataCreate")
-        return
+        elog.sys_warn("entityMng.EntityDataGet after EntityDataCreate %s",id)
+        return nil
     end
     return _G["__EntityData"][id]
 end
 
 function entityMng.EntityDataFree(id)
-    _G["__EntityDataCount"][id] = _G["__EntityDataCount"][id] - 1
 
-    if _G["__EntityDataCount"][id] <= 0 then
-        _G["__EntityDataCount"][id] = nil
-        _G["__EntityData"][id]  = nil
+    if _G["__EntityDataCount"][id] ~= nil then
+        _G["__EntityDataCount"][id] = _G["__EntityDataCount"][id] - 1
+
+        if _G["__EntityDataCount"][id] <= 0 then
+            _G["__EntityDataCount"][id] = nil
+            _G["__EntityData"][id]  = nil
+        end
     end
 end
 

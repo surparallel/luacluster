@@ -27,39 +27,67 @@
 void TestGirdDir(void* s) {
 
 	void* pSudoku = s;
-	printf("%d ", GirdDir(pSudoku, 1, 5));
-	printf("%d ", GirdDir(pSudoku, 2, 5));
-	printf("%d ", GirdDir(pSudoku, 3, 5));
-	printf("%d ", GirdDir(pSudoku, 4, 5));
-	printf("%d ", GirdDir(pSudoku, 6, 5));
-	printf("%d ", GirdDir(pSudoku, 7, 5));
-	printf("%d ", GirdDir(pSudoku, 8, 5));
-	printf("%d \n", GirdDir(pSudoku, 9, 5));
-	printf("%d \n", GirdDir(pSudoku, 69, 70));
-	printf("%d \n", GirdDir(pSudoku, 76, 77));
-	printf("%d \n", GirdDir(pSudoku, 90, 83));
+	enum SudokuDir {
+		up = 0,
+		down,
+		left,
+		right,
+		upleft,
+		upright,
+		downleft,
+		downright,
+		dircentre,
+		SudokuDirError
+	};
 
+	if (GirdDir(pSudoku, 0, 4) != downleft) {
+		printf("error 1");
+	}else if (GirdDir(pSudoku, 1, 4) != down) {
+		printf("error 2");
+	}
+	else if (GirdDir(pSudoku, 2, 4) != downright) {
+		printf("error 3");
+	}
+	else if (GirdDir(pSudoku, 3, 4) != left) {
+		printf("error 4");
+	}
+	else if (GirdDir(pSudoku, 4, 4) != dircentre) {
+		printf("error 5");
+	}
+	else if (GirdDir(pSudoku, 5, 4) != right) {
+		printf("error 6");
+	}
+	else if (GirdDir(pSudoku, 6, 4) != upleft) {
+		printf("error 7");
+	}
+	else if (GirdDir(pSudoku, 7, 4) != up) {
+		printf("error 8");
+	}
+	else if (GirdDir(pSudoku, 8, 4) != upright) {
+		printf("error 9");
+	}
 }
 #define Round(x) round(x * 1000) / 1000
 
 void test_sudoku() {
 
-	struct Vector3 cp_p = { 8.132000, 13.683000, 28.117000 };
-	struct Vector3 cp_r = { 41.789000, -16.738000, -137.851000 };
+	struct Vector3 cp_p = { 8.132000f, 13.683000f, 28.117000f };
+	struct Vector3 cp_r = { 41.789000f, -16.738000f, -137.851000f };
 	struct Vector3 cp_out;
+	/*
 	for (size_t i = 0; i < 105; i+=10)
 	{
 		CurrentPosition(&cp_p, &cp_r, 0.2f, 641796365.f, 1641796471.4f, &cp_out, 641796365 + i);
 	}
 	//105
-
-	struct Vector3 a = {99, 0, 30};
-	struct Vector3 b = { 99.08, 0, 99.08};
+	*/
+	struct Vector3 a = {99.f, 0.f, 30.f};
+	struct Vector3 b = { 99.08f, 0.f, 99.08f};
 	struct Vector3 euler;
 	float distance;
 
 	LookVector(&a, &b, &euler, &distance);
-
+/*
 	for (float i = -1.0f; i <= 1.1f; i+=0.1)
 	{
 		for (float j = -1.0f; j <= 1.1f; j+=0.1)
@@ -74,7 +102,7 @@ void test_sudoku() {
 			printf("%f %f %f %f %f\r\n", i, j, euler.x, euler.y, euler.z);
 		}
 	}
-
+*/
 
 	struct Vector3 gird;
 	struct Vector3 begin;
@@ -109,9 +137,11 @@ void test_sudoku() {
 	end.x = 30;
 	end.z = 30;
 	hand = SudokuCreate(gird, begin, end, 0, 0, 0);
+	struct Vector3 pos = { 29.9f, 0, 29.9f };
+	int id = GirdId(hand, &pos);
 
 	TestGirdDir(hand);
-
+/*
 	for (int i = 0; i < 5; i++) {
 		position.x = (float)(rand() % 30);
 		position.z = (float)(rand() % 30);
@@ -129,6 +159,6 @@ void test_sudoku() {
 		PrintAllPoition(hand);
 	}
 
-
+*/
 	SudokuDestory(hand);
 }

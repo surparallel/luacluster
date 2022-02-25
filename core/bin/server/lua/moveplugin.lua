@@ -1,7 +1,7 @@
 --moveplugin
 local docker = require("docker")
 local int64 = require("int64")
-local udpproxy = require 'udpproxy'
+local udpproxylist = require 'udpproxylist'
 local math3d = require 'math3d'
 local elog = require("eloghelp")
 local entity = require("entity")
@@ -47,12 +47,18 @@ function movepluginFactory.New()
         , x, y, z, d, self.transform.stamp, self.transform.stampStop
         , self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z)
 
+        local list = docker.CreateMsgList()
         for k, v1 in pairs(self.entities) do
             local v = entitymng.EntityDataGet(k)
-            local view = udpproxy.New(v[1])
-            view:OnMove(self.id, self.transform.position.x, self.transform.position.y, self.transform.position.z
-            ,self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z, self.transform.velocity, self.transform.stamp, self.transform.stampStop);
+            if v ~= nil then
+                local view = udpproxylist.New(v[1], list)
+                view:OnMove(self.id, self.transform.position.x, self.transform.position.y, self.transform.position.z
+                ,self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z, self.transform.velocity
+                , self.transform.stamp, self.transform.stampStop)
+            end
         end
+        docker.PushAllMsgList(list)
+        docker.DestoryMsgList(list)
 
         --调用spalceplugin得方法通知所有空间
         self:SpaceMove(self.transform.position.x, self.transform.position.y, self.transform.position.z

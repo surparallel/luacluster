@@ -23,8 +23,8 @@ void* NetCreate(int nodetype, unsigned short listentcp);
 void NetDestory();
 
 int NetSendToCancel();
-int NetSendToClient(unsigned int id, const char* b, unsigned short s);
-int NetSendToEntity(unsigned long long entityid, const char* b, unsigned short s);
+int NetSendToClient(unsigned int id, const char* b, unsigned int s);
+int NetSendToEntity(unsigned long long entityid, const char* b, unsigned int s);
 void NetUDPAddr2(unsigned int* ip, unsigned char* uportOffset, unsigned short* uport);
-void NetSendToNode(char* ip, unsigned short port, unsigned char* b, unsigned short s);
-void NetSendToNodeWithUINT(unsigned int ip, unsigned short port, unsigned char* b, unsigned short s);
+void NetSendToNode(char* ip, unsigned short port, unsigned char* b, unsigned int s);
+void NetSendToNodeWithUINT(unsigned int ip, unsigned short port, unsigned char* b, unsigned int s);

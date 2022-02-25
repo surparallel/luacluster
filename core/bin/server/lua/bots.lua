@@ -58,12 +58,8 @@ function botsFactory.New()
     function obj:OnAddView(entity)
         local id64 = tostring(int64.new_unsigned(entity[1]))
 
-        if self.entities[id64] == nil then
-            entitymng.EntityDataCreate(id64, entity)
-            self.entities[id64] = 1
-        else
-            entitymng.EntityDataSet(id64, entity)
-        end
+        self.entities[id64] = 1
+        entitymng.EntityDataSet(id64, entity)
     end
 
     function obj:OnEntryWorld(poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)

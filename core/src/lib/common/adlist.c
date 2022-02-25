@@ -68,6 +68,34 @@ void listRelease(list *list)
     free(list);
 }
 
+
+/* Empty the whole list.
+ *
+ * This function can't fail. */
+void listEmpty(list* list)
+{
+    size_t len;
+    listNode* current, * next;
+
+    current = list->head;
+    len = list->len;
+    while (len--) {
+        next = current->next;
+        if (list->free) list->free(current->value);
+        free(current);
+        current = next;
+    }
+}
+
+listNode* listCreateNode(void* value)
+{
+    listNode* node;
+    if ((node = malloc(sizeof(*node))) == NULL)
+        return NULL;
+    node->value = value;
+    return node;
+}
+
 /* Add a new node to the list, to head, containing the specified 'value'
  * pointer as value.
  *
@@ -337,13 +365,6 @@ void listRotate(list *list) {
     list->head = tail;
 }
 
-
-/* Add a new node to the list, to head, containing the specified 'value'
- * pointer as value.
- *
- * On error, NULL is returned and no operation is performed (i.e. the
- * list remains unaltered).
- * On success the 'list' pointer you pass to the function is returned. */
 list* listAddNodeHeadForNode(list* list, listNode* node)
 {
     if (list->len == 0) {
@@ -360,12 +381,6 @@ list* listAddNodeHeadForNode(list* list, listNode* node)
     return list;
 }
 
-/* Add a new node to the list, to tail, containing the specified 'value'
- * pointer as value.
- *
- * On error, NULL is returned and no operation is performed (i.e. the
- * list remains unaltered).
- * On success the 'list' pointer you pass to the function is returned. */
 list* listAddNodeTailForNode(list* list, listNode* node)
 {
     if (list->len == 0) {
@@ -408,10 +423,6 @@ list* listInsertNodeForNode(list* list, listNode* old_node, listNode* node, int 
     return list;
 }
 
-/* Remove the specified node from the specified list.
- * It's up to the caller to free the private value of the node.
- *
- * This function can't fail. */
 listNode* listPickNode(list* list, listNode* node)
 {
     if (node->prev)
@@ -426,4 +437,40 @@ listNode* listPickNode(list* list, listNode* node)
     list->len--;
 
     return node;
+}
+
+list* listAddNodeHeadForList(list* masterList, list* slaveList)
+{
+    if (masterList->len == 0) {
+        masterList->head = listFirst(slaveList);
+        masterList->tail = listLast(slaveList);
+    }
+    else {
+        slaveList->tail->next = masterList->head;
+        masterList->head->prev = slaveList->tail;
+        masterList->head = slaveList->head;
+    }
+
+    masterList->len += slaveList->len;
+    slaveList->head = slaveList->tail = NULL;
+    slaveList->len = 0;
+    return masterList;
+}
+
+list* listAddNodeTailForList(list* masterList, list* slaveList)
+{
+    if (masterList->len == 0) {
+        masterList->head = listFirst(slaveList);
+        masterList->tail = listLast(slaveList);
+    }
+    else {
+        masterList->tail->next = slaveList->head;
+        slaveList->head->prev = masterList->tail;
+        masterList->tail = slaveList->tail;
+    }
+
+    slaveList->head = slaveList->tail = NULL;
+    masterList->len += slaveList->len;
+    slaveList->len = 0;
+    return masterList;
 }

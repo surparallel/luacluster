@@ -21,6 +21,7 @@
 
 #include "plateform.h"
 #include "dict.h"
+#include "adlist.h"
 #include "lua.h"
 #include "lauxlib.h"
 #include "lualib.h"

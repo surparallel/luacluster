@@ -19,15 +19,26 @@
 
 typedef void* VPEID;
 
+//0 表示正，1 表示负。接下来的 11 位是阶码, 52位的尾数。
+//阶码全1，尾数全0表示无穷大INF。例如1.0/0.0
+//阶码全1，尾数非全0的表示无效数NaN
 #pragma pack(push,1)
 typedef struct _EID {
+	unsigned int addr;//ipv4
 	unsigned short id;
 	unsigned char dock;
 	unsigned char port;//UDP端口号的偏移
-	unsigned int addr;//ipv4
 }*PEID, EID;
+
+typedef union idl64
+{
+	volatile EID eid;
+	volatile unsigned long long u;
+} idl64;
+
 #pragma pack(pop)
 
+/*
 unsigned char GetDockFromEID(PEID pEID);
 void SetDockFromEID(PEID pEID, unsigned char dock);
 unsigned short GetIDFromEID(PEID pEID);
@@ -40,3 +51,4 @@ void CreateEID(PEID pEID, unsigned int addr, unsigned char port, unsigned char d
 void CreateEIDFromLongLong(unsigned long long eid, PEID pEID);
 void SetEID(PEID pEID, unsigned long long eid);
 unsigned long long GetEID(PEID pEID);
+*/

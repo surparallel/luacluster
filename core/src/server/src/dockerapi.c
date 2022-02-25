@@ -19,6 +19,7 @@
 
 #include "plateform.h"
 #include "dict.h"
+#include "adlist.h"
 #include "lua.h"
 #include "lauxlib.h"
 #include "lualib.h"
@@ -80,10 +81,9 @@ static int luaB_Send(lua_State* L) {
 	return 0;
 }
 
-static int luaB_Wait(lua_State* L) {
+static int luaB_Loop(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
-	unsigned long long msec = luaL_tou64be(L, 1, 0, 0);
-	return DockerLoop(pVoid, L, msec);
+	return DockerLoop(pVoid, L);
 }
 
 static int luaB_AllocateID(lua_State* L) {
@@ -127,7 +127,7 @@ static int luaB_BindNet(lua_State* L) {
 	unsigned long long entityId = luaL_tou64be(L, 1, 0, 0);
 	unsigned int clientId = luaL_checkinteger(L, 2);
 
-	unsigned short len = sizeof(ProtoNetBind);
+	unsigned int len = sizeof(ProtoNetBind);
 	PProtoHead pProtoHead = malloc(len);
 	pProtoHead->len = len;
 	pProtoHead->proto = proto_net_bind;
@@ -146,7 +146,7 @@ static int luaB_DestoryNet(lua_State* L) {
 
 	unsigned int clientId = luaL_checkinteger(L, 1);
 
-	unsigned short len = sizeof(ProtoNetDestory);
+	unsigned int len = sizeof(ProtoNetDestory);
 	PProtoHead pProtoHead = malloc(len);
 	pProtoHead->len = len;
 	pProtoHead->proto = proto_net_destory;
@@ -163,6 +163,14 @@ static int luaB_GetCurrentMilli(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 
 	luaL_u64pushnumber(L, GetCurrentMilli());
+	return 1;
+}
+
+
+static int luaB_GetTick(lua_State* L) {
+	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
+
+	luaL_u64pushnumber(L, GetTick());
 	return 1;
 }
 
@@ -192,6 +200,41 @@ static int luaB_GetEntityCount(lua_State* L) {
 	return 1;
 }
 
+static int luaB_SendWithList(lua_State* L) {
+	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
+
+	//entity id
+	unsigned long long id = luaL_tou64be(L, 1, 0, 0);
+	size_t ret;
+	const char* pc = luaL_checklstring(L, 2, &ret);
+	list** list = lua_touserdata(L, 3);
+
+	DockerSendWithList(id, pc, ret, list);
+	return 0;
+}
+
+static int luaB_DockerCreateMsgList(lua_State* L) {
+	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
+
+	list** ret = DockerCreateMsgList();
+	lua_pushlightuserdata(L, ret);
+	return 1;
+}
+
+static int luaB_DockerDestoryMsgList(lua_State* L) {
+	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
+	list** list = lua_touserdata(L, 1);
+	DockerDestoryMsgList(list);
+	return 0;
+}
+
+static int luaB_DockerPushAllMsgList(lua_State* L) {
+	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
+	list** list = lua_touserdata(L, 1);
+	DockerPushAllMsgList(list);
+	return 0;
+}
+
 static const luaL_Reg docker_funcs[] = {
 	{"GetCurrentMilli", luaB_GetCurrentMilli},
 	{"BindNet", luaB_BindNet},
@@ -202,10 +245,16 @@ static const luaL_Reg docker_funcs[] = {
 	{"SendToClient", luaB_SendToClient},
 	{"CopyRpcToClient", luaB_CopyRpcToClient},
 	{"Send", luaB_Send},
-	{"Wait", luaB_Wait},
 	{"GetDockerID", luaB_GetDockerID},
 	{"Script", luaB_Script},
 	{"GetEntityCount", luaB_GetEntityCount},
+	{"GetTick", luaB_GetTick},
+	{"Loop", luaB_Loop},
+
+	{"SendWithList", luaB_SendWithList},
+	{"CreateMsgList", luaB_DockerCreateMsgList},
+	{"DestoryMsgList", luaB_DockerDestoryMsgList},
+	{"PushAllMsgList", luaB_DockerPushAllMsgList},
 	{NULL, NULL}
 };
 

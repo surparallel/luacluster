@@ -35,5 +35,6 @@ unsigned int GetCurrentSec();
 void GetTime(long long *sec, int *usec);
 char* GetTimForm();
 char* GetDayForm();
+unsigned long long GetTick();
 
 #endif

@@ -64,6 +64,30 @@ int EqIfNoPush(void* pvEventQueue, void* value, unsigned int maxQueue) {
 	return (int)r;
 }
 
+void EqPushList(void* pvEventQueue, list* in) {
+	if (listLength(in) == 0) return;
+	PEventQueue pEventQueue = pvEventQueue;
+	MutexLock(pEventQueue->mutexHandle, pEventQueue->objecName);
+	size_t r = listLength(pEventQueue->listQueue);
+	listAddNodeHeadForList(pEventQueue->listQueue, in);
+	if (r == 0) {
+		semwarp_post(&pEventQueue->semaphore);
+	}
+	MutexUnlock(pEventQueue->mutexHandle, pEventQueue->objecName);
+}
+
+void EqPushNode(void* pvEventQueue, listNode* node) {
+
+	PEventQueue pEventQueue = pvEventQueue;
+	MutexLock(pEventQueue->mutexHandle, pEventQueue->objecName);
+	listAddNodeHeadForNode(pEventQueue->listQueue, node);
+	size_t r = listLength(pEventQueue->listQueue);
+	if (r == 1) {
+		semwarp_post(&pEventQueue->semaphore);
+	}
+	MutexUnlock(pEventQueue->mutexHandle, pEventQueue->objecName);
+}
+
 void EqPush(void* pvEventQueue, void* value) {
 
 	PEventQueue pEventQueue = pvEventQueue;
@@ -103,6 +127,7 @@ void* EqPop(void* pvEventQueue) {
 void* EqPopWithLen(void* pvEventQueue, size_t *len) {
 	PEventQueue pEventQueue = pvEventQueue;
 	void* value = 0;
+	*len = 0;
 	MutexLock(pEventQueue->mutexHandle, pEventQueue->objecName);
 	if (listLength(pEventQueue->listQueue) != 0) {
 		listNode *node = listLast(pEventQueue->listQueue);
@@ -114,6 +139,28 @@ void* EqPopWithLen(void* pvEventQueue, size_t *len) {
 	}
 	MutexUnlock(pEventQueue->mutexHandle, pEventQueue->objecName);
 	return value;
+}
+
+void EqPopNodeWithLen(void* pvEventQueue, size_t limite, list* out, size_t* len) {
+	PEventQueue pEventQueue = pvEventQueue;
+	*len = 0;
+	MutexLock(pEventQueue->mutexHandle, pEventQueue->objecName);
+	if (listLength(pEventQueue->listQueue) != 0) {
+
+		for (size_t i = 0; i < limite; i++)
+		{
+			listNode* node = listLast(pEventQueue->listQueue);
+			listPickNode(pEventQueue->listQueue, node);
+			listAddNodeTailForNode(out, node);
+			if (listLength(pEventQueue->listQueue) == 0)
+				break;
+		}
+
+		if (len) {
+			*len = listLength(pEventQueue->listQueue);
+		}
+	}
+	MutexUnlock(pEventQueue->mutexHandle, pEventQueue->objecName);
 }
 
 void EqEmpty(void* pvEventQueue, QueuerDestroyFun fun) {

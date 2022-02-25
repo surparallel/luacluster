@@ -35,12 +35,13 @@ enum proto {
 	//发送协议
 	proto_client_id,//使用网络发送tcp消息给指定client id
 	proto_client_entity,//使用网络发送tcp消息给指点entity id
+	proto_packet,//上述协议的拼包
 };
 
 #pragma pack(push,1)
 //协议头保留长度是为了tcp协议
 typedef struct _ProtoHead {
-	unsigned short len;
+	unsigned int len;
 	unsigned char proto;
 }*PProtoHead, ProtoHead;
 

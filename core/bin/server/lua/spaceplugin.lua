@@ -19,6 +19,7 @@ function spacepluginFactory.New()
     obj.transform.nowPosition = {}
     obj.transform.rotation = {}
     obj.entities = {}
+    obj.spaces = {}
 
     --这里要改为链接bigworld
     function obj:EntryWorld(sapceName)
@@ -36,7 +37,6 @@ function spacepluginFactory.New()
             , self.transform.stampStop
             , self.isGhost)
         self.clients = spaceproxy.New(self)
-        self.spaces = {}
     end
 
     function obj:OnEntryWorld(spaceType, beginx, beginz, endx, endz)
@@ -55,8 +55,9 @@ function spacepluginFactory.New()
     --用户主动离开所有空间
     function obj:LeaveWorld(sapceName)
 
-        if next(self.spaces) == nil  then
+        if self.spaces ~= nil and next(self.spaces) == nil  then
             elog.sys_error("spaceplugin::LeaveWorld:: self.spaces is empty")
+            return
         end
 
         for k, v in pairs(self.spaces) do
@@ -66,8 +67,10 @@ function spacepluginFactory.New()
 		--通知视野内对象删除可见
         for k, v1 in pairs(self.entities) do
             local v = entitymng.EntityDataGet(k)
-            local view = udpproxy.New(v[1])
-            view:OnDelView(self.id);
+            if v ~= nil then
+                local view = udpproxy.New(v[1])
+                view:OnDelView(self.id);
+            end
         end
     end
 
@@ -76,12 +79,8 @@ function spacepluginFactory.New()
     function obj:OnAddView(entity)
         local id64 = tostring(int64.new_unsigned(entity[1]))
 
-        if self.entities[id64] == nil then
-            entitymng.EntityDataCreate(id64, entity)
-            self.entities[id64] = 1
-        else
-            entitymng.EntityDataSet(id64, entity)
-        end
+        self.entities[id64] = 1
+        entitymng.EntityDataSet(id64, entity)
 
         --转发到客户端
         if self.clientid ~= nil then
@@ -112,11 +111,13 @@ function spacepluginFactory.New()
 
         for k, v1 in pairs(self.entities) do
             local v = entitymng.EntityDataGet(k)
-            local x,y,z =math3d.Position(v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10])
-            local dist = math3d.Dist(self.transform.position.x, 0, self.transform.position.z, x, y, z)
-            if dist > limit then
-                self.entities[k] = nil
-                entitymng.EntityDataFree(k)
+            if v ~= nil then
+                local x,y,z =math3d.Position(v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10])
+                local dist = math3d.Dist(self.transform.position.x, 0, self.transform.position.z, x, y, z)
+                if dist > limit then
+                    self.entities[k] = nil
+                    entitymng.EntityDataFree(k)
+                end
             end
         end
     end

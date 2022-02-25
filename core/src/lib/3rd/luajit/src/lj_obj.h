@@ -674,7 +674,8 @@ typedef union GCobj {
 #define tvisgcv(o)	((itype(o) - LJ_TISGCV) > (LJ_TNUMX - LJ_TISGCV))
 
 /* Special macros to test numbers for NaN, +0, -0, +1 and raw equality. */
-#define tvisnan(o)	((o)->n != (o)->n)
+//#define tvisnan(o)	((o)->n != (o)->n)
+#define tvisnan(o) (0)
 #if LJ_64
 #define tviszero(o)	(((o)->u64 << 1) == 0)
 #else

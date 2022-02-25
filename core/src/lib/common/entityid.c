@@ -25,7 +25,7 @@
 
 #include "plateform.h"
 #include "entityid.h"
-
+/*
 unsigned char GetDockFromEID(PEID pEID) {
 	return pEID->dock;
 }
@@ -85,4 +85,4 @@ void CreateEIDFromLongLong(unsigned long long eid, PEID pEID) {
 	if (sizeof(EID) == sizeof(unsigned long long)) {
 		memcpy(pEID, &eid, sizeof(EID));
 	}
-}
+}*/

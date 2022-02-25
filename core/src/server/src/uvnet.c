@@ -32,6 +32,7 @@
 #include "docker.h"
 #include "locks.h"
 #include "redishelp.h"
+#include "timesys.h"
 
 #define _BINDADDR_MAX 16
 #define PACKET_MAX_SIZE_UDP					1472
@@ -85,12 +86,13 @@ typedef struct _NetServer {
     uv_timer_t once;
 
     unsigned int bindListenIp; //指定默认绑定的地址类型4 or 6
+
+    size_t congestion;
+    sds tcp_recv_buf;//缓冲区
 } *PNetServer, NetServer;
 
 typedef struct _NetClient {
-    sds tcp_recv_buf;//缓冲区
     int flags;
-
     //udp
     char udp_recv_buf[PACKET_MAX_SIZE_UDP];
 
@@ -100,7 +102,6 @@ typedef struct _NetClient {
 
     uv_stream_t* stream;
     PNetServer pNetServer;
-
 }*PNetClient, NetClient;
 
 typedef struct {
@@ -111,9 +112,6 @@ typedef struct {
 PNetServer _pNetServer;
 
 static void freeClient(NetClient* c) {
-
-    /* Free the query buffer */
-    sdsfree(c->tcp_recv_buf);
 
     listNode* ln;
     /* Remove from the list of clients */
@@ -157,12 +155,14 @@ static void tcp_alloc(uv_handle_t* handle,
     uv_buf_t* buf) {
     PNetClient c = uv_handle_get_data(handle);
 
-    if (suggested_size > sdslen(c->tcp_recv_buf)) {
-        c->tcp_recv_buf = sdsMakeRoomFor(c->tcp_recv_buf, suggested_size);
-        sdsIncrLen(c->tcp_recv_buf, suggested_size);
+    size_t len = sdslen(c->pNetServer->tcp_recv_buf);
+    if (suggested_size > sdslen(c->pNetServer->tcp_recv_buf)) {
+        size_t add = suggested_size - len;
+        c->pNetServer->tcp_recv_buf = sdsMakeRoomFor(c->pNetServer->tcp_recv_buf, add);
+        sdsIncrLen(c->pNetServer->tcp_recv_buf, add);
     }
 
-    buf->base = c->tcp_recv_buf;
+    buf->base = c->pNetServer->tcp_recv_buf;
     buf->len = suggested_size;
 }
 
@@ -200,26 +200,27 @@ static void RecvCallback(PNetClient c, char* buf, size_t buffsize) {
         }
         else if (pProtoHead->proto == proto_rpc_call) {
             PProtoRPC pProtoRPC = (PProtoRPC)buf;
-            EID eID;
-            CreateEIDFromLongLong(pProtoRPC->id, &eID);
-            unsigned int addr = GetAddrFromEID(&eID);
-            unsigned char port = GetPortFromEID(&eID);
+
+            idl64 eid;
+            eid.u = pProtoRPC->id;
+            unsigned int addr = eid.eid.addr;
+            unsigned char port = eid.eid.port;
 
             if (c->pNetServer->udp_ip == addr && c->pNetServer->uportOffset == port) {
-                unsigned char docker = GetDockFromEID(&eID);
-                DockerPushMsg(docker, buf, buffsize);
+                DockerPushMsg(eid.eid.dock, buf, buffsize);
             }
             else {
-                n_error("RecvCallback error udp addr ip: %i,%i port: %i,%i", c->pNetServer->udp_ip, addr, c->pNetServer->uportOffset, port);
+                n_error("RecvCallback error udp addr ip: %u,%u port: %u,%u", c->pNetServer->udp_ip, addr, c->pNetServer->uportOffset, port);
             }
         }
         else if (pProtoHead->proto == proto_route_call) {
             //转发给客户端
             PProtoRoute pProtoRoute = (PProtoRoute)buf;
-            EID eID;
-            CreateEIDFromLongLong(pProtoRoute->pid, &eID);
-            unsigned int addr = GetAddrFromEID(&eID);
-            unsigned char port = GetPortFromEID(&eID);
+
+            idl64 eid;
+            eid.u = pProtoRoute->pid;
+            unsigned int addr = eid.eid.addr;
+            unsigned char port = eid.eid.port;
 
             if (c->pNetServer->udp_ip == addr && c->pNetServer->uportOffset == port) {
                 //找到对应entity id 的client id 转发
@@ -238,10 +239,6 @@ static void RecvCallback(PNetClient c, char* buf, size_t buffsize) {
                 }
             }
         }
-        else if (pProtoHead->proto == proto_run_lua) {
-            PProtoRunLua pProtoRunLua = (PProtoRunLua)buf;
-            DockerRunScript("", 0, pProtoRunLua->dockerid, pProtoRunLua->luaString, pProtoRunLua->protoHead.len - sizeof(PProtoRunLua));
-        }
     }
     else if (c->flags & _TCP_SOCKET || c->flags & _TCP_CONNECT) {
         if (pProtoHead->proto == proto_route_call) {
@@ -259,15 +256,27 @@ static void RecvCallback(PNetClient c, char* buf, size_t buffsize) {
                     pProtoRoute->did = c->entityId;//替换掉对应的id
                     pProtoRoute->pid = c->entityId;//替换掉对应的id
                 }
-                EID eID;
-                CreateEIDFromLongLong(pProtoRoute->pid, &eID);
-                docker = GetDockFromEID(&eID);
 
-                DockerPushMsg(docker, buf, buffsize);
+                idl64 eid;
+                eid.u = pProtoRoute->pid;
+                DockerPushMsg(eid.eid.dock, buf, buffsize);
             }
             else {
                 n_error("Client is initializing!")
             }
+        }
+        else if (pProtoHead->proto == proto_packet) {
+            PProtoRPC pProtoRPC = (PProtoRPC)buf;
+            pProtoRPC->id = c->entityId;//替换掉对应的id
+
+            idl64 eid;
+            eid.u = pProtoRPC->id;
+
+            DockerPushMsg(eid.eid.dock, buf, buffsize);
+        }
+        else if (pProtoHead->proto == proto_run_lua) {
+            PProtoRunLua pProtoRunLua = (PProtoRunLua)buf;
+            DockerRunScript("", 0, pProtoRunLua->dockerid, pProtoRunLua->luaString, pProtoRunLua->protoHead.len - sizeof(PProtoRunLua));
         }
         else {
             n_error("Discard the error packet!")
@@ -300,16 +309,16 @@ static void tcp_read(uv_stream_t* handle,
         return;
     }
 
-    unsigned int readSize = 0;
+    ssize_t readSize = 0;
     char* pos = buf->base;
     while (true) {
         if (nread <= readSize) {
             break;
         }
 
-        unsigned short len = *(unsigned short*)pos;
+        ssize_t len = *(unsigned int*)pos;
         if (len > (nread - readSize)) {
-            n_error("tcp_read The remaining nread cannot meet the length requirement");
+            n_error("tcp_read The remaining nread cannot meet the length requirement %I, %I, %I" , len, nread, readSize);
             break;
         } 
         RecvCallback(c, pos, len);
@@ -344,7 +353,6 @@ static void on_connection(uv_stream_t* server, int status) {
     c->pNetServer = pNetServer;
     c->id = ++pNetServer->allClientID;
     c->flags |= _TCP_SOCKET;
-    c->tcp_recv_buf = sdsempty();
 
     r = uv_accept(server, c->stream);
     if (r) {
@@ -373,7 +381,7 @@ static void on_connection(uv_stream_t* server, int status) {
         mp_encode_bytes(pmp_buf, "clientid", strlen("clientid"));
         mp_encode_int(pmp_buf, c->id);
 
-        unsigned short len = sizeof(ProtoRPCCreate) + pmp_buf->len;
+        unsigned int len = sizeof(ProtoRPCCreate) + pmp_buf->len;
         PProtoHead pProtoHead = malloc(len);
         pProtoHead->len = len;
         pProtoHead->proto = proto_rpc_create;
@@ -550,6 +558,9 @@ static void doJsonParseFile(PNetServer pNetServer, char* config)
                 else if (r == 6)
                     pNetServer->bindListenIp = _TCP6_SOCKET;
             }
+            else if (strcmp(item->string, "congestion") == 0) {
+                _pNetServer->congestion = (size_t)cJSON_GetNumberValue(item);
+            }
             item = item->next;
         }
     }
@@ -567,7 +578,9 @@ static void NetRun(void* pVoid) {
 static void connect_cb(uv_connect_t* req, int status) {
 
     if (status != 0) {
+        free(req);
         n_error("connect_cb error: %s - %s", uv_err_name(status), uv_strerror(status));
+        return;
     }
 
     NetClient* c = req->data;
@@ -586,7 +599,7 @@ static void connect_cb(uv_connect_t* req, int status) {
         mp_encode_bytes(pmp_buf, "clientid", strlen("clientid"));
         mp_encode_int(pmp_buf, c->id);
 
-        unsigned short len = sizeof(ProtoRPCCreate) + pmp_buf->len;
+        unsigned int len = sizeof(ProtoRPCCreate) + pmp_buf->len;
         PProtoHead pProtoHead = malloc(len);
         pProtoHead->len = len;
         pProtoHead->proto = proto_rpc_create;
@@ -664,7 +677,6 @@ static void NetCommand(char* pBuf, PNetServer pNetServer) {
         c->pNetServer = pNetServer;
         c->id = ++pNetServer->allClientID;
         c->flags |= _TCP_CONNECT;
-        c->tcp_recv_buf = sdsempty();
 
         r = uv_tcp_init(pNetServer->loop, (uv_tcp_t*)c->stream);
         if (r) {
@@ -690,7 +702,7 @@ static void NetCommand(char* pBuf, PNetServer pNetServer) {
 }
 
 /*这里要加队列锁，支持多线程*/
-int NetSendToClient(unsigned int id, const char* b, unsigned short s) {
+int NetSendToClient(unsigned int id, const char* b, unsigned int s) {
 
     sds sendBuf = sdsnewlen(0, s + sizeof(ProtoSendToClient));
     PProtoSendToClient pProtoSendToClient = (PProtoSendToClient)sendBuf;
@@ -710,7 +722,7 @@ int NetSendToClient(unsigned int id, const char* b, unsigned short s) {
     return 1;
 }
 
-int NetSendToEntity(unsigned long long entityid, const char* b, unsigned short s) {
+int NetSendToEntity(unsigned long long entityid, const char* b, unsigned int s) {
 
     sds sendBuf = sdsnewlen(0, s + sizeof(ProtoSendToEntity));
     PProtoSendToEntity pProtoSendToEntity = (PProtoSendToEntity)sendBuf;
@@ -735,16 +747,22 @@ static void SendLoop(PNetServer pNetServer) {
     while (true) {
         //从队列中取出数据
         void* value = 0;
+        size_t len = 0;
         MutexLock(pNetServer->sendBufMutexHandle, "");
         if (listLength(pNetServer->sendBuf) != 0) {
             listNode* node = listFirst(pNetServer->sendBuf);
             value = listNodeValue(node);
             listDelNode(pNetServer->sendBuf, node);
+            len = listLength(pNetServer->sendBuf);
         }
         MutexUnlock(pNetServer->sendBufMutexHandle, "");
 
         if (value == 0)
             break;
+        
+        if (_pNetServer->congestion  && len >= _pNetServer->congestion) {
+            n_error("PipeHandler::SendLoop Massive packet congestion %i ", len);
+        }
 
         PProtoHead pProtoHead = (PProtoHead)value;
         NetClient* c = 0;
@@ -787,7 +805,8 @@ static void SendLoop(PNetServer pNetServer) {
             dictEntry* entry = dictFind(pNetServer->entity_client, (unsigned long long*) & pProtoSendToEntity->entityId);
             if (entry == NULL) {
                 //没有找到客户端id丢弃封包
-                n_error("PipeHandler::proto_client_entity %i lost packet not find entityId %U", pProtoHead->proto, pProtoSendToEntity->entityId);
+                PProtoHead pProtoHeadBuf = (PProtoHead)pProtoSendToEntity->buf;
+                n_error("PipeHandler::proto_client_entity %i lost packet not find entityId %U buf proto is %i", pProtoHead->proto, pProtoSendToEntity->entityId, pProtoHeadBuf->proto);
                 return;
             }
             c = (NetClient*)dictGetVal(entry);
@@ -797,7 +816,7 @@ static void SendLoop(PNetServer pNetServer) {
             wr->buf = uv_buf_init(pProtoSendToEntity->buf, nread);
             wr->req.data = value;
 
-            if (uv_write(&wr->req, c->stream, &wr->buf, 1, after_write)) {
+            if (r = uv_write(&wr->req, c->stream, &wr->buf, 1, after_write)) {
                 n_error("async_cb::uv_write failed error %s %s", uv_err_name(r), uv_strerror(r));
             }
         }
@@ -999,6 +1018,8 @@ void* NetCreate(int nodetype, unsigned short listentcp) {
     _pNetServer->entity_client = dictCreate(DefaultLonglongPtr(), NULL);
     _pNetServer->sendBuf = listCreate();
     _pNetServer->sendBufMutexHandle = MutexCreateHandle(LockLevel_4);
+    _pNetServer->congestion = 10000;
+    _pNetServer->tcp_recv_buf = sdsempty();
 
 #ifdef _WIN32
     _pNetServer->bindListenIp = _TCP4_SOCKET | _TCP6_SOCKET;
@@ -1155,6 +1176,9 @@ void NetDestory() {
         free(_pNetServer->udp4);
 
         uv_close((uv_handle_t*)&_pNetServer->async, NULL);
+
+        /* Free the query buffer */
+        sdsfree(_pNetServer->tcp_recv_buf);
         free(_pNetServer);
     }
 }
@@ -1175,7 +1199,7 @@ void NetUDPAddr2(unsigned int* ip, unsigned char* uportOffset, unsigned short* u
 网络层会有所有entity对象的dock映射关系，
 所以mailbox不需要携带dock数据。
 */
-void NetSendToNode(char* ip, unsigned short port, unsigned char* b, unsigned short s) {
+void NetSendToNode(char* ip, unsigned short port, unsigned char* b, unsigned int s) {
     struct sockaddr_in server_addr;
     uv_buf_t buf;
     int r;
@@ -1200,7 +1224,7 @@ void NetSendToNode(char* ip, unsigned short port, unsigned char* b, unsigned sho
     }
 }
 
-void NetSendToNodeWithUINT(unsigned int ip, unsigned short port, unsigned char* b, unsigned short s) {
+void NetSendToNodeWithUINT(unsigned int ip, unsigned short port, unsigned char* b, unsigned int s) {
     struct sockaddr_in server_addr;
     uv_buf_t buf;
     int r;
