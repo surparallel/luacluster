@@ -8,6 +8,52 @@
     "inside": 1
   },
   "docke_config":{
-    "dockerSize":12
+    "dockerSize":32,
+    "popNodeSize":200000,
+    "congestion":4000000
+  },
+  "tcp":{
+    "tcp4":[
+      {
+      "tcp4BindAddr":"0.0.0.0",
+      "tcp4Port":9577
+      }, 
+      {
+      "tcp4BindAddr":"0.0.0.0",
+      "tcp4Port":9578
+      }, 
+      {
+      "tcp4BindAddr":"0.0.0.0",
+      "tcp4Port":9579
+      }, 
+      {
+      "tcp4BindAddr":"0.0.0.0",
+      "tcp4Port":9580
+      }, 
+      {
+      "tcp4BindAddr":"0.0.0.0",
+      "tcp4Port":9581
+      }, 
+      {
+      "tcp4BindAddr":"0.0.0.0",
+      "tcp4Port":9582
+      }, 
+      {
+      "tcp4BindAddr":"0.0.0.0",
+      "tcp4Port":9583
+      }, 
+      {
+      "tcp4BindAddr":"0.0.0.0",
+      "tcp4Port":9584
+      }, 
+      {
+      "tcp4BindAddr":"0.0.0.0",
+      "tcp4Port":9585
+      }, 
+      {
+      "tcp4BindAddr":"0.0.0.0",
+      "tcp4Port":9586
+      }
+    ]
   }
 }

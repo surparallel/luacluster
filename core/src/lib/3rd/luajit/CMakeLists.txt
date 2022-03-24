@@ -45,6 +45,7 @@ option ( LUA_USE_ASSERT "Turn on assertions for the whole LuaJIT VM. This signif
 
 option ( LUAJIT_CPU_SSE2 "Disable SSE2." OFF )
 option ( LUAJIT_CPU_NOCMOV "Disable NOCMOV." OFF )
+option ( LUAJIT_ENABLE_GC64 "Enable GC64 mode for x64." ON )
 
 # Tunable variables
 set ( LUAI_MAXSTACK 65500 CACHE NUMBER "Max. # of stack slots for a thread (<64K)." )
@@ -142,6 +143,7 @@ set ( LJLIB_C
   src/lib_io.c
   src/lib_os.c
   src/lib_debug.c
+  src/lib_package.c
   src/lib_jit.c
   src/lib_ffi.c
 )
@@ -164,6 +166,11 @@ set ( DASM_T ${CMAKE_CURRENT_SOURCE_DIR}/src/host/buildvm_arch.h )
 set ( DASM_VER "" )
 set ( DASM_FLAGS -D FPU -D HFABI )
 set ( DASM_ARCH x86 )
+
+if ( LUAJIT_ENABLE_GC64 )
+    add_definitions ( -DLUAJIT_ENABLE_GC64)
+    set ( DASM_ARCH x64 )
+endif ()
 
 # Raspberry PI, ARM
 if ( ${CMAKE_SYSTEM_PROCESSOR} MATCHES "armv6l" )
@@ -255,6 +262,7 @@ set ( LJCORE_C
   src/lj_char.c
   src/lj_bc.c
   src/lj_obj.c
+  src/lj_buf.c
   src/lj_str.c
   src/lj_tab.c
   src/lj_func.c
@@ -266,7 +274,10 @@ set ( LJCORE_C
   src/lj_vmevent.c
   src/lj_vmmath.c
   src/lj_strscan.c
+  src/lj_strfmt.c
+  src/lj_strfmt_num.c
   src/lj_api.c
+  src/lj_profile.c
   src/lj_lex.c
   src/lj_parse.c
   src/lj_bcread.c

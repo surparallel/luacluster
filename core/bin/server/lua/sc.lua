@@ -59,7 +59,7 @@ sc.sudoku.beginz = 0
 sc.sudoku.endx = 100
 sc.sudoku.endz = 100
 sc.sudoku.radius = 15
-sc.sudoku.outsideSec = 10 * 60
+sc.sudoku.outsideSec = 10 * 60 * 1000
 
 sc.bigworld = {}
 sc.bigworld.beginx = 0

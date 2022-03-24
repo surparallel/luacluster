@@ -28,8 +28,9 @@ function cluster:CheckInit()
             return
         end
 
-        if sc.cluster.nodeSize < redishelp:scard('cluster:nodeall') then 
-            error("sc.cluster error nodeSize")
+        local nodeall = redishelp:scard('cluster:nodeall')
+        if sc.cluster.nodeSize < nodeall then 
+            error(string.format("sc.cluster error nodeSize %d:%d",sc.cluster.nodeSize,nodeall))
             return
         end
 

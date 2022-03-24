@@ -30,6 +30,8 @@ function botsFactory.New()
     end
 
     function obj:Destory()
+        entitymng.UnRegistryUpdata(self)
+        entitymng.UnRegistryObj(self.id)
     end
 
     function obj:Update(count, deltaTime)

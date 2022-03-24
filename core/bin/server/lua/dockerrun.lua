@@ -37,11 +37,16 @@ function EntryProcess(ret)
             --来自网络层通知网络断开销毁对应的对象
             local obj = entitymng.FindObj(ret[2])
             if obj ~= nil then
+                --这里要再调用一次客户端确保消息队列清空
+                if obj.client ~= nil then
+                    obj.client:Destory()
+                end
+
                 --通知对象销毁
                 obj:DoInheritFun(obj, "Destory")
             else
                 local myid = tostring(int64.new_unsigned(ret[2]))
-                elog.sys_error("main::proto_rpc_destory:: not find obj: %s" ,myid)
+                elog.node_error("main::proto_rpc_destory:: not find obj: %s" ,myid)
             end
         end).catch(function (ex)
             elog.sys_error(ex)
@@ -57,10 +62,10 @@ function EntryProcess(ret)
                     table.remove(arg, 1)
                     obj[funName](obj, table.unpack(arg))
                 else
-                    elog.sys_error("main::proto_rpc_call:: not find function:%s(%s).%s",obj.__class, myid, funName)
+                    elog.node_error("main::proto_rpc_call:: not find function:%s(%s).%s",obj.__class, myid, funName)
                 end
             else
-                elog.sys_error("main::proto_rpc_call:: not find obj:%s" ,myid)
+                elog.node_error("main::proto_rpc_call:: not find obj:%s" ,myid)
             end
         end).catch(function (ex)
             elog.sys_error(ex)
@@ -76,7 +81,7 @@ function EntryProcess(ret)
                     if type(obj.entityCall) == 'function' then
                         obj:entityCall(ret[2], cmsgpack.unpack(ret[4]))
                     else
-                        elog.sys_error("main::proto_route_call:: not find fun entityCall")
+                        elog.node_error("main::proto_route_call:: not find fun entityCall")
                     end
                 else
                     --这里是服务端处理流程
@@ -87,21 +92,21 @@ function EntryProcess(ret)
                             table.remove(arg, 1)
                             obj[funName](obj, table.unpack(arg))
                         else
-                            elog.sys_error("main::proto_route_call:: not exposed fun:%s", funName)
+                            elog.node_error("main::proto_route_call:: not exposed fun:%s", funName)
                         end
                     else
-                        elog.sys_error("main::proto_route_call:: not find fun: %s", funName)
+                        elog.node_error("main::proto_route_call:: not find fun: %s", funName)
                     end
                 end
             else
-                elog.sys_error("main::proto_route_call:: not find obj: %u",ret[3])
+                elog.node_error("main::proto_route_call:: not find obj: %u",ret[3])
             end
 
         end).catch(function (ex)
             elog.sys_error(ex)
         end)
     else
-        elog.sys_error("main:: not proto")
+        elog.node_error("main:: not proto")
     end
 end
 
