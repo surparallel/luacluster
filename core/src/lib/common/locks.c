@@ -1,6 +1,6 @@
 /* locks.c - Lock record of critical point
 *
-* Copyright(C) 2019 - 2020, sun shuo <sun.shuo@surparallel.org>
+* Copyright(C) 2019 - 2022, sun shuo <sun.shuo@surparallel.org>
 * All rights reserved.
 *
 * This program is free software : you can redistribute it and / or modify

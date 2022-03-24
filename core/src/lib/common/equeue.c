@@ -1,6 +1,6 @@
 /* equeue.c 
 *
-* Copyright(C) 2019 - 2020, sun shuo <sun.shuo@surparallel.org>
+* Copyright(C) 2019 - 2022, sun shuo <sun.shuo@surparallel.org>
 * All rights reserved.
 *
 * This program is free software : you can redistribute it and / or modify
@@ -23,6 +23,7 @@
 #include "equeue.h"
 #include "sds.h"
 #include "locks.h"
+#include "timesys.h"
 
 typedef struct _EventQueue
 {
@@ -30,6 +31,7 @@ typedef struct _EventQueue
 	sds objecName;
 	semwarp_t semaphore;
 	list* listQueue;
+	unsigned long long stamp;
 } *PEventQueue, EventQueue;
 
 void* EqCreate() {
@@ -56,7 +58,9 @@ int EqIfNoPush(void* pvEventQueue, void* value, unsigned int maxQueue) {
 		listAddNodeHead(pEventQueue->listQueue, value);
 		r = listLength(pEventQueue->listQueue);
 
-		if (r == 1) {
+		unsigned long long stamp = GetTick();
+		if (stamp - pEventQueue->stamp > 10) {
+			pEventQueue->stamp = stamp;
 			semwarp_post(&pEventQueue->semaphore);
 		}
 	}
@@ -70,31 +74,35 @@ void EqPushList(void* pvEventQueue, list* in) {
 	MutexLock(pEventQueue->mutexHandle, pEventQueue->objecName);
 	size_t r = listLength(pEventQueue->listQueue);
 	listAddNodeHeadForList(pEventQueue->listQueue, in);
-	if (r == 0) {
+	unsigned long long stamp = GetTick();
+	if (stamp - pEventQueue->stamp > 10 && r == 0) {
+		pEventQueue->stamp = stamp;
 		semwarp_post(&pEventQueue->semaphore);
 	}
 	MutexUnlock(pEventQueue->mutexHandle, pEventQueue->objecName);
 }
 
 void EqPushNode(void* pvEventQueue, listNode* node) {
-
 	PEventQueue pEventQueue = pvEventQueue;
 	MutexLock(pEventQueue->mutexHandle, pEventQueue->objecName);
-	listAddNodeHeadForNode(pEventQueue->listQueue, node);
 	size_t r = listLength(pEventQueue->listQueue);
-	if (r == 1) {
+	listAddNodeHeadForNode(pEventQueue->listQueue, node);
+	unsigned long long stamp = GetTick();
+	if (stamp - pEventQueue->stamp > 10 && r == 0) {
+		pEventQueue->stamp = stamp;
 		semwarp_post(&pEventQueue->semaphore);
 	}
 	MutexUnlock(pEventQueue->mutexHandle, pEventQueue->objecName);
 }
 
 void EqPush(void* pvEventQueue, void* value) {
-
 	PEventQueue pEventQueue = pvEventQueue;
 	MutexLock(pEventQueue->mutexHandle, pEventQueue->objecName);
-	listAddNodeHead(pEventQueue->listQueue, value);
 	size_t r = listLength(pEventQueue->listQueue);
-	if (r == 1) {
+	listAddNodeHead(pEventQueue->listQueue, value);	
+	unsigned long long stamp = GetTick();
+	if (stamp - pEventQueue->stamp > 10 && r == 0) {
+		pEventQueue->stamp = stamp;
 		semwarp_post(&pEventQueue->semaphore);
 	}
 	MutexUnlock(pEventQueue->mutexHandle, pEventQueue->objecName);
@@ -146,15 +154,7 @@ void EqPopNodeWithLen(void* pvEventQueue, size_t limite, list* out, size_t* len)
 	*len = 0;
 	MutexLock(pEventQueue->mutexHandle, pEventQueue->objecName);
 	if (listLength(pEventQueue->listQueue) != 0) {
-
-		for (size_t i = 0; i < limite; i++)
-		{
-			listNode* node = listLast(pEventQueue->listQueue);
-			listPickNode(pEventQueue->listQueue, node);
-			listAddNodeTailForNode(out, node);
-			if (listLength(pEventQueue->listQueue) == 0)
-				break;
-		}
+		listPickListAddHead(pEventQueue->listQueue, out, limite);
 
 		if (len) {
 			*len = listLength(pEventQueue->listQueue);
@@ -175,11 +175,25 @@ void EqEmpty(void* pvEventQueue, QueuerDestroyFun fun) {
 
 void EqDestory(void* pvEventQueue, QueuerDestroyFun fun) {
 	PEventQueue pEventQueue = pvEventQueue;
-	sdsfree(pEventQueue->objecName);
-	listSetFreeMethod(pEventQueue->listQueue, fun);
-	listRelease(pEventQueue->listQueue);
 
 	semwarp_destroy(&pEventQueue->semaphore);
 	MutexDestroyHandle(pEventQueue->mutexHandle);
+
+	sdsfree(pEventQueue->objecName);
+	listSetFreeMethod(pEventQueue->listQueue, fun);
+	listRelease(pEventQueue->listQueue);
 	free(pEventQueue);
+}
+
+void EqPushWithFun(void* pvEventQueue, void* value, BeatFun fun) {
+	PEventQueue pEventQueue = pvEventQueue;
+	MutexLock(pEventQueue->mutexHandle, pEventQueue->objecName);
+	size_t r = listLength(pEventQueue->listQueue);
+	listAddNodeHead(pEventQueue->listQueue, value);
+	unsigned long long stamp = GetTick();
+	if (stamp - pEventQueue->stamp > 10 && r == 0) {
+		pEventQueue->stamp = stamp;
+		fun();
+	}
+	MutexUnlock(pEventQueue->mutexHandle, pEventQueue->objecName);
 }

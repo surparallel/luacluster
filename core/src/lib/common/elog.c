@@ -1,6 +1,6 @@
 /* elog.c - Log related, the annoying output format to the callback function
 *
-* Copyright(C) 2019 - 2020, sun shuo <sun.shuo@surparallel.org>
+* Copyright(C) 2019 - 2022, sun shuo <sun.shuo@surparallel.org>
 * All rights reserved.
 *
 * This program is free software : you can redistribute it and / or modify
@@ -90,8 +90,8 @@ typedef struct _LogFileHandle
 	unsigned long long setFileSec;//设定文件日志的间隔时间
 	PLogRule rule_default;//当所有规则都无效时默认的规则从配置文件读取
 	sds form;//日志文件输出格式
-
 	sds pid;
+	list* popList;
 }*PLogFileHandle, LogFileHandle;
 
 typedef struct _LogFile
@@ -467,12 +467,26 @@ static void PacketFree(void* ptr) {
 
 void LogRun(void* pVoid) {
 	PLogFileHandle pLogFileHandle = pVoid;
+	size_t eventQueueLength = 0;
 	do {
-
-		EqWait(pLogFileHandle->eQueue);
-		size_t eventQueueLength = 0;
+		if(eventQueueLength == 0)
+			EqTimeWait(pLogFileHandle->eQueue, 500);	
 		do {
-			PLogPacket pLogPacket = (PLogPacket)EqPopWithLen(pLogFileHandle->eQueue, &eventQueueLength);
+			if (listLength(pLogFileHandle->popList) == 0) {
+				EqPopNodeWithLen(pLogFileHandle->eQueue, 20000, pLogFileHandle->popList, &eventQueueLength);
+				if (eventQueueLength > pLogFileHandle->maxQueueSize) {
+					//如果长度超过限制要释放掉队列	
+					printf("error elog lost eventQueueLength %lld greater than maxQueueSize %d \n", eventQueueLength, pLogFileHandle->maxQueueSize);
+					EqEmpty(pLogFileHandle->eQueue, PacketFree);
+				}
+			}
+
+			if (listLength(pLogFileHandle->popList) == 0) {
+				break;
+			}
+			listNode* node = listLast(pLogFileHandle->popList);
+			PLogPacket pLogPacket = listNodeValue(node);
+			listDelNode(pLogFileHandle->popList, node);
 
 			if (pLogPacket != 0) {
 				//退出线程
@@ -527,7 +541,7 @@ void LogRun(void* pVoid) {
 									if (pLogPacket->isNet) {
 										//是网络传输的
 										LogErrFunFile(pLogPacket->level, pLogPacket->category, pLogPacket->describe, pLogPacket->fileName, pLogPacket->line, pLogRule->form);
-										break;
+										continue;
 									}
 									else {
 										//发送到网络目的地
@@ -572,14 +586,8 @@ void LogRun(void* pVoid) {
 					}
 					PacketFree(pLogPacket);
 				}
-
-				if (eventQueueLength > pLogFileHandle->maxQueueSize) {
-					//如果长度超过限制要释放掉队列	
-					printf("error elog lost eventQueueLength %lld greater than maxQueueSize %d \n", eventQueueLength, pLogFileHandle->maxQueueSize);
-					EqEmpty(pLogFileHandle->eQueue, PacketFree);
-				}
 			}
-		} while (eventQueueLength);
+		} while (1);
 	} while (1);
 	return;
 }
@@ -640,6 +648,7 @@ static void doJsonParseFile(char* config)
 			}
 			else if (strcmp(item->string, "ruleDefault") == 0) {
 
+				if (_pLogFileHandle->rule_default != NULL)free(_pLogFileHandle->rule_default);
 				_pLogFileHandle->rule_default = malloc(sizeof(LogRule));
 				_pLogFileHandle->rule_default->maxlevel = log_all;
 				_pLogFileHandle->rule_default->minlevel = log_null;
@@ -717,7 +726,16 @@ void LogInit(char* config) {
 	_pLogFileHandle->setFileSec = 60 * 60 * 24;
 	_pLogFileHandle->_setMaxlevel = log_all;
 	_pLogFileHandle->_setMinlevel = log_null;
-	_pLogFileHandle->rule_default = NULL;
+
+	_pLogFileHandle->rule_default = malloc(sizeof(LogRule));
+	_pLogFileHandle->rule_default->maxlevel = log_all;
+	_pLogFileHandle->rule_default->minlevel = log_null;
+	_pLogFileHandle->rule_default->fileName = 0;
+	_pLogFileHandle->rule_default->line = 0;
+	_pLogFileHandle->rule_default->isBreak = 0;
+	_pLogFileHandle->rule_default->process = prc_file;
+	_pLogFileHandle->rule_default->form = logform_full;
+	_pLogFileHandle->popList = listCreate();
 
 	sigar_t* sigar;
 	sigar_open(&sigar);
@@ -741,6 +759,11 @@ void LogCancel() {
 	uv_thread_join(&_pLogFileHandle->thread);
 }
 
+static void DestroyFun(void* value) {
+	PacketFree(value);
+
+}
+
 void LogDestroy() {
 
 	LogCancel();
@@ -760,6 +783,9 @@ void LogDestroy() {
 	sdsfree(_pLogFileHandle->level_function);
 	sdsfree(_pLogFileHandle->level_details);
 	sdsfree(_pLogFileHandle->pid);
+
+	listSetFreeMethod(_pLogFileHandle->popList, DestroyFun);
+	listRelease(_pLogFileHandle->popList);
 
 	if (_pLogFileHandle->rule_default) {
 		sdsfree(_pLogFileHandle->rule_default->fileName);
@@ -783,6 +809,6 @@ void LogRuleTo(char category, char maxlevel, char minlevel, char* fileName, size
 	pLogRule->process = process;
 	pLogRule->form = logform_full;
 	pLogPacket->describe = sdsnewlen(pLogRule, sizeof(LogRule));
-	
-	EqPush(_pLogFileHandle->eQueue, pLogPacket);
+	listNode* node = listCreateNode(pLogPacket);
+	EqPushNode(_pLogFileHandle->eQueue, node);
 }

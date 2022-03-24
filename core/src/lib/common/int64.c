@@ -114,17 +114,19 @@ typedef struct stack_info {
 #define LUA_OPLE  2
 
 
-static lua_Integer lua_tointegerx (lua_State *L, int idx, int *isnum) {
-  lua_Integer n = lua_tointeger(L, idx);
-  if (isnum) *isnum = (n != 0 || lua_type(L, idx) == LUA_TNUMBER);
-  return n;
-}
-
+#endif 
+#if LUA_VERSION_NUM < 501
 
 /* lua-5.2.2/src/lauxlib.c:284-287 */
-static void luaL_setmetatable (lua_State *L, const char *tname) {
-  luaL_getmetatable(L, tname);
-  lua_setmetatable(L, -2);
+static void luaL_setmetatable(lua_State* L, const char* tname) {
+    luaL_getmetatable(L, tname);
+    lua_setmetatable(L, -2);
+}
+
+static lua_Integer lua_tointegerx(lua_State* L, int idx, int* isnum) {
+    lua_Integer n = lua_tointeger(L, idx);
+    if (isnum) *isnum = (n != 0 || lua_type(L, idx) == LUA_TNUMBER);
+    return n;
 }
 
 

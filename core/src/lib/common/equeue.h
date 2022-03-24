@@ -20,6 +20,7 @@
 #ifndef __EQUEUE_H
 #define __EQUEUE_H
 
+typedef void(*BeatFun)();
 typedef void(*QueuerDestroyFun)(void* value);
 void* EqCreate();
 void EqPush(void* pEventQueue, void* value);
@@ -33,5 +34,6 @@ void EqDestory(void* pEventQueue, QueuerDestroyFun fun);
 void EqPopNodeWithLen(void* pvEventQueue, size_t limite, list* out, size_t* len);
 void EqPushNode(void* pvEventQueue, listNode* node);
 void EqPushList(void* pvEventQueue, list* in);
+void EqPushWithFun(void* pvEventQueue, void* value, BeatFun fun);
 
 #endif

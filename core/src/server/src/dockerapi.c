@@ -34,7 +34,7 @@
 #include "entityid.h"
 #include "int64.h"
 #include "timesys.h"
-#include "uvnet.h"
+#include "uvnetmng.h"
 
 //因为网络层有entity和client的对应信息。
 //所以如果entity是当前节点就直接发到网络层
@@ -136,7 +136,10 @@ static int luaB_BindNet(lua_State* L) {
 	pProtoNetBind->entityId = entityId;
 	pProtoNetBind->clientId = clientId;
 
-	NetSendToClient(0, (const char*)pProtoHead, len);
+	idl32 id;
+	id.u = clientId;
+
+	MngSendToClient(id.id.work, (const char*)pProtoHead, len);
 	free(pProtoHead);
 	return 0;
 }
@@ -154,7 +157,10 @@ static int luaB_DestoryNet(lua_State* L) {
 	PProtoNetDestory pProtoNetDestory = (PProtoNetDestory)pProtoHead;
 	pProtoNetDestory->clientId = clientId;
 
-	NetSendToClient(0, (const char*)pProtoHead, len);
+	idl32 id;
+	id.u = clientId;
+
+	MngSendToClient(id.id.work, (const char*)pProtoHead, len);
 	free(pProtoHead);
 	return 0;
 }

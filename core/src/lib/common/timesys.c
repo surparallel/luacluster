@@ -1,6 +1,6 @@
 /* timesys.c - Time system related
 *
-* Copyright(C) 2019 - 2020, sun shuo <sun.shuo@surparallel.org>
+* Copyright(C) 2019 - 2022, sun shuo <sun.shuo@surparallel.org>
 * All rights reserved.
 *
 * This program is free software : you can redistribute it and / or modify
@@ -115,7 +115,9 @@ char* GetDayForm() {
 	return x;
 }
 
-//GetTickCount64 精度55ms CLOCK_MONOTONIC_COARSE精度也不高
+//GetTickCount64 精度10到55之间,
+//gettimeofday (us) => 42 cycles
+//clock_gettime (ns) => 9 cycles (CLOCK_MONOTONIC_COARSE)
 unsigned long long GetTick()
 {
 #ifdef _WIN32

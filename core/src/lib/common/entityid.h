@@ -24,8 +24,8 @@ typedef void* VPEID;
 //阶码全1，尾数非全0的表示无效数NaN
 #pragma pack(push,1)
 typedef struct _EID {
-	unsigned int addr;//ipv4
 	unsigned short id;
+	unsigned int addr;//ipv4
 	unsigned char dock;
 	unsigned char port;//UDP端口号的偏移
 }*PEID, EID;
@@ -34,21 +34,20 @@ typedef union idl64
 {
 	volatile EID eid;
 	volatile unsigned long long u;
+	volatile double d;
 } idl64;
+
+typedef struct _UINTID {
+	unsigned short work;
+	unsigned short client;//UDP端口号的偏移
+}*PUINTID, UINTID;
+
+typedef union idl32
+{
+	volatile UINTID id;
+	volatile unsigned int u;
+//	volatile float d;
+} idl32;
 
 #pragma pack(pop)
 
-/*
-unsigned char GetDockFromEID(PEID pEID);
-void SetDockFromEID(PEID pEID, unsigned char dock);
-unsigned short GetIDFromEID(PEID pEID);
-void SetIDFromEID(PEID pEID, unsigned int id);
-void SetAddrFromEID(PEID pEID, unsigned int addr);
-unsigned int GetAddrFromEID(PEID pEID);
-void SetPortFromEID(PEID pEID, unsigned char port);
-unsigned char GetPortFromEID(PEID pEID);
-void CreateEID(PEID pEID, unsigned int addr, unsigned char port, unsigned char dock, unsigned short id);
-void CreateEIDFromLongLong(unsigned long long eid, PEID pEID);
-void SetEID(PEID pEID, unsigned long long eid);
-unsigned long long GetEID(PEID pEID);
-*/

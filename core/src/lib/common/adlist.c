@@ -439,6 +439,13 @@ listNode* listPickNode(list* list, listNode* node)
     return node;
 }
 
+void listClearNode(list* list)
+{
+    list->head = NULL;
+    list->tail = NULL;
+    list->len = 0;
+}
+
 list* listAddNodeHeadForList(list* masterList, list* slaveList)
 {
     if (masterList->len == 0) {
@@ -473,4 +480,40 @@ list* listAddNodeTailForList(list* masterList, list* slaveList)
     masterList->len += slaveList->len;
     slaveList->len = 0;
     return masterList;
+}
+
+list* listPickListAddHead(list* in, list* out, int limite)
+{
+    listNode* current, * currentPrev;
+    current = in->tail;
+    int len = limite;
+    while (len--) {
+        if (current->prev == NULL)
+            break;
+        current = current->prev;
+    };
+    len = limite - len;
+
+    currentPrev = current->prev;
+    if (out->len == 0) {
+        out->tail = listLast(in);
+        out->head = current;
+        current->prev = NULL;
+    }
+    else {
+        out->tail->next = current;
+        current->prev = out->tail;
+        out->tail = listLast(in);
+    }
+
+    out->len += len;
+    in->tail = currentPrev;
+
+    if (in->tail != NULL)
+        in->tail->next = NULL;
+    else
+        in->head = NULL;
+    in->len -= len;
+
+    return out;
 }

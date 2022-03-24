@@ -18,7 +18,7 @@
 */
 
 //Sudoku
-
+#include "uv.h"
 #include "plateform.h"
 #include "dict.h"
 #include "lua.h"
@@ -99,7 +99,7 @@ typedef struct _Entity {
 	int update;//entity_update上一帧中是否移动过网格，0没有，1移动，2新进入
 	int oldGird;
 	unsigned int status;//entity_status，0普通区域，2在边界区域，4超出范围, 8鬼魂状态。 超出地图范围的对象将不会再更新数据。直到被删除。
-	unsigned int outingStamp;//超出区域的时间戳
+	unsigned long long outingStamp;//超出区域的时间戳
 }*PEntity, Entity;
 
 //网格相当于缩小的坐标系统。例如网格和坐标比例是1比10。哪么0到10就是在网格1 * 1位置, 也就是编号为1的网格。
@@ -242,6 +242,9 @@ void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position,
 
 	if (entry == NULL) {
 		s_error("sudoku(%U)::move error not find id %U", s->spaceId, id);
+		//这时候再次进入可能导致灵魂标记出现错误
+		//压力测试下，因为延迟导致删除
+		SudokuEntry(pSudoku, id, position, rotation, velocity, stamp, stampStop, 0);
 		return;
 	}
 
@@ -310,10 +313,12 @@ void SudokuLeave(void* pSudoku, unsigned long long id) {
 	}
 	PEntity pEntity = dictGetVal(entry);
 	listDelNode(s->entitiesList, pEntity->listNode);
+	dictDelete(s->entitiesDict, &id);
 
 	entry = dictFind(s->grid_entity, &pEntity->newGird);
 	list* girdlist = NULL;
 	if (entry == NULL) {
+		free(pEntity);
 		s_error("sudoku(%U)::SudokuLeave::leave error not find gird id %i", s->spaceId, pEntity->newGird);
 		return;
 	}
@@ -322,13 +327,10 @@ void SudokuLeave(void* pSudoku, unsigned long long id) {
 	}
 
 	listDelNode(girdlist, pEntity->girdNode);
-	s_details("sudoku(%U)::SudokuLeave::remove from gird id:%U to gird:%u", s->spaceId, pEntity->entityid, pEntity->newGird);
-
 	if (listLength(girdlist) == 0) {
 		dictDelete(s->grid_entity, &pEntity->newGird);
 	}
-
-	dictDelete(s->entitiesDict, &id);
+	s_details("sudoku(%U)::SudokuLeave::remove from gird id:%U to gird:%u", s->spaceId, pEntity->entityid, pEntity->newGird);
 	free(pEntity);
 }
 
@@ -619,7 +621,7 @@ void SudokuUpdateLimite(PSudoku s, PEntity pEntity) {
 				
 				pEntity->status &= ~entity_limite;
 				pEntity->status |= entity_outside;
-				pEntity->outingStamp = GetCurrentSec();
+				pEntity->outingStamp = GetTick();
 				
 				s_details("Sudoku(%U)::SudokuUpdateLimite::entity_outside id:%U x:%f y:%f z:%f", s->spaceId, pEntity->entityid, pEntity->nowPosition.x, pEntity->nowPosition.y, pEntity->nowPosition.z);
 			}
@@ -627,6 +629,8 @@ void SudokuUpdateLimite(PSudoku s, PEntity pEntity) {
 
 				pEntity->status &= ~entity_limite;
 				pEntity->status &= ~entity_ghost;
+				pEntity->status &= ~entity_outside;
+				pEntity->outingStamp = 0;
 
 				//离开边界状态，通知更换主空间
 				const char ptr[] = "OnDelGhost";
@@ -815,12 +819,12 @@ void SudokuUpdate(void* pSudoku, unsigned int count, float deltaTime) {
 		pEntity->update = update_stable;
 
 		//删除已经超过60秒离开边界的对象
-		if (pEntity->status & entity_outside && pEntity->outingStamp && (GetCurrentSec() - pEntity->outingStamp) > s->outsideSec) {
+		if (pEntity->status & entity_outside && pEntity->outingStamp && (GetTick() - pEntity->outingStamp) > s->outsideSec) {
 			SudokuLeave(s, pEntity->entityid);
 
 			mp_buf* pmp_buf = mp_buf_new();
 			MP_ENCODE_CONST(pmp_buf, "OnLeaveSpace");
-			mp_encode_double(pmp_buf, u642double(pEntity->entityid));
+			mp_encode_double(pmp_buf, u642double(s->spaceId));
 
 			DockerSend(pEntity->entityid, pmp_buf->b, pmp_buf->len);
 			mp_buf_free(pmp_buf);
@@ -851,7 +855,6 @@ static int luaB_Update(lua_State* L) {
 	PSudoku s = lua_touserdata(L, 1);
 	unsigned int count = luaL_checkinteger(L, 2);
 	float deltaTime = luaL_checknumber(L, 3);
-	//s_fun("sudoku(%U)::Update", s->spaceId);
 	SudokuUpdate(s, count, deltaTime);
 	return 0;
 }
@@ -874,6 +877,8 @@ void* SudokuCreate(struct Vector3 gird, struct Vector3 begin, struct Vector3 end
 {
 
 	PSudoku s = calloc(1, sizeof(Sudoku));
+	if (s == NULL)return 0;
+
 	s->entitiesList = listCreate();
 	s->entitiesDict = dictCreate(DefaultLonglongPtr(), NULL);
 	s->grid_entity = dictCreate(&UintDictType, NULL);

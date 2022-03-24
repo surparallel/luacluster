@@ -16,15 +16,8 @@
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
 
-#define NO_TCP_LISTEN (1<<1)
-#define NO_UDP_LISTEN (1<<2)
 
-void* NetCreate(int nodetype, unsigned short listentcp);
-void NetDestory();
-
-int NetSendToCancel();
-int NetSendToClient(unsigned int id, const char* b, unsigned int s);
-int NetSendToEntity(unsigned long long entityid, const char* b, unsigned int s);
-void NetUDPAddr2(unsigned int* ip, unsigned char* uportOffset, unsigned short* uport);
-void NetSendToNode(char* ip, unsigned short port, unsigned char* b, unsigned int s);
-void NetSendToNodeWithUINT(unsigned int ip, unsigned short port, unsigned char* b, unsigned int s);
+void UdpDestory(void* pVoid);
+void* UdpCreate(char* ip, unsigned short uportBegin, unsigned char uportOffset, unsigned long long* retId, int inOrOut);
+void UdpSendTo(char* ip, unsigned short port, unsigned char* b, unsigned int s);
+void UdpSendToWithUINT(unsigned int ip, unsigned short port, unsigned char* b, unsigned int s);

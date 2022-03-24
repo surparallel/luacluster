@@ -68,6 +68,10 @@ typedef struct _BigWorld
 static int luaB_Create(lua_State* L) {
 	void* pVoid = LVMGetGlobleLightUserdata(L, "dockerHandle");
 	PBigWorld pBigWorld = (PBigWorld)malloc(sizeof(BigWorld));
+	if (pBigWorld == NULL) {
+		n_error("luaB_Create malloc error");
+		return 0;
+	}
 
 	struct Vector3 boundary;
 	struct Vector3 begin;

@@ -33,12 +33,13 @@
 #include "filesys.h"
 #include "3dmath.h"
 #include "space.h"
-#include "uvnet.h"
 #include "locks.h"
 #include "redis.h"
 #include "packtest.h"
 #include "packjson.h"
 #include "timesys.h"
+#include "entityid.h"
+#include "uvnetmng.h"
 
 static const char* assetsPath = 0;
 static unsigned int dockerid = 0;
@@ -51,6 +52,7 @@ static unsigned short bots = 0;
 static char* bip = 0;
 static unsigned short bport = 0;
 static unsigned short bcount = 0;
+static unsigned short brang = 0;
 
 /* Print generic help. */
 void CliOutputGenericHelp(void) {
@@ -65,6 +67,42 @@ void CliOutputGenericHelp(void) {
 		"      \"run [script]\" --.\n"
 		"      \"client [did][pid]\" --.\n"
 	);
+}
+
+void btcp2(unsigned int count, sds ip, unsigned short len, unsigned short port, unsigned short rang)
+{
+	for (size_t i = 0; i < count; i++)
+	{
+		unsigned short r = rand() % rang;
+		int len = sizeof(ProtoConnect);
+		PProtoConnect pbuf = calloc(1, len);
+		if (pbuf == NULL)continue;
+		pbuf->protoHead.len = len;
+		pbuf->protoHead.proto = proto_net_connect;
+		memcpy(pbuf->ip, ip, len);
+		pbuf->port = port + r;
+
+		MngRandomSendTo((const char*)pbuf, len);
+	}
+
+	printf("btcp2 start %d done!\n", count);
+}
+
+void btcp(unsigned int count, sds ip, unsigned short len, unsigned short port)
+{
+	for (size_t i = 0; i < count; i++)
+	{
+		int len = sizeof(ProtoConnect);
+		PProtoConnect pbuf = calloc(1, len);
+		pbuf->protoHead.len = len;
+		pbuf->protoHead.proto = proto_net_connect;
+		memcpy(pbuf->ip, ip, len);
+		pbuf->port = port;
+
+		MngRandomSendTo((const char*)pbuf, len);
+	}
+
+	printf("btcp start %d done!\n", count);
 }
 
 int IssueCommand(int argc, char** argv, int noFind) {
@@ -95,9 +133,6 @@ int IssueCommand(int argc, char** argv, int noFind) {
 	else if (!strcasecmp(command, "pack")) {
 		DoTestPack();
 	}
-	else if (!strcasecmp(command, "net")) {
-		NetSendToClient(atoi(argv[1]), argv[2], strlen(argv[2]));
-	}
 	else if (!strcasecmp(command, "new")) {
 
 		if (argc < 2 ) {
@@ -113,7 +148,6 @@ int IssueCommand(int argc, char** argv, int noFind) {
 		mp_buf_free(pmp_buf);
 	}
 	else if (!strcasecmp(command, "call")) {
-
 		if (argc < 2) {
 			printf("Parameter does not enough the requirement\n");
 			return 1;
@@ -160,43 +194,13 @@ int IssueCommand(int argc, char** argv, int noFind) {
 
 		DockerRunScript(ip, port, dockerid, (unsigned char*)argv[1], strlen(argv[1]));
 	}
-	else if (!strcasecmp(command, "client")) {
-
-		if (argc < 3) {
-			printf("Parameter does not enough the requirement\n");
-			return 1;
-		}
-
-		mp_buf* pmp_buf = mp_buf_new();
-		mp_encode_bytes(pmp_buf, argv[2], strlen(argv[2]));
-
-		for (int i = 3; i < argc; i++) {
-			mp_encode_bytes(pmp_buf, argv[i], strlen(argv[i]));
-		}
-
-		DockerSendToClient(NULL, atoll(argv[1]), atoll(argv[2]), pmp_buf->b, pmp_buf->len);
-		mp_buf_free(pmp_buf);
-	}
 	else if (!strcasecmp(command, "btcp")) {
 
 		if (argc < 4) {
 			printf("botstcp Parameter does not enough the requirement\n");
 			return 1;
 		}
-
-		int count = atoi(argv[3]);
-
-		for (size_t i = 0; i < count; i++)
-		{
-			int len = sizeof(ProtoConnect);
-			PProtoConnect pbuf = calloc(1, len);
-			pbuf->protoHead.len = len;
-			pbuf->protoHead.proto = proto_net_connect;
-			memcpy(pbuf->ip, argv[1], sdslen(argv[1]));
-			pbuf->port = atoi(argv[2]);
-
-			NetSendToClient(0, (const char*)pbuf, len);
-		}
+		btcp(atoi(argv[3]), argv[1], sdslen(argv[1]), atoi(argv[2]));
 	}
 	else if (!strcasecmp(command, "sudoku")) {
 		test_sudoku();
@@ -299,6 +303,21 @@ int ReadArgFromParam(int argc, char** argv, sds* allarg) {
 				bcount = atoi(argv[i + 3]);
 			}
 		}
+		else if (strcmp(argv[i], "--btcp2") == 0)
+		{
+			if (checkArg(argv[i + 1])) {
+				bip = argv[i + 1];
+			}
+			if (checkArg(argv[i + 2])) {
+				bport = atoi(argv[i + 2]);
+			}
+			if (checkArg(argv[i + 3])) {
+				bcount = atoi(argv[i + 3]);
+			}
+			if(checkArg(argv[i + 4])) {
+				brang = atoi(argv[i + 4]);
+			}
+		}
 	}
 
 	return 1;
@@ -360,7 +379,6 @@ static void doJsonParseFile(char* config)
 }
 
 int main(int argc, char** argv) {
-
 	srand(time(0));
 	LogInit(NULL);
 	LevelLocksCreate();
@@ -385,34 +403,23 @@ int main(int argc, char** argv) {
 
 		n_details(allgrg);
 		InitRedisHelp();
-		NetCreate(nodetype, listentcp);
-		unsigned int ip = 0;
-		unsigned char uportOffset = 0;
-		unsigned short uport = 0;
-		NetUDPAddr2(&ip, &uportOffset, &uport);
-		DocksCreate(ip, uportOffset, uport, assetsPath, dockerSize, nodetype, bots);
+		//创建网络层
+		NetMngCreate(nodetype);
+		DocksCreate(assetsPath, dockerSize, nodetype, bots);
 
-		//命令行的方式启动机器人
 		if (bip != 0) {
-			for (size_t i = 0; i < bcount; i++)
-			{
-				int len = sizeof(ProtoConnect);
-				PProtoConnect pbuf = calloc(1, len);
-				pbuf->protoHead.len = len;
-				pbuf->protoHead.proto = proto_net_connect;
-				memcpy(pbuf->ip, bip, strlen(bip));
-				pbuf->port = bport;
-
-				NetSendToClient(0, (const char*)pbuf, len);
-			}
+			if(brang == 0)
+				btcp(bcount, bip, strlen(bip), bport);
+			else
+				btcp2(bcount, bip, strlen(bip), bport, brang);
 		}
-
 		ret = ArgsInteractive(IssueCommand);
 	}
 
 	sdsfree(allgrg);
+	//删除网络层
+	NetMngDestory();
 	DocksDestory();
-	NetDestory();
 	LogDestroy();
 	FreeRedisHelp();
 	LevelLocksDestroy();

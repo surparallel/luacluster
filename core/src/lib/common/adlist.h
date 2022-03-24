@@ -95,6 +95,8 @@ listNode* listPickNode(list* list, listNode* node);
 listNode* listCreateNode(void* value);
 list* listAddNodeHeadForList(list* masterList, list* slaveList);
 list* listAddNodeTailForList(list* masterList, list* slaveList);
+list* listPickListAddHead(list* in, list* out, int limite);
+void listClearNode(list* list);
 
 /* Directions for iterators */
 #define AL_START_HEAD 0

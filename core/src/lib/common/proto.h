@@ -26,15 +26,15 @@ enum proto {
 	//转发给客户端的协议
 	proto_route_call,//直接转发到客户端，不经过服务器逻辑处理
 	//控制协议
-	proto_ctr_cancel,//控制退出
+	proto_ctr_cancel,//废弃
 	proto_run_lua,//执行lua脚本
 	//发送给网络层
 	proto_net_bind,//绑定网络到entityid
 	proto_net_destory,//docker对应的entity被销毁，通知网络层断开链接
 	proto_net_connect,//创建一个链接
 	//发送协议
-	proto_client_id,//使用网络发送tcp消息给指定client id
-	proto_client_entity,//使用网络发送tcp消息给指点entity id
+	proto_client_id,//废弃
+	proto_client_entity,//废弃
 	proto_packet,//上述协议的拼包
 };
 
