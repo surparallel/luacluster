@@ -22,7 +22,7 @@
 
 #include "common.h"
 
-#if LUA_VERSION_NUM < 502
+#if LUA_VERSION_NUM < 501
 void *luaL_testudata(lua_State* L, int idx, const char *name) {
 	void *obj = lua_touserdata(L, idx);
 	if (!obj || !lua_getmetatable(L, idx)) return 0;
