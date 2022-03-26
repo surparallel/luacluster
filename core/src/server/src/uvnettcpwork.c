@@ -324,6 +324,11 @@ static unsigned int RandomDividend(unsigned int dividend, unsigned int merchant,
         divisor++;
     }
 
+    if (divisor == 0) {
+        n_error("dividend must be greater than merchant");
+        return 0;
+    }
+
     unsigned int r = 0;
     if (mod == 0 && divisor > 1) {
         r = rand() % (divisor - 1);

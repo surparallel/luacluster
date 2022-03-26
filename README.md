@@ -17,7 +17,7 @@ $ cmake --build . --config Release # Or "start libevent.sln" and build with menu
 
 See [Documentation/Building#Building on Windows](/Documentation/Building.md#building-on-windows) for more information
 
-## CMake (Linux)
+## CMake (Ubuntu)
 
 ```
 $ cd core && mkdir build
