@@ -1,8 +1,8 @@
-# luacluter 
-[![C/C++ CI](https://github.com/surparallel/luacluter/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/surparallel/luacluter/actions/workflows/c-cpp.yml)
+# luacluster 
+[![C/C++ CI](https://github.com/surparallel/luacluster/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/surparallel/luacluster/actions/workflows/c-cpp.yml)
 
 ### 概要
-luacluter分布式游戏服务器框架。特色是实现了万人同屏，实现了无缝大地图，用户开发方式为lua的rpc调用模式。近期开发计划是接入mongodb。QQ群：927073440
+luacluster分布式游戏服务器框架。特色是实现了万人同屏，实现了无缝大地图，用户开发方式为lua的rpc调用模式。近期开发计划是接入mongodb。QQ群：927073440
 
 # 1. BUILDING AND INSTALLATION
 ## CMake (Windows)
@@ -34,7 +34,7 @@ $ cmake -DLUA_USE_LUAJIT=ON #使用luajit
 # 2. START RUNING (Windows)
 ## 服务器
 
-启动流程：redis.bat, luacluter(_d).exe, bots.bat
+启动流程：redis.bat, luacluster(_d).exe, bots.bat
 
 在bots.bat中修改要启动的机器人数量
 
