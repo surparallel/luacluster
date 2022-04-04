@@ -1,8 +1,8 @@
-# luacluster 
-[![C/C++ CI](https://github.com/surparallel/luacluster/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/surparallel/luacluster/actions/workflows/c-cpp.yml)
+# luacluter 
+[![C/C++ CI](https://github.com/surparallel/luacluter/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/surparallel/luacluter/actions/workflows/c-cpp.yml)
 
 ### 概要
-luacluster分布式游戏服务器框架。特色是实现了万人同屏，实现了无缝大地图，用户开发方式为lua的rpc调用模式。近期开发计划是接入mongodb。QQ群：927073440
+luacluter分布式游戏服务器框架。特色是实现了万人同屏，实现了无缝大地图，用户开发方式为lua的rpc调用模式。近期开发计划是接入mongodb。QQ群：927073440
 
 # 1. BUILDING AND INSTALLATION
 ## CMake (Windows)
@@ -34,12 +34,23 @@ $ cmake -DLUA_USE_LUAJIT=ON #使用luajit
 # 2. START RUNING (Windows)
 ## 服务器
 
-启动流程：redis.bat, luacluster(_d).exe, bots.bat
+启动流程：redis.bat, luacluter(_d).exe, bots.bat
 
 在bots.bat中修改要启动的机器人数量
 
+## 机器人
 ```
-# 服务器的默认配置文件core\res\server\config_defaults.json
+# --btcp的参数为连接服务器的 Ip port 总数量
+$ luacluter_d.exe --bots --noudp --inside --btcp 127.0.0.1 9577 500 #服务器ip, 端口，总数量
+
+# --btcp2的参数为连接服务器的 Ip port 数量 ip数量
+$ luacluter_d.exe --bots --noudp --inside --btcp2 127.0.0.1 9577 500 #服务器ip, 端口，数量， ip的数量
+```
+## 两种模式的配置
+服务器的默认配置文件core\res\server\config_defaults.json
+
+**压力测试模式**
+``` 
 {
   "log_config": {
     "ruleDefault": {
@@ -50,7 +61,8 @@ $ cmake -DLUA_USE_LUAJIT=ON #使用luajit
     "inside": 1
   },
   "docke_config":{
-    "dockerSize":32,#线程数量
+    "dockerRandomSize":128,#随机线程的数量
+    "dockerGlobeSize":8,#全局线程的数量
     "popNodeSize":200000,
     "congestion":4000000
   },
@@ -100,9 +112,31 @@ $ cmake -DLUA_USE_LUAJIT=ON #使用luajit
   }
 }
 ```
-## 机器人
-```
-# --btcp的参数为连接服务器的 Ip port 数量
-$ luacluter_d.exe --bots --noudp --inside --btcp 127.0.0.1 9577 500 #服务器ip, 端口，数量
-```
 
+**单线程调试模式**
+``` 
+{
+  "log_config": {
+    "ruleDefault": {
+
+    }
+  },
+  "base_config": {
+    "inside": 1
+  },
+  "docke_config":{
+    "dockerRandomSize":1,#随机线程的数量
+    "dockerGlobeSize":0,#全局线程的数量
+    "popNodeSize":200000,
+    "congestion":4000000
+  },
+  "tcp":{
+    "tcp4":[
+      {
+      "tcp4BindAddr":"0.0.0.0",#tcp的线程和ip端口
+      "tcp4Port":9577
+      }
+    ]
+  }
+}
+```

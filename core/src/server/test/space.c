@@ -23,6 +23,7 @@
 #include "sudoku.h"
 #include "timesys.h"
 #include "3dmathapi.h"
+#include "ruby_atomic.h"
 
 void TestGirdDir(void* s) {
 
@@ -71,6 +72,9 @@ void TestGirdDir(void* s) {
 
 void test_sudoku() {
 
+	unsigned int l = 0;
+	ATOMIC_INC(l);
+	ATOMIC_EXCHANGE(l, 1);
 	struct Vector3 cp_p = { 8.132000f, 13.683000f, 28.117000f };
 	struct Vector3 cp_r = { 41.789000f, -16.738000f, -137.851000f };
 	struct Vector3 cp_out;

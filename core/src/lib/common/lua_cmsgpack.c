@@ -213,7 +213,7 @@ void mp_decode_type(mp_cur* c, int* type) {
     }
 }
 
-void mp_decode_bytes(mp_cur* c, const unsigned char** s, size_t* len) {
+void mp_decode_bytes(mp_cur* c, unsigned char** s, size_t* len) {
     mp_cur_need(c, 1);
 
     switch (c->p[0]) {

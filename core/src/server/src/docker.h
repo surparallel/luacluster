@@ -18,7 +18,7 @@
 */
 #include <adlist.h>
 
-void DocksCreate(const char* assetsPath, unsigned short dockerSize, int nodetype, int client);
+void DocksCreate(const char* assetsPath, int nodetype, int client);
 void DocksDestory();
 int DockerLoop(void* pVoid, lua_State* L);
 

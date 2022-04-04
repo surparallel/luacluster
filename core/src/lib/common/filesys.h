@@ -43,8 +43,8 @@
 #else
 #ifdef __LP64__
 #define fopen_t fopen
-#define fseek_t fseeko64
-#define ftell_t ftello64
+#define fseek_t fseeko
+#define ftell_t ftello
 #else
 #define fopen_t fopen
 #define fseek_t fseek

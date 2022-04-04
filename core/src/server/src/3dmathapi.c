@@ -26,10 +26,10 @@
 #include "sds.h"
 #include "filesys.h"
 #include "dicthelp.h"
+#include "matrix4.h"
 #include "quaternion.h"
 #include "vector.h"
 #include "timesys.h"
-#include "matrix4.h"
 
 #define Round(x) round(x * 1000) / 1000
 

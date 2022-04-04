@@ -39,6 +39,7 @@
 #include "sdshelp.h"
 #include "uvnetmng.h"
 #include "uvnetudp.h"
+#include "ruby_atomic.h"
 
 #define MAX_DOCKER 255
 
@@ -50,7 +51,7 @@ enum entity {
 	NodeInside,//任意内部节点
 	NodeOutside,//任意有对外部通信节点
 	NodeRandom,//随机节点
-	DockerZero//放入第零个节点，这个节点不会出现在DockerRandom中
+	DockerGlobe//放入全局对象池
 };
 
 //消息句柄是静态全局变量
@@ -88,7 +89,10 @@ typedef struct _DockerHandle {
 
 typedef struct _DocksHandle {
 	PDockerHandle listPDockerHandle[MAX_DOCKER]; //每个线程的句柄
-	unsigned short dockerSize;
+	unsigned short dockerRandomSize;
+	unsigned short dockerGlobeSize;
+	unsigned int dockerGlobeInc;
+
 	sds scriptPath;
 	sds assetsPath;
 	int	nodetype;
@@ -215,8 +219,10 @@ static void doJsonParseFile(char* config, PDocksHandle pDocksHandle)
 		cJSON* item = logJson->child;
 		while ((item != NULL) && (item->string != NULL))
 		{
-			if (strcmp(item->string, "dockerSize") == 0 && pDocksHandle->dockerSize == 1) {
-				pDocksHandle->dockerSize = (int)cJSON_GetNumberValue(item);
+			if (strcmp(item->string, "dockerRandomSize") == 0) {
+				pDocksHandle->dockerRandomSize = (int)cJSON_GetNumberValue(item);
+			}else if (strcmp(item->string, "dockerGlobeSize") == 0) {
+				pDocksHandle->dockerGlobeSize = (int)cJSON_GetNumberValue(item);
 			}
 			else if (strcmp(item->string, "scriptPath") == 0) {
 				sdsfree(pDocksHandle->scriptPath);
@@ -316,21 +322,16 @@ void* DefaultLonglongPtrBuf() {
 }
 
 void DocksCreate(const char* assetsPath
-	, unsigned short dockerSize
 	, int nodetype
 	, int bots) {
-
-	if (dockerSize == 0) {
-		n_error("DocksCreate::dockerSize is zero");
-
-		return;
-	}
 
 	if (pDocksHandle) return;
 
 	pDocksHandle = malloc(sizeof(DocksHandle));
 	if (pDocksHandle == 0)return;
-	pDocksHandle->dockerSize = dockerSize;
+	pDocksHandle->dockerRandomSize = 1;
+	pDocksHandle->dockerGlobeSize = 0;
+	pDocksHandle->dockerGlobeInc = 0;
 	pDocksHandle->scriptPath = sdsnew("./lua/");
 	pDocksHandle->assetsPath = sdsnew(assetsPath);
 	pDocksHandle->nodetype = nodetype;
@@ -351,8 +352,13 @@ void DocksCreate(const char* assetsPath
 	
 	global_bots = bots;
 
-	//因为使用的是list所以0开头
-	for (unsigned int i = 0; i < pDocksHandle->dockerSize; i++) {
+	if (pDocksHandle->dockerRandomSize == 0) {
+		n_error("Dockerrandomsize is not allowed to be zero");
+		return;
+	}
+
+	unsigned int dockerSize = pDocksHandle->dockerRandomSize + pDocksHandle->dockerGlobeSize;
+	for (unsigned int i = 0; i < dockerSize; i++) {
 		PDockerHandle pDockerHandle = malloc(sizeof(DockerHandle));
 		if (pDockerHandle == 0)break;
 
@@ -392,7 +398,9 @@ static void ListDestroyFun(void* value)
 }
 
 void DockerCancel() {
-	for (unsigned int i = 0; i < pDocksHandle->dockerSize; i++) {
+
+	unsigned int dockerSize = pDocksHandle->dockerRandomSize + pDocksHandle->dockerGlobeSize;
+	for (unsigned int i = 0; i < dockerSize; i++) {
 		PDockerHandle pDockerHandle = pDocksHandle->listPDockerHandle[i];
 
 		PProtoHead pProtoHead = (PProtoHead)sdsnewlen(NULL, sizeof(ProtoHead));
@@ -779,13 +787,14 @@ int DockerLoop(void* pVoid, lua_State* L) {
 }
 
 unsigned int DockerSize() {
-	return pDocksHandle->dockerSize;
+	return pDocksHandle->dockerRandomSize;
 }
 
 list** DockerCreateMsgList() {
-	list** retList = malloc(sizeof(list*) * pDocksHandle->dockerSize);
+
+	list** retList = malloc(sizeof(list*) * (pDocksHandle->dockerRandomSize + pDocksHandle->dockerGlobeSize));
 	if (retList == NULL) return NULL;
-	for (int i = 0; i < pDocksHandle->dockerSize; i++) {
+	for (int i = 0; i < (pDocksHandle->dockerRandomSize + pDocksHandle->dockerGlobeSize); i++) {
 		retList[i] = listCreate();
 	}
 
@@ -797,7 +806,7 @@ static void DestroyFun(void* value) {
 }
 
 void DockerDestoryMsgList(list* retList[]) {
-	for (int i = 0; i < pDocksHandle->dockerSize; i++) {
+	for (int i = 0; i < pDocksHandle->dockerRandomSize + pDocksHandle->dockerGlobeSize; i++) {
 		listSetFreeMethod(retList[i], DestroyFun);
 		listRelease(retList[i]);
 	}
@@ -805,13 +814,13 @@ void DockerDestoryMsgList(list* retList[]) {
 }
 
 void DockerPushAllMsgList(list* retList[]) {
-	for (int i = 0; i < pDocksHandle->dockerSize; i++) {
+	for (int i = 0; i < pDocksHandle->dockerRandomSize + pDocksHandle->dockerGlobeSize; i++) {
 		EqPushList(pDocksHandle->listPDockerHandle[i]->eQueue, retList[i]);
 	}
 }
 
 void DockerPushMsgList(list* retList[], unsigned int dockerId, unsigned char* b, unsigned int s) {
-	if (dockerId < pDocksHandle->dockerSize) {
+	if (dockerId < pDocksHandle->dockerRandomSize + pDocksHandle->dockerGlobeSize) {
 		sds msg = sdsnewlen(b, s);
 
 		if (msg == NULL) {
@@ -825,7 +834,7 @@ void DockerPushMsgList(list* retList[], unsigned int dockerId, unsigned char* b,
 }
 
 void DockerPushMsg(unsigned int dockerId, unsigned char* b, unsigned int s) {
-	if (dockerId < pDocksHandle->dockerSize) {
+	if (dockerId < pDocksHandle->dockerRandomSize + pDocksHandle->dockerGlobeSize) {
 		sds msg = sdsnewlen(b, s);
 
 		if (msg == NULL) {
@@ -835,19 +844,16 @@ void DockerPushMsg(unsigned int dockerId, unsigned char* b, unsigned int s) {
 
 		listNode* node = listCreateNode(msg);
 		EqPushNode(pDocksHandle->listPDockerHandle[dockerId]->eQueue, node);
-	}	
+	}
+	else {
+		n_error("DockerPushMsg dockerId not find");
+	}
 }
 
 unsigned int DockerRandomPushMsg(unsigned char* b, unsigned int s) {
 
 	unsigned int dockerId = 0;
-
-	//当线程数量大于等于2时，0线程不参与随机分配。
-	if (pDocksHandle->dockerSize >= 2){
-		dockerId = (rand() % (pDocksHandle->dockerSize - 1)) + 1;
-	}else if (pDocksHandle->dockerSize == 1) {
-		dockerId = 0;
-	}
+	dockerId =  rand() % pDocksHandle->dockerRandomSize;
 
 	sds msg = sdsnewlen(b, s);
 
@@ -864,7 +870,7 @@ unsigned int DockerRandomPushMsg(unsigned char* b, unsigned int s) {
 void DockerRunScript(unsigned char*  ip, short port, int id, unsigned char* b, unsigned int s) {
 
 	if (*ip == '\0' && id < 0) {
-		for (unsigned int i = 0; i < pDocksHandle->dockerSize; i++) {
+		for (unsigned int i = 0; i < pDocksHandle->dockerRandomSize; i++) {
 			PDockerHandle pDockerHandle = pDocksHandle->listPDockerHandle[i];
 
 			unsigned int len = sizeof(PProtoRunLua) + s;
@@ -1130,8 +1136,20 @@ void DockerCreateEntity(void* pVoid, int type, const char* c, size_t s) {
 	unsigned int ip = 0;
 	unsigned short port = 0;
 
-	if (DockerZero == type)
-		DockerPushMsg(0, (unsigned char*)pProtoHead, len);
+	if (DockerGlobe == type) {
+		if (pDocksHandle->dockerGlobeSize == 0) {
+			DockerRandomPushMsg((unsigned char*)pProtoHead, len);
+		}
+		else {
+			unsigned int globeInc = ATOMIC_INC(pDocksHandle->dockerGlobeInc);
+			unsigned int globeMod = globeInc % pDocksHandle->dockerGlobeSize;
+			if (globeInc != 0 && pDocksHandle->dockerGlobeSize > 1 && 0 == globeMod) {
+				n_warn("Globe Server The number of global services is more than docker size");
+			}
+			DockerPushMsg(pDocksHandle->dockerRandomSize + globeMod, (unsigned char*)pProtoHead, len);
+		}
+			
+	}
 	else if (DockerCurrent == type)
 		DockerPushMsg(pDockerHandle->id, (unsigned char*)pProtoHead, len);
 	else if(DockerRandom == type)

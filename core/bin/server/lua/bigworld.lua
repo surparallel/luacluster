@@ -33,7 +33,7 @@ function spaceFactory.New()
                          , sc.bigworld.endz
                         )
         --创建基本的space
-        entitymng.EntityToCreate(sc.entity.DockerZero , "sudokuex", {bigworld=self.id,
+        entitymng.EntityToCreate(sc.entity.DockerGlobe , "sudokuex", {bigworld=self.id,
                                                                     beginx = sc.bigworld.beginx - sc.sudoku.girdx,
                                                                     beginz = sc.bigworld.beginz - sc.sudoku.girdz,
                                                                     endx = sc.bigworld.endx + sc.sudoku.girdx,
@@ -103,7 +103,7 @@ function spaceFactory.New()
         --检查空间是否已经在调整中，如果没有就开始调整根据返回创建两个新的空间数据
         local adjust, beginx, beginz, endx, endz = bigworldapi.SpaceFull(self.apihandle, id)
         if adjust == 1 then
-            entitymng.EntityToCreate(sc.entity.DockerZero , "sudokuex", {bigworld=self.id,
+            entitymng.EntityToCreate(sc.entity.DockerGlobe , "sudokuex", {bigworld=self.id,
                                                                         beginx = beginx,
                                                                         beginz = beginz,
                                                                         endx = endx,

@@ -330,14 +330,8 @@ static unsigned int RandomDividend(unsigned int dividend, unsigned int merchant,
     }
 
     unsigned int r = 0;
-    if (mod == 0 && divisor > 1) {
-        r = rand() % (divisor - 1);
-        r = merchant * (r + 1);
-    }
-    else {
-        r = rand() % divisor;
-        r = merchant * r + mod;
-    }
+    r = rand() % divisor;
+    r = merchant * r + mod;
     return r;
 }
 

@@ -63,7 +63,7 @@ mp_encode_bytes(buf, ptr, sizeof(myptr)-1);\
 
 void mp_cur_init(mp_cur* cursor, const unsigned char* s, size_t len);
 void mp_decode_type(mp_cur* c, int* type);
-void mp_decode_bytes(mp_cur* c, const unsigned char** s, size_t* len);
+void mp_decode_bytes(mp_cur* c, unsigned char** s, size_t* len);
 void mp_decode_double(mp_cur* c, double* d);
 void mp_decode_unint(mp_cur* c, unsigned long long* n);
 void mp_decode_int(mp_cur* c, signed long long* n);

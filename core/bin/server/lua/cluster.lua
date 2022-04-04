@@ -35,7 +35,7 @@ function cluster:CheckInit()
         end
 
         for k, v in pairs(sc.cluster.serves) do
-            entitymng.EntityToCreate(sc.entity.DockerZero, v, {ServerName=v})
+            entitymng.EntityToCreate(sc.entity.DockerGlobe, v, {ServerName=v})
             elog.node_details("cluster start server: %s",v)
         end
 

@@ -45,7 +45,6 @@ static const char* assetsPath = 0;
 static unsigned int dockerid = 0;
 static unsigned char* ip = 0;
 static unsigned short port = 0;
-static unsigned short dockerSize = 1;
 static unsigned char nodetype = 0;//默认情况下是有外网的
 static unsigned short listentcp = 0;
 static unsigned short bots = 0;
@@ -261,15 +260,6 @@ int ReadArgFromParam(int argc, char** argv, sds* allarg) {
 			}
 
 		}
-		else if (strcmp(argv[i], "--dockersize") == 0)
-		{
-			if (checkArg(argv[i + 1])) {
-				dockerSize = atoi(argv[i + 1]);
-			}
-			else {
-				printf("Not enough parameters found!\n");
-			}
-		}
 		else if (strcmp(argv[i], "--inside") == 0)
 		{
 			nodetype |= NO_TCP_LISTEN;
@@ -405,7 +395,7 @@ int main(int argc, char** argv) {
 		InitRedisHelp();
 		//创建网络层
 		NetMngCreate(nodetype);
-		DocksCreate(assetsPath, dockerSize, nodetype, bots);
+		DocksCreate(assetsPath, nodetype, bots);
 
 		if (bip != 0) {
 			if(brang == 0)

@@ -23,7 +23,7 @@ sc.entity.DockerRandom = 1 --当前节点的随机ddocker
 sc.entity.NodeInside = 2 --任意内部节点
 sc.entity.NodeOutside = 3 --任意有对外部通信节点
 sc.entity.NodeRandom = 4
-sc.entity.DockerZero = 5 --放入第0个节点，这个节点不会出现在DockerRandom中。当线程分配大于等于4时，0线程才不参与随机分配。
+sc.entity.DockerGlobe = 5 --放入全局节点
 
 --属性的标识符
 sc.keyflags = {}
