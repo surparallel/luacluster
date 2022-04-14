@@ -110,11 +110,10 @@ static void PackJsonObject(cJSON* item, mp_buf* pk)
 	}
 }
 
-
-void PackJson(const char* str, mp_buf* pk) {
+int PackJson(const char* str, mp_buf* pk) {
 	cJSON* json = cJSON_Parse(str);
 	if (!json) {
-		return;
+		return 0;
 	}
 
 	if (((json->type) & 0XFF) == cJSON_Object)
@@ -123,6 +122,7 @@ void PackJson(const char* str, mp_buf* pk) {
 		PackJsonArray(json, pk);
 
 	cJSON_Delete(json);
+	return 1;
 }
 
 void UnpackArray(mp_cur* pcursor, cJSON* json);

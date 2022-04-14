@@ -134,7 +134,7 @@ int IssueCommand(int argc, char** argv, int noFind) {
 	}
 	else if (!strcasecmp(command, "new")) {
 
-		if (argc < 2 ) {
+		if (argc != 4) {
 			printf("The parameters of the create instruction must be even\n");
 			return 1;
 		}
@@ -147,7 +147,7 @@ int IssueCommand(int argc, char** argv, int noFind) {
 		mp_buf_free(pmp_buf);
 	}
 	else if (!strcasecmp(command, "call")) {
-		if (argc < 2) {
+		if (argc < 3) {
 			printf("Parameter does not enough the requirement\n");
 			return 1;
 		}
@@ -162,9 +162,23 @@ int IssueCommand(int argc, char** argv, int noFind) {
 		//function name
 		mp_encode_bytes(pmp_buf, argv[2], strlen(argv[2]));
 
-		//arg
-		for (int i = 3; i < argc; i++) {
-			PackJson(argv[i], pmp_buf);
+		if (argc >= 3) {
+			//arg call ******* fun2 111 {"a"£º1} aaa
+			for (int i = 3; i < argc; i++) {
+			
+				int r = IsNumber(argv[i]);
+				if (r == 1) {
+					mp_encode_int(pmp_buf, atoi(argv[i]));
+				}else if (r == 3) {
+						mp_encode_double(pmp_buf, atof(argv[i]));
+				}else if (0 == PackJson(argv[i], pmp_buf)) {			
+					if (r == 0) {
+						mp_encode_bytes(pmp_buf, argv[i], strlen(argv[i]));
+					} else {
+						mp_encode_int(pmp_buf, 0);
+					}
+				}
+			}
 		}
 
 		DockerSend(id, pmp_buf->b, pmp_buf->len);

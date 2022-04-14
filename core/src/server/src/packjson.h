@@ -19,4 +19,4 @@
 
 
 void UnpackJson(const char* buf, size_t len, cJSON** json);
-void PackJson(const char* str, mp_buf* pk);
+int PackJson(const char* str, mp_buf* pk);

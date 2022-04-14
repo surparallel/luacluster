@@ -81,3 +81,66 @@ static int ArgsCheckArg(char* argv) {
 		return 1;
 }
 
+/* Whether string s is a number.
+   Returns 0 for non-number, 1 for integer, 2 for hex-integer, 3 for float */
+int IsNumber(char* s)
+{
+	int base = 10;
+	char* ptr;
+	int type = 0;
+
+	if (s == NULL) return 0;
+
+	ptr = s;
+
+	/* skip blank */
+	while (IS_BLANK(*ptr)) {
+		ptr++;
+	}
+
+	/* skip sign */
+	if (*ptr == '-' || *ptr == '+') {
+		ptr++;
+	}
+
+	/* first char should be digit or dot*/
+	if (IS_DIGIT(*ptr) || ptr[0] == '.') {
+
+		if (ptr[0] != '.') {
+			/* handle hex numbers */
+			if (ptr[0] == '0' && ptr[1] && (ptr[1] == 'x' || ptr[1] == 'X')) {
+				type = 2;
+				base = 16;
+				ptr += 2;
+			}
+
+			/* Skip any leading 0s */
+			while (*ptr == '0') {
+				ptr++;
+			}
+
+			/* Skip digit */
+			while (IS_DIGIT(*ptr) || (base == 16 && IS_HEX_DIGIT(*ptr))) {
+				ptr++;
+			}
+		}
+
+		/* Handle dot */
+		if (base == 10 && *ptr && ptr[0] == '.') {
+			type = 3;
+			ptr++;
+		}
+
+		/* Skip digit */
+		while (type == 3 && base == 10 && IS_DIGIT(*ptr)) {
+			ptr++;
+		}
+
+		/* if end with 0, it is number */
+		if (*ptr == 0)
+			return (type > 0) ? type : 1;
+		else
+			type = 0;
+	}
+	return type;
+}

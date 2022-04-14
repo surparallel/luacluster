@@ -234,7 +234,8 @@ static void RecvCallback(PNetClient c, char* buf, size_t buffsize) {
             DockerRunScript("", 0, pProtoRunLua->dockerid, pProtoRunLua->luaString, pProtoRunLua->protoHead.len - sizeof(PProtoRunLua));
         }
         else {
-            n_error("Discard the error packet!")
+            n_error("Discard the error packet!");
+            uv_close((uv_handle_t*)c->stream, on_close);
         }
     }
 }
@@ -301,6 +302,7 @@ static void tcp_read(uv_stream_t* handle,
             c->halfBuf = sdsMakeRoomFor(sdsempty(),len);
             if (c->halfBuf == 0) {
                 n_error("tcp_read::sdsMakeRoomFor c->halfBuf ");
+                //需要加一个封包校验标志
                 break;
             }
             memcpy(c->halfBuf, pos, remainLen);

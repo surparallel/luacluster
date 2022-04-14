@@ -20,6 +20,11 @@
 #pragma once
 #include "sds.h"
 
+#define IS_BLANK(c) ((c) == ' ' || (c) == '\t')
+#define IS_DIGIT(c) ((c) >= '0' && (c) <= '9')
+#define IS_ALPHA(c) ( ((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && (c) <= 'Z') )
+#define IS_HEX_DIGIT(c) (((c) >= 'A' && (c) <= 'F') || ((c) >= 'a' && (c) <= 'f'))
+
 typedef int(*FUNIssueCommand)(int argc, char** argv, int noFind);
 int ArgsInteractive(FUNIssueCommand pIssueCommand);
-static sds ReadArgFromStdin(void);
+int IsNumber(char* s);

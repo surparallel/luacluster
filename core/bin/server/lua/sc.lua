@@ -46,7 +46,7 @@ sc.redis.ip = "127.0.0.1"
 sc.redis.port = 6379
 
 sc.cluster = {}
-sc.cluster.serves = {"space","bigworld"}--集群启动时要启动的服务列表
+sc.cluster.serves = {"space","bigworld","dbsvr"}--集群启动时要启动的服务列表
 sc.cluster.expire = 15 --集群关键key的过期时间秒
 sc.cluster.nodeSize = 1 --集群的数量
 sc.cluster.nodeStar = 5 --集群服务的启动延迟时间
@@ -66,6 +66,12 @@ sc.bigworld.beginx = 0
 sc.bigworld.beginz = 0
 sc.bigworld.endx = 100
 sc.bigworld.endz = 100
+
+sc.db = {}
+sc.db.uri= 'mongodb://127.0.0.1'
+sc.db.dbname = 'luacluster-mongo'
+sc.db.collname = 'entity'
+sc.db.updateTime = 300
 
 try(function()
 

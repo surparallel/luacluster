@@ -2,7 +2,12 @@
 [![C/C++ CI](https://github.com/surparallel/luacluter/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/surparallel/luacluter/actions/workflows/c-cpp.yml)
 
 ### 概要
-luacluster分布式游戏服务器框架。特色是实现了万人同屏，实现了无缝大地图，用户开发方式为lua的rpc调用模式。近期开发计划是接入mongodb。QQ群：927073440
+
+luacluster分布式游戏服务器框架。特色是实现了万人同屏，实现了无缝大地图，用户开发方式为lua的rpc调用模式，已经接入mongodb。近期计划是写技术白皮书。QQ群：927073440。
+
+
+
+[TOC]
 
 # 1. BUILDING AND INSTALLATION
 ## CMake (Windows)
@@ -140,3 +145,60 @@ $ luacluter_d.exe --bots --noudp --inside --btcp2 127.0.0.1 9577 500 #服务器i
   }
 }
 ```
+
+## 数据库存储的测试
+
+在luacluster中使用mongodb
+
+sc.lua全局配置中已经添加了"dbsvr"全局服务对象。
+
+```
+sc.cluster.serves = {"space","bigworld","dbsvr"}--集群启动时要启动的服务列表
+```
+
+在任意节点控制台输入命令创建一个dbentity对象
+
+```
+#命令new
+#参数1：在什么地方创建对象
+	DockerCurrent = 0, //当前线程的docker
+	DockerRandom,//当前节点的随机ddocker
+	NodeInside,//任意内部节点
+	NodeOutside,//任意有对外部通信节点
+	NodeRandom,//随机节点
+	DockerGlobe//放入全局对象池
+#参数2：创建对象的名字“dbentity”
+#参数3：创建对象的初始化数据格式为json
+>new 1 dbentity {}
+>New tentity:   18302840717262782469
+```
+
+使用call命令调用dbentity对象的fun函数返回dbid。
+
+```
+>call 18302840717262782469 fun
+>test entity fun
+db      6253f48671099513a0f5165f
+
+#命令call
+#参数1：entityid
+#参数2：entity的函数,这里为dbentity.lua中的“fun”
+#剩余参数:为函数参数,类型为数字，字符串，json。例如call 18302840717262782469 fun2 111 {"a"：1} aaa
+```
+
+# 3. luacluster白皮书纲要
+
+1. luacluster组织架构及名词定义
+2. entity对象的创建，继承，多重继承，多态，健事件。
+3. luarpc调用及封包结构。
+4. 全局对象的创建和全局对象的功能插件
+5. bigworld无缝大地图全局对象。
+6. sudoku九宫格空间全局对象。
+7. space全局对象
+8. dbsvr数据存储全局对象
+9. 命令以及参数
+10. docker的脚本api
+11. 如何使用luacluster创建一个MMO游戏
+
+
+

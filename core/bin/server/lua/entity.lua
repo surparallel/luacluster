@@ -29,13 +29,13 @@ function entityFactory.CreateSub(obj, t, name, root, rootk)
 
         __newindex = function (t,k,v)
             --事件创建和修改
-            if t.__root.__KeyFlags[k] ~= nil and t.__root.__FlagFilter[t.__root.__KeyFlags[k]] ~= nil then
-                for fun in t.__root.__FlagFilter[t.__root.__KeyFlags[k]] do
+            if t.__root.__KeyFlags[t.__rootk] ~= nil and t.__root.__FlagFilter[t.__root.__KeyFlags[t.__rootk]] ~= nil then
+                for key, fun in pairs(t.__root.__FlagFilter[t.__root.__KeyFlags[t.__rootk]]) do
                     fun(t,k,v,rawobj[k],t.__root.__KeyFlags[t.__rootk])
                 end
             end
 
-            if rawobj[k] == nil and type(v) == 'table' then
+            if type(v) == 'table' then
                 if getmetatable(v) == nil then
                     rawobj[k] = entityFactory.CreateSub(v, t, k, t.__root, wrap.__rootk)
                 else
@@ -67,12 +67,13 @@ function entityFactory.New()
     local wrap = {}
     local rawobj = {}
     wrap.__rawobj = rawobj
-    wrap.__FlagFilter = {} --key对应的KeyFilterFlag
-    wrap.__FlagFilterFun = {} --单一flag对应的函数
+    wrap.__FlagFilter = {} --key对应的KeyFilterFlag下的所有fun
+    wrap.__FlagFilterFun = {} --单一flag对应的函数防止误释放
     wrap.__KeyFlags = {}
     wrap.__inherit = {}
     wrap.__allparant = {}
     wrap.__entity = 1
+    wrap.__FreshKey = {}
 
     function rawobj:CopyArg(arg)
         if arg ~= nil then
@@ -126,7 +127,7 @@ function entityFactory.New()
 
     function rawobj:AddFlagFilter(flag, fun)
         for iflag, ifun in pairs(self.__FlagFilter) do
-            if bit32.band(iflag, falg) ~= 0 then
+            if bit32.band(iflag, flag) ~= 0 then
                 ifun[tostring(fun)] = fun
             end
         end
@@ -136,7 +137,7 @@ function entityFactory.New()
 
         local isempty = 0
         if self.__FlagFilter[flag] == nil then
-            isempty = 1    
+            isempty = 1
         end
 
         local cflag = 1
@@ -251,6 +252,10 @@ function entityFactory.New()
         if parantObj.__FlagFilterFun ~= nil then
             for k, v in pairs(parantObj.__FlagFilterFun) do self.__FlagFilterFun[k] = v end
         end
+
+        if parantObj.__FreshKey ~= nil then
+            for k, v in pairs(parantObj.__FreshKey) do self.__FreshKey[k] = v end
+        end
     end
 
     setmetatable(wrap,{
@@ -260,11 +265,11 @@ function entityFactory.New()
         __newindex = function (t,k,v)
 
             if t.__KeyFlags[k] ~= nil and t.__FlagFilter[t.__KeyFlags[k]] ~= nil then
-                for fun in t.__FlagFilter[t.__KeyFlags[k]] do
+                for key, fun in pairs(t.__FlagFilter[t.__KeyFlags[k]]) do
                     fun(t,k,v,t.__rawobj[k],t.__KeyFlags[k])
                 end
 
-                if t.__rawobj[k] == nil and type(v) == 'table' then
+                if type(v) == 'table' then
                     if getmetatable(v) == nil then
                         t.__rawobj[k] = entityFactory.CreateSub(v, t, k, t, k)
                         return

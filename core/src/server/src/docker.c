@@ -46,8 +46,8 @@
 static int global_bots = 0;
 
 enum entity {
-	DockerCurrent = 0, //当前ddocker
-	DockerRandom,//当前节点的随机ddocker
+	DockerCurrent = 0, //当前docker
+	DockerRandom,//当前节点的随机docker
 	NodeInside,//任意内部节点
 	NodeOutside,//任意有对外部通信节点
 	NodeRandom,//随机节点
@@ -1150,7 +1150,7 @@ void DockerCreateEntity(void* pVoid, int type, const char* c, size_t s) {
 		}
 			
 	}
-	else if (DockerCurrent == type)
+	else if (DockerCurrent == type && pVoid != NULL)
 		DockerPushMsg(pDockerHandle->id, (unsigned char*)pProtoHead, len);
 	else if(DockerRandom == type)
 		DockerRandomPushMsg((unsigned char*)pProtoHead, len);

@@ -35,5 +35,5 @@ void GetUpdOutside(unsigned int* ip, unsigned short* port);
 void InitRedisHelp();
 void FreeRedisHelp();
 void GetUpdFromAll(unsigned int* ip, unsigned short* port);
-void GetEntityToDns(const char* name, unsigned long long* id);
+void GetEntityFromDns(const char* name, unsigned long long* id);
 void SetEntityToDns(const char* name, unsigned long long id);
