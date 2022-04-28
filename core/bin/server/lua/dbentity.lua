@@ -4,24 +4,9 @@ local sc = require("sc")
 local json = require("dkjson")
 local test = {}
 
-function test.OnFreshKey(t,k,v,o,f)
-    local root = t
-    if t.__root ~= nil then
-        root = t.__root
-    end
-    if root:HaveKeyFlags(k, sc.keyflags.persistent) then
-        if root.__rootk ~= nil then
-            root:AddFresh(root.__rootk)
-        else
-            root:AddFresh(k)
-        end
-    end
-end
-
 function test.New()
     local obj = entity.New()
     obj:Inherit("dbplugin")
-    obj:AddFlagFun(sc.keyflags.persistent, test.OnFreshKey)
     obj:AddKeyFlags("a", sc.keyflags.persistent)
     obj:AddKeyFlags("b", sc.keyflags.persistent)
     obj:AddKeyFlags("c", sc.keyflags.persistent)
@@ -29,11 +14,11 @@ function test.New()
 
     function obj:Init()
         local myid = tostring(int64.new_unsigned(self.id))
-        print("New tentity:",myid)
+        print("New dbentity:",myid)
     end
 
     function obj:fun()
-        print("test entity fun")
+        print("dbentity fun")
         self.a = 1
         self.b = {a = 1, b = 2}
         self.c = {1,2,3,4}
@@ -43,7 +28,7 @@ function test.New()
 
     function  obj:SaveBack(dbid)
         self.__allparant["dbplugin"].SaveBack(self,dbid)
-        print("db",dbid)
+        print("dbentity id",dbid)
         self.b = {a = 3, b = 4}
         self:SaveUpdate()
         self:Load(dbid)
@@ -54,7 +39,7 @@ function test.New()
     end
 
     function obj:fun2(a, b, c)
-        print("test entity fun2:",a," ",b,"",c)
+        print("dbentity fun2:",a," ",b,"",c)
     end
 
     function obj:mongo()
@@ -63,7 +48,7 @@ function test.New()
 
     function obj:Update(count, deltaTime)
         --定期保存
-       if obj.stamp - os.time() > sc.db.updateTime then
+       if self.stamp - os.time() > sc.db.updateTime then
         self:SaveUpdate()
        end
     end

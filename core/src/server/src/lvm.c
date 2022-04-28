@@ -43,20 +43,23 @@ typedef struct _LVMHandle
 	lua_State* luaVM;//lua handle
 	sds scriptPath;
 	int luaHot;
+	sds binPath;
 }*PLVMHandle, LVMHandle;
 
 void LuaAddPath(lua_State* ls, char* name, char* value)
 {
-	sds v;
+	sds v,o;
 	lua_getglobal(ls, "package");
 	lua_getfield(ls, -1, name);
-	v = sdsnew(lua_tostring(ls, -1));
+	o = sdsnew(lua_tostring(ls, -1));
+	v = sdsnew(value);
 	v = sdscat(v, ";");
-	v = sdscat(v, value);
+	v = sdscat(v, o);
 	lua_pushstring(ls, v);
 	lua_setfield(ls, -3, name);
 	lua_pop(ls, 2);
 
+	sdsfree(o);
 	sdsfree(v);
 }
 
@@ -69,11 +72,12 @@ LUALIB_API void luaL_requiref(lua_State* L, const char* modname,
 }
 #endif
 
-void* LVMCreate(const char* scriptPath, const char* assetsPath) {
+void* LVMCreate(const char* scriptPath, const char* binPath) {
 
 	PLVMHandle pLVMHandle = malloc(sizeof(LVMHandle));
 	pLVMHandle->luaVM = luaL_newstate();
 	pLVMHandle->scriptPath = sdsnew(scriptPath);
+	pLVMHandle->binPath = sdsnew(binPath);
 
 	luaL_openlibs(pLVMHandle->luaVM);
 
@@ -89,10 +93,24 @@ void* LVMCreate(const char* scriptPath, const char* assetsPath) {
 	luaL_requiref(pLVMHandle->luaVM, "socket.core", luaopen_socket_core, 1);
 	luaL_requiref(pLVMHandle->luaVM, "mime.core", luaopen_mime_core, 1);
 	
-	if(sdslen((sds)assetsPath) != 0)
-		LuaAddPath(pLVMHandle->luaVM, "path", (char*)assetsPath);
-	LuaAddPath(pLVMHandle->luaVM, "path", (char*)"./lua/?.lua;");
+	//lua本身是添加了lua的路径其他路径需要手动添加
+	if (sdslen((sds)binPath) != 0 && sdslen((sds)scriptPath) != 0) {
+		//载入bin目录下的lua文件
+		sds cPath = sdsnew(binPath);
+		cPath = sdscat(cPath, "/");
+		cPath = sdscat(cPath, scriptPath);
+		cPath = sdscat(cPath, "/?.lua");
+		LuaAddPath(pLVMHandle->luaVM, "path", cPath);
+		sdsfree(cPath);
+	}
 
+	if (sdslen((sds)scriptPath) != 0) {
+		//载入pwd目录下的lua文件
+		sds cPath = sdsnew(scriptPath);
+		cPath = sdscat(cPath, "/?.lua");
+		LuaAddPath(pLVMHandle->luaVM, "path", cPath);
+		sdsfree(cPath);
+	}
 	return pLVMHandle;
 }
 
@@ -103,6 +121,7 @@ void LVMDestory(void* pvlVMHandle) {
 	}
 	
 	sdsfree(pLVMHandle->scriptPath);
+	sdsfree(pLVMHandle->binPath);
 	lua_close(pLVMHandle->luaVM);
 	free(pLVMHandle);
 }
@@ -111,7 +130,7 @@ int LVMCallFunction(void* pvLVMHandle, char* sdsFile, char* fun) {
 
 	PLVMHandle pLVMHandle = pvLVMHandle;
 	int top = lua_gettop(pLVMHandle->luaVM);
-	sds allPath = sdscatfmt(sdsempty(), "%s%s.lua", pLVMHandle->scriptPath, sdsFile);
+	sds allPath = sdscatfmt(sdsempty(), "%s/%s/%s.lua", pLVMHandle->binPath, pLVMHandle->scriptPath, sdsFile);
 
 	if (luaL_loadfile(pLVMHandle->luaVM, allPath)) {
 		elog(log_error, ctg_script, "LVMCallFile.pluaL_loadfilex:%s", lua_tolstring(pLVMHandle->luaVM, -1, NULL));

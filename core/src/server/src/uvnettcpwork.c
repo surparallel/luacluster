@@ -35,6 +35,7 @@
 #include "timesys.h"
 #include "dictQueue.h"
 #include "uvnettcp.h"
+#include "configfile.h"
 
 #define _BINDADDR_MAX 16
 
@@ -740,39 +741,12 @@ static void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* b
     buf->len = suggested_size;
 }
 
-static void doJsonParseFile(PWorkServer pWorkServer, char* config)
+static void doJsonParseFile(void* pVoid, char* data)
 {
-    if (config == NULL) {
-        config = getenv("AssetsPath");
-        if (config == 0 || access_t(config, 0) != 0) {
-            config = "../../res/server/config_defaults.json";
-            if (access_t(config, 0) != 0) {
-                return;
-            }
-        }
-    }
-
-    FILE* f; size_t len; char* data;
-    cJSON* json;
-
-    f = fopen_t(config, "rb");
-
-    if (f == NULL) {
-        printf("Error Open File: [%s]\n", config);
-        return;
-    }
-
-    fseek_t(f, 0, SEEK_END);
-    len = ftell_t(f);
-    fseek_t(f, 0, SEEK_SET);
-    data = (char*)malloc(len + 1);
-    fread(data, 1, len, f);
-    fclose(f);
-
-    json = cJSON_Parse(data);
+    PWorkServer pWorkServer = pVoid;
+    cJSON* json = cJSON_Parse(data);
     if (!json) {
         //printf("Error before: [%s]\n", cJSON_GetErrorPtr());	
-        free(data);
         return;
     }
 
@@ -795,7 +769,6 @@ static void doJsonParseFile(PWorkServer pWorkServer, char* config)
     }
 
     cJSON_Delete(json);
-    free(data);
 }
 
 void* TcpWorkCreate(unsigned int workId, void* pVoid, unsigned int family, char* ip, unsigned short port) {
@@ -807,7 +780,7 @@ void* TcpWorkCreate(unsigned int workId, void* pVoid, unsigned int family, char*
         return NULL;
     }
 
-    pWorkServer->entityObj = sdsnew("account");
+    pWorkServer->entityObj = sdsnew("client");
     pWorkServer->botsObj = sdsnew("bots");
     pWorkServer->allClientID = 0;
     pWorkServer->workId = workId;
@@ -820,7 +793,7 @@ void* TcpWorkCreate(unsigned int workId, void* pVoid, unsigned int family, char*
     pWorkServer->sendStamp = GetTick();
     pWorkServer->pTcp = pVoid;
 
-    doJsonParseFile(pWorkServer, NULL);
+    DoJsonParseFile(pWorkServer, doJsonParseFile);
 
     if (uv_loop_init(&pWorkServer->uv_loop)) {
         n_error("TcpWorkCreate uv_loop_init errror");

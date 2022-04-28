@@ -19,7 +19,7 @@ function spaceFactory.New()
         entitymng.RegistryUpdata(self)
 
         if self.bigworld == nil then
-            obj.mysudoku = sudokuapi.Create(sc.sudoku.girdx
+            self.mysudoku = sudokuapi.Create(sc.sudoku.girdx
                                             , sc.sudoku.girdz
                                             , self.beginx
                                             , self.beginz
@@ -29,7 +29,7 @@ function spaceFactory.New()
                                             , self.id
                                             , sc.sudoku.outsideSec)
         else
-            obj.mysudoku = sudokuapi.Create(sc.sudoku.girdx
+            self.mysudoku = sudokuapi.Create(sc.sudoku.girdx
                                             , sc.sudoku.girdz
                                             , self.beginx
                                             , self.beginz

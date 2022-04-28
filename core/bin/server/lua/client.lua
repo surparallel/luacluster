@@ -6,13 +6,14 @@ local int64 = require("int64")
 local elog = require("eloghelp")
 local entitymng = require("entitymng")
 local udpproxylist = require 'udpproxylist'
+local cmsgpack = require("cmsgpack")
 
 local accountFactory = {}
 
-function accountFactory.OnFreshKey(t,k,v,o,f)
-    if t:HaveKeyFlags(k, sc.keyflags.private) then
-        docker.SendToClient(t.id, t.id, cmsgpack.pack("ChangStatus", {[k]=v}))
-    end
+function accountFactory.OnFreshKey(root, rootKey)
+    local out = nil
+    root:Recombination(root[rootKey], out)
+    root.client:ChangStatus(out)
 end
 
 function accountFactory.New()
@@ -42,24 +43,24 @@ function accountFactory.New()
     function obj:Init()
 
         local myid = tostring(int64.new_unsigned(self.id))
-        elog.sys_fun("account::init %s", myid)
-        if(obj.clientid ~= nil)then
-            obj.client = tcpproxy.New(self.id)
+        elog.sys_fun("client::init %s", myid)
+        if(self.clientid ~= nil)then
+            self.client = tcpproxy.New(self.id)
         end
     end
 
     function obj:Destory()
         --正常流程要加延迟处理，否则在注册空间过程中退出会导致空间残留
-        obj:LeaveWorld("bigworld")
+        self:LeaveWorld("bigworld")
         --通知管理器销毁对象，当对象有多个继承时要考虑销毁顺序
         entitymng.UnRegistryObj(self.id)
     end
     
     function obj:Ping(a)
-        obj.client:Pong(a)
+        self.client:Pong(a)
 
         --收到ping表示客户端初始化完成进入世界
-        obj:EntryWorld("bigworld")
+        self:EntryWorld("bigworld")
     end
 
     function obj:OnEntryWorld(spaceType, beginx, beginz, endx, endz)
@@ -80,17 +81,17 @@ function accountFactory.New()
     end
 
     function obj:Move(poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
-        obj.transform.position.x = poitionx
-        obj.transform.position.y = poitiony
-        obj.transform.position.z = poitionz
+        self.transform.position.x = poitionx
+        self.transform.position.y = poitiony
+        self.transform.position.z = poitionz
 
-        obj.transform.rotation.x = rotationx
-        obj.transform.rotation.y = rotationy
-        obj.transform.rotation.z = rotationz
+        self.transform.rotation.x = rotationx
+        self.transform.rotation.y = rotationy
+        self.transform.rotation.z = rotationz
 
-        obj.transform.velocity = velocity
-        obj.transform.stamp = stamp
-        obj.transform.stampStop = stampStop
+        self.transform.velocity = velocity
+        self.transform.stamp = stamp
+        self.transform.stampStop = stampStop
 
         self:SpaceMove(self.transform.position.x, self.transform.position.y, self.transform.position.z
         ,self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z, self.transform.velocity, 

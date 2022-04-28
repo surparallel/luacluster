@@ -34,6 +34,7 @@
 #include "redishelp.h"
 #include "timesys.h"
 #include "dictQueue.h"
+#include "configfile.h"
 
 #define _BINDADDR_MAX 16
 #define PACKET_MAX_SIZE_UDP					1472
@@ -155,39 +156,12 @@ static void RecvCallback(PNetClient c, char* buf, size_t buffsize) {
     }
 }
 
-static void doJsonParseFile(PNetUdp pNetUdp, char* config)
+static void doJsonParseFile(void* pVoid, char* data)
 {
-    if (config == NULL) {
-        config = getenv("AssetsPath");
-        if (config == 0 || access_t(config, 0) != 0) {
-            config = "../../res/server/config_defaults.json";
-            if (access_t(config, 0) != 0) {
-                return;
-            }
-        }
-    }
-
-    FILE* f; size_t len; char* data;
-    cJSON* json;
-
-    f = fopen_t(config, "rb");
-
-    if (f == NULL) {
-        printf("Error Open File: [%s]\n", config);
-        return;
-    }
-
-    fseek_t(f, 0, SEEK_END);
-    len = ftell_t(f);
-    fseek_t(f, 0, SEEK_SET);
-    data = (char*)malloc(len + 1);
-    fread(data, 1, len, f);
-    fclose(f);
-
-    json = cJSON_Parse(data);
+    PNetUdp pNetUdp = pVoid;
+    cJSON* json = cJSON_Parse(data);
     if (!json) {
         //printf("Error before: [%s]\n", cJSON_GetErrorPtr());	
-        free(data);
         return;
     }
 
@@ -202,7 +176,6 @@ static void doJsonParseFile(PNetUdp pNetUdp, char* config)
     }
 
     cJSON_Delete(json);
-    free(data);
 }
 
 static void NetRun(void* pVoid) {
@@ -413,7 +386,7 @@ void* UdpCreate(char* ip, unsigned short uportBegin, unsigned char uportOffset, 
     pNetUdp->uportOffset = 0;
     pNetUdp->sendStamp = GetTick();
 
-    doJsonParseFile(pNetUdp, NULL);
+    DoJsonParseFile(pNetUdp, doJsonParseFile);
  
     if (uv_loop_init(&pNetUdp->loop_struct))
         return NULL;

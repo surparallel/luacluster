@@ -1,6 +1,6 @@
-/* version.h - version function
+/* configfile.c - Log related, the annoying output format to the callback function
 *
-* Copyright(C) 2021 - 2022, sun shuo <sun.shuo@surparallel.org>
+* Copyright(C) 2019 - 2022, sun shuo <sun.shuo@surparallel.org>
 * All rights reserved.
 *
 * This program is free software : you can redistribute it and / or modify
@@ -17,16 +17,5 @@
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
 
-
-#ifndef __VERSION_H
-#define __VERSION_H
-
-#define VERSION_MAJOR	"1"
-#define VERSION_MINOR	"3"
-
-#define VERSION_NUMMAJOR	1
-#define VERSION_NUMMINOR	3
-
-void Version();
-
-#endif
+typedef void (*ConfigCallBack)(void* pVoid, char* pData);
+void DoJsonParseFile(void* pVoid, ConfigCallBack ccb);

@@ -34,7 +34,7 @@ sc.keyflags.private = 8--同步到客户端
 
 -----------以上为常量，以下为配置----------------------------------------------------------------------------------------------------
 sc.glob = {}
-sc.glob.mysc = nil--客户资产的配置文件名，如果存在将使用客户资产的配置文件覆盖当前文件配置
+sc.glob.mysc = "assert_sc"--客户资产的配置文件名，如果存在将使用客户资产的配置文件覆盖当前文件配置
 
 sc.LuaPanda = {}
 sc.LuaPanda.ip = "127.0.0.1"
@@ -81,7 +81,7 @@ try(function()
 
     local mysc = require(sc.glob.mysc)
     if mysc ~= nil then
-        sc = dcopy.clone(mysc)
+        dcopy.clone(sc, mysc)
     end
 
 end).catch(function (ex)

@@ -22,7 +22,6 @@
     ]
   },
   "tcpWork":{
-    "entityObj":"client",
-    "botsObj":"bots"
+    "entityObj":"role"
   }
 }

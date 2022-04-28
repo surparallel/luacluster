@@ -31,7 +31,15 @@ function entityFactory.CreateSub(obj, t, name, root, rootk)
             --事件创建和修改
             if t.__root.__KeyFlags[t.__rootk] ~= nil and t.__root.__FlagFilter[t.__root.__KeyFlags[t.__rootk]] ~= nil then
                 for key, fun in pairs(t.__root.__FlagFilter[t.__root.__KeyFlags[t.__rootk]]) do
-                    fun(t,k,v,rawobj[k],t.__root.__KeyFlags[t.__rootk])
+                    local myRoot = t
+                    if t.__root ~= nil then
+                        myRoot = t.__root
+                    end
+                    local rootKey = k
+                    if myRoot.__rootk ~= nil then
+                        rootKey = myRoot.__rootk
+                    end
+                    fun(myRoot,rootKey)
                 end
             end
 
@@ -140,6 +148,7 @@ function entityFactory.New()
             isempty = 1
         end
 
+        --将flag中每个标记单独取出来，放入__FlagFilterFun列表中
         local cflag = 1
         local tflag = flag
         for i = 1, 32, 1 do
@@ -252,10 +261,6 @@ function entityFactory.New()
         if parantObj.__FlagFilterFun ~= nil then
             for k, v in pairs(parantObj.__FlagFilterFun) do self.__FlagFilterFun[k] = v end
         end
-
-        if parantObj.__FreshKey ~= nil then
-            for k, v in pairs(parantObj.__FreshKey) do self.__FreshKey[k] = v end
-        end
     end
 
     setmetatable(wrap,{
@@ -266,7 +271,7 @@ function entityFactory.New()
 
             if t.__KeyFlags[k] ~= nil and t.__FlagFilter[t.__KeyFlags[k]] ~= nil then
                 for key, fun in pairs(t.__FlagFilter[t.__KeyFlags[k]]) do
-                    fun(t,k,v,t.__rawobj[k],t.__KeyFlags[k])
+                    fun(t,k)
                 end
 
                 if type(v) == 'table' then

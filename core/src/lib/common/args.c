@@ -144,3 +144,22 @@ int IsNumber(char* s)
 	}
 	return type;
 }
+
+void RmFileName(char* appPath) {
+	for (int i = strlen(appPath) - 1; i >= 0; i--)
+	{
+#ifdef _WIN32
+		if (appPath[i] == '\\')
+		{
+			appPath[i] = '\0';
+			break;
+		}
+#else
+		if (appPath[i] == '/')
+		{
+			appPath[i] = '\0';
+			break;
+		}
+#endif
+	}
+}

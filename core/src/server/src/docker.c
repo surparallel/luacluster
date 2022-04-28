@@ -40,6 +40,7 @@
 #include "uvnetmng.h"
 #include "uvnetudp.h"
 #include "ruby_atomic.h"
+#include "configfile.h"
 
 #define MAX_DOCKER 255
 
@@ -94,7 +95,7 @@ typedef struct _DocksHandle {
 	unsigned int dockerGlobeInc;
 
 	sds scriptPath;
-	sds assetsPath;
+	sds binPath;
 	int	nodetype;
 
 	sds entryFile;
@@ -177,39 +178,12 @@ void UnallocateID(void* pVoid, unsigned long long id) {
 	}
 }
 
-static void doJsonParseFile(char* config, PDocksHandle pDocksHandle)
+static void doJsonParseFile(void* pVoid, char* data)
 {
-	if (config == NULL) {
-		config = getenv("GrypaniaAssetsPath");
-		if (config == 0 || access_t(config, 0) != 0) {
-			config = "../../res/server/config_defaults.json";
-			if (access_t(config, 0) != 0) {
-				return;
-			}
-		}
-	}
-
-	FILE* f; size_t len; char* data;
-	cJSON* json;
-
-	f = fopen_t(config, "rb");
-
-	if (f == NULL) {
-		printf("Error Open File: [%s]\n", config);
-		return;
-	}
-
-	fseek_t(f, 0, SEEK_END);
-	len = ftell_t(f);
-	fseek_t(f, 0, SEEK_SET);
-	data = (char*)malloc(len + 1);
-	fread(data, 1, len, f);
-	fclose(f);
-
-	json = cJSON_Parse(data);
+	PDocksHandle pDocksHandle = pVoid;
+	cJSON* json = cJSON_Parse(data);
 	if (!json) {
-		printf("Error before: [%s]\n", cJSON_GetErrorPtr());	
-		free(data);
+		printf("Error before: [%s]\n", cJSON_GetErrorPtr());
 		return;
 	}
 
@@ -228,23 +202,19 @@ static void doJsonParseFile(char* config, PDocksHandle pDocksHandle)
 				sdsfree(pDocksHandle->scriptPath);
 				pDocksHandle->scriptPath = sdsnew(cJSON_GetStringValue(item));
 			}
-			else if (strcmp(item->string, "assetsPath") == 0 && sdslen(pDocksHandle->assetsPath) == 0) {
-				sdsfree(pDocksHandle->assetsPath);
-				pDocksHandle->assetsPath = sdsnew(cJSON_GetStringValue(item));
-			}
-			else if (strcmp(item->string, "entryFile") == 0 && sdslen(pDocksHandle->assetsPath) == 0) {
+			else if (strcmp(item->string, "entryFile") == 0) {
 				sdsfree(pDocksHandle->entryFile);
 				pDocksHandle->entryFile = sdsnew(cJSON_GetStringValue(item));
 			}
-			else if (strcmp(item->string, "entryFunction") == 0 && sdslen(pDocksHandle->assetsPath) == 0) {
+			else if (strcmp(item->string, "entryFunction") == 0) {
 				sdsfree(pDocksHandle->entryFunction);
 				pDocksHandle->entryFunction = sdsnew(cJSON_GetStringValue(item));
 			}
-			else if (strcmp(item->string, "entryUpdate") == 0 && sdslen(pDocksHandle->assetsPath) == 0) {
+			else if (strcmp(item->string, "entryUpdate") == 0) {
 				sdsfree(pDocksHandle->entryUpdate);
 				pDocksHandle->entryUpdate = sdsnew(cJSON_GetStringValue(item));
 			}
-			else if (strcmp(item->string, "entryProcess") == 0 && sdslen(pDocksHandle->assetsPath) == 0) {
+			else if (strcmp(item->string, "entryProcess") == 0) {
 				sdsfree(pDocksHandle->entryProcess);
 				pDocksHandle->entryProcess = sdsnew(cJSON_GetStringValue(item));
 			}
@@ -280,7 +250,6 @@ static void doJsonParseFile(char* config, PDocksHandle pDocksHandle)
 	}
 
 	cJSON_Delete(json);
-	free(data);
 }
 
 static void PacketFree(void* ptr) {
@@ -321,7 +290,7 @@ void* DefaultLonglongPtrBuf() {
 	return &LongLongDictTypeBuf;
 }
 
-void DocksCreate(const char* assetsPath
+void DocksCreate(const char* binPath
 	, int nodetype
 	, int bots) {
 
@@ -332,8 +301,8 @@ void DocksCreate(const char* assetsPath
 	pDocksHandle->dockerRandomSize = 1;
 	pDocksHandle->dockerGlobeSize = 0;
 	pDocksHandle->dockerGlobeInc = 0;
-	pDocksHandle->scriptPath = sdsnew("./lua/");
-	pDocksHandle->assetsPath = sdsnew(assetsPath);
+	pDocksHandle->scriptPath = sdsnew("./lua");
+	pDocksHandle->binPath = sdsnew(binPath);
 	pDocksHandle->nodetype = nodetype;
 	pDocksHandle->entryFile = sdsnew("dockerrun");
 	pDocksHandle->entryFunction = sdsnew("main");
@@ -348,8 +317,7 @@ void DocksCreate(const char* assetsPath
 	pDocksHandle->packetLimit = 625;
 	pDocksHandle->packetSize = 20 * 1024 * 1024;
 
-	doJsonParseFile(NULL, pDocksHandle);
-	
+	DoJsonParseFile(pDocksHandle, doJsonParseFile);
 	global_bots = bots;
 
 	if (pDocksHandle->dockerRandomSize == 0) {
@@ -363,7 +331,7 @@ void DocksCreate(const char* assetsPath
 		if (pDockerHandle == 0)break;
 
 		pDockerHandle->eQueue = EqCreate();
-		pDockerHandle->LVMHandle = LVMCreate(pDocksHandle->scriptPath, pDocksHandle->assetsPath);
+		pDockerHandle->LVMHandle = LVMCreate(pDocksHandle->scriptPath, pDocksHandle->binPath);
 		pDockerHandle->id = i;
 
 		pDockerHandle->id_allocate = dictCreate(DefaultUintPtr(), NULL);
@@ -426,7 +394,7 @@ void DocksDestory() {
 	if (pDocksHandle) {
 		DockerCancel(pDocksHandle);
 		sdsfree(pDocksHandle->scriptPath);
-		sdsfree(pDocksHandle->assetsPath);
+		sdsfree(pDocksHandle->binPath);
 
 		sdsfree(pDocksHandle->entryFile);
 		sdsfree(pDocksHandle->entryFunction);

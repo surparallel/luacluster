@@ -44,17 +44,17 @@ function spaceFactory.New()
             docker.Send(keyid.tonumber(keyid), cmsgpack.pack("OnAddView", {[entryid]=self.entities[entryid]}))
         end
 
-        obj.entities[entryid] = {}
-        obj.entities[entryid][1] = id
-        obj.entities[entryid][2] = poitionx
-        obj.entities[entryid][3] = poitiony
-        obj.entities[entryid][4] = poitionz
-        obj.entities[entryid][5] = rotationx
-        obj.entities[entryid][6] = rotationy
-        obj.entities[entryid][7] = rotationz
-        obj.entities[entryid][8] = velocity
-        obj.entities[entryid][9] = stamp
-        obj.entities[entryid][10] = stampStop
+        self.entities[entryid] = {}
+        self.entities[entryid][1] = id
+        self.entities[entryid][2] = poitionx
+        self.entities[entryid][3] = poitiony
+        self.entities[entryid][4] = poitionz
+        self.entities[entryid][5] = rotationx
+        self.entities[entryid][6] = rotationy
+        self.entities[entryid][7] = rotationz
+        self.entities[entryid][8] = velocity
+        self.entities[entryid][9] = stamp
+        self.entities[entryid][10] = stampStop
 
         --这个空间没有尺寸限制
         local entityProxy = udpproxy.New(id)

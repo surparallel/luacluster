@@ -1,0 +1,1 @@
+taskkill /f /t /im luacluster

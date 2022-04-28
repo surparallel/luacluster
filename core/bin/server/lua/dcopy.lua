@@ -1,24 +1,17 @@
 -- Lua table deep copy
 local dcopy = {}
-
-function dcopy.clone(object)
-    local lookup_table = {}
-    local function _copy(object)
-        if type(object) ~= "table" then
-            return object
-        elseif lookup_table[object] then
-            return lookup_table[object]
+function dcopy.clone(tDest, tSrc)
+    if next(tSrc) ~= nil  then
+        for key,value in tSrc do
+            if type(value)=='table' and next(value) ~= nil then
+                tDest[key] = {}
+                dcopy.clone(tDest[key],value)
+            else
+                tDest[key]=value
+            end
         end
-        local new_table = {}
-        lookup_table[object] = new_table
-        for key, value in pairs(object) do
-            new_table[_copy(key)] = _copy(value)
-        end
-        return setmetatable(new_table, getmetatable(object))
     end
-    return _copy(object)
 end
- 
 return dcopy
 
 --[[ 

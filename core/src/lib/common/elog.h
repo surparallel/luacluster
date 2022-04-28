@@ -59,7 +59,7 @@ void LogFreeForm(void* s);
 short LogGetMaxLevel();
 short LogGetMinLevel();
 
-void LogInit(char* config);
+void LogInit();
 void LogDestroy();
 
 void* LogGetInstance();

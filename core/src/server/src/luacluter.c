@@ -17,6 +17,7 @@
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
 
+#include "uv.h"
 #include "plateform.h"
 #include "args.h"
 #include "conio.h"
@@ -40,8 +41,9 @@
 #include "timesys.h"
 #include "entityid.h"
 #include "uvnetmng.h"
+#include "configfile.h"
 
-static const char* assetsPath = 0;
+static char binPath[256] = { 0 };
 static unsigned int dockerid = 0;
 static unsigned char* ip = 0;
 static unsigned short port = 0;
@@ -259,14 +261,14 @@ int ReadArgFromParam(int argc, char** argv, sds* allarg) {
 			);
 			return 0;
 		}
-		else if (strcmp(argv[i], "--assets") == 0)
+		else if (strcmp(argv[i], "--binPath") == 0)
 		{
 			if (checkArg(argv[i + 1])) {
-				assetsPath = argv[i + 1];
+				strcpy(binPath, argv[i + 1]);
 
-				char path[260];
-				strcat(path, "AssetsPath=");
-				strcat(path, assetsPath);
+				char path[260] = {0};
+				strcat(path, "BinPath=");
+				strcat(path, binPath);
 				putenv(path);
 			}
 			else {
@@ -328,39 +330,11 @@ int ReadArgFromParam(int argc, char** argv, sds* allarg) {
 }
 
 //getenv
-static void doJsonParseFile(char* config)
+static void doJsonParseFile(void* pVoid, char* data)
 {
-	if (config == NULL) {
-		config = getenv("AssetsPath");
-		if (config == 0 || access_t(config, 0) != 0) {
-			config = "../../res/server/config_defaults.json";
-			if (access_t(config, 0) != 0) {
-				return;
-			}
-		}
-	}
-
-	FILE* f; size_t len; char* data;
-	cJSON* json;
-
-	f = fopen_t(config, "rb");
-
-	if (f == NULL) {
-		printf("Error Open File: [%s]\n", config);
-		return;
-	}
-
-	fseek_t(f, 0, SEEK_END);
-	len = ftell_t(f);
-	fseek_t(f, 0, SEEK_SET);
-	data = (char*)malloc(len + 1);
-	fread(data, 1, len, f);
-	fclose(f);
-
-	json = cJSON_Parse(data);
+	cJSON* json = cJSON_Parse(data);
 	if (!json) {
 		//printf("Error before: [%s]\n", cJSON_GetErrorPtr());	
-		free(data);
 		return;
 	}
 
@@ -379,37 +353,46 @@ static void doJsonParseFile(char* config)
 	}
 
 	cJSON_Delete(json);
-	free(data);
 }
 
 int main(int argc, char** argv) {
 	srand(time(0));
-	LogInit(NULL);
+
+	char path[260] = {0};
+	size_t pbs = 256;
+	uv_exepath(binPath, &pbs);
+	RmFileName(binPath);
+	strcat(path, "BinPath=");
+	strcat(path, binPath);
+	putenv(path);
+
 	LevelLocksCreate();
-
-	//这里有需要输入参数的，指定要绑定的地址之类的
-	n_details("**********************************************");
-	n_details("*              hello luacluter!              *");
-	n_details("**********************************************");
-	s_details("**********************************************");
-	s_details("*              hello luacluter!              *");
-	s_details("**********************************************");
-	u_details("**********************************************");
-	u_details("*              hello luacluter!              *");
-	u_details("**********************************************");
-
-	doJsonParseFile(NULL);
-
 	Version();
+
 	int ret = 1;
 	sds allgrg = sdsempty();
 	if (ReadArgFromParam(argc, argv, &allgrg)) {
 
-		n_details(allgrg);
+		DoJsonParseFile(NULL, doJsonParseFile);
+		LogInit();
+		//这里有需要输入参数的，指定要绑定的地址之类的
+		n_details("**********************************************");
+		n_details("*              hello luacluter!              *");
+		n_details("**********************************************");
+		s_details("**********************************************");
+		s_details("*              hello luacluter!              *");
+		s_details("**********************************************");
+		u_details("**********************************************");
+		u_details("*              hello luacluter!              *");
+		u_details("**********************************************");
+
+		n_details("ALLGRG:'%s'", allgrg);
+		n_details("BINPATH:'%s'", binPath);
+
 		InitRedisHelp();
 		//创建网络层
 		NetMngCreate(nodetype);
-		DocksCreate(assetsPath, nodetype, bots);
+		DocksCreate(binPath, nodetype, bots);
 
 		if (bip != 0) {
 			if(brang == 0)

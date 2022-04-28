@@ -32,6 +32,7 @@
 #include "cJSON.h"
 #include "sdshelp.h"
 #include "sigar.h"
+#include "configfile.h"
 
 #define FILEFORMDEFAULT "@dir/@pid_@ctg_@data.log"
 
@@ -592,41 +593,14 @@ void LogRun(void* pVoid) {
 	return;
 }
 
-static void doJsonParseFile(char* config)
-{
-	if (config == NULL) {
-		config = getenv("AssetsPath");
-		if (config == 0 || access_t(config, 0) != 0) {
-			config = "../../res/server/config_defaults.json";
-			if (access_t(config, 0) != 0) {
-				return;
-			}
-		}
-	}
-
-	FILE* f; size_t len; char* data;
+static void doJsonParseFile(void* pVoid, char* data)
+{	
 	cJSON* json;
-
-	f = fopen_t(config, "rb");
-	if (f == NULL) {
-		printf("Error Open File: [%s]\n", config);
-		return;
-	}
-
-	fseek_t(f, 0, SEEK_END);
-	len = ftell_t(f);
-	fseek_t(f, 0, SEEK_SET);
-	data = (char*)malloc(len + 1);
-	fread(data, 1, len, f);
-	fclose(f);
-
 	json = cJSON_Parse(data);
 	if (!json) {
-		//printf("Error before: [%s]\n", cJSON_GetErrorPtr());	
-		free(data);
+		printf("Error before: [%s]\n", cJSON_GetErrorPtr());	
 		return;
 	}
-
 
 	cJSON* logJson = cJSON_GetObjectItem(json, "log_config");
 	if (logJson) {
@@ -697,10 +671,9 @@ static void doJsonParseFile(char* config)
 	}
 
 	cJSON_Delete(json);
-	free(data);
 }
 
-void LogInit(char* config) {
+void LogInit() {
 	if (_pLogFileHandle != NULL)
 		return;
 
@@ -745,8 +718,7 @@ void LogInit(char* config) {
 	char num[256] = {0};
 	sprintf(num, "%lld", pid);
 	_pLogFileHandle->pid = sdsnew(num);
-
-	doJsonParseFile(config);
+	DoJsonParseFile(NULL, doJsonParseFile);
 
 	uv_thread_create(&_pLogFileHandle->thread, LogRun, _pLogFileHandle);
 }

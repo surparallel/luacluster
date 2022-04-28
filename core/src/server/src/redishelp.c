@@ -23,45 +23,18 @@
 #include "sds.h"
 #include "cJSON.h"
 #include "filesys.h"
+#include "configfile.h"
 
 static uv_key_t redis = { 0 };
 
 static sds redis_ip;
 static unsigned redis_port;
 
-static void doJsonParseFile(char* config)
+static void doJsonParseFile(void* pVoid, char* data)
 {
-    if (config == NULL) {
-        config = getenv("AssetsPath");
-        if (config == 0 || access_t(config, 0) != 0) {
-            config = "../../res/server/config_defaults.json";
-            if (access_t(config, 0) != 0) {
-                return;
-            }
-        }
-    }
-
-    FILE* f; size_t len; char* data;
-    cJSON* json;
-
-    f = fopen(config, "rb");
-
-    if (f == NULL) {
-        printf("Error Open File: [%s]\n", config);
-        return;
-    }
-
-    fseek_t(f, 0, SEEK_END);
-    len = ftell_t(f);
-    fseek_t(f, 0, SEEK_SET);
-    data = (char*)malloc(len + 1);
-    fread(data, 1, len, f);
-    fclose(f);
-
-    json = cJSON_Parse(data);
+	cJSON* json = cJSON_Parse(data);
     if (!json) {
         //printf("Error before: [%s]\n", cJSON_GetErrorPtr());	
-        free(data);
         return;
     }
 
@@ -83,14 +56,13 @@ static void doJsonParseFile(char* config)
     }
 
     cJSON_Delete(json);
-    free(data);
 }
 
 void InitRedisHelp() {
 	redis_ip = sdsnew("127.0.0.1");
 	redis_port = 6379;
 
-	doJsonParseFile(NULL);
+	DoJsonParseFile(NULL, doJsonParseFile);
 
 	if (0 != uv_key_create(&redis)) {
 		assert(0);

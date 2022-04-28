@@ -9,8 +9,13 @@ local json = require("dkjson")
 
 local dbPluginFactory = {}
 
+function dbPluginFactory.OnFreshKey(root, rootKey)
+    root:AddFresh(rootKey)
+end
+
 function dbPluginFactory.New()
     local obj = entity.New()
+    obj:AddFlagFun(sc.keyflags.persistent, dbPluginFactory.OnFreshKey)
 
     function  obj:Save()
 

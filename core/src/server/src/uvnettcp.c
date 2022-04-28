@@ -31,6 +31,7 @@
 #include "filesys.h"
 #include "uvnettcpwork.h"
 #include "entityid.h"
+#include "configfile.h"
 
 #define _BINDADDR_MAX 16
 
@@ -53,39 +54,12 @@ typedef struct _NetTcp {
     unsigned int tcpWorkerCount;
 } *PNetTcp, NetTcp;
 
-static void doJsonParseFile(PNetTcp pNetTcp, char* config)
+static void doJsonParseFile(void* pVoid, char* data)
 {
-    if (config == NULL) {
-        config = getenv("AssetsPath");
-        if (config == 0 || access_t(config, 0) != 0) {
-            config = "../../res/server/config_defaults.json";
-            if (access_t(config, 0) != 0) {
-                return;
-            }
-        }
-    }
-
-    FILE* f; size_t len; char* data;
-    cJSON* json;
-
-    f = fopen_t(config, "rb");
-
-    if (f == NULL) {
-        printf("Error Open File: [%s]\n", config);
-        return;
-    }
-
-    fseek_t(f, 0, SEEK_END);
-    len = ftell_t(f);
-    fseek_t(f, 0, SEEK_SET);
-    data = (char*)malloc(len + 1);
-    fread(data, 1, len, f);
-    fclose(f);
-
-    json = cJSON_Parse(data);
+    PNetTcp pNetTcp = pVoid;
+    cJSON* json = cJSON_Parse(data);
     if (!json) {
         //printf("Error before: [%s]\n", cJSON_GetErrorPtr());	
-        free(data);
         return;
     }
 
@@ -154,7 +128,6 @@ static void doJsonParseFile(PNetTcp pNetTcp, char* config)
     }
 
     cJSON_Delete(json);
-    free(data);
 }
 
 void close_cb(uv_handle_t* handle) {
@@ -204,7 +177,7 @@ void* TcpCreate(void* pMng, unsigned int nodetype) {
     pNetTcp->tcpWorkerAdd = 1;
     pNetTcp->tcpWorkerCount = 0;
 
-    doJsonParseFile(pNetTcp, NULL);
+    DoJsonParseFile(pNetTcp, doJsonParseFile);
 
     if (!(nodetype & NO_TCP_LISTEN))
         listenToPort(pNetTcp);

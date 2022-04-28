@@ -15,8 +15,8 @@ function tcpProxyFactory.New(did, sid)
     --当前是一个entity代理对象不需要对属性进行监控
     obj.__entity = 1
     function obj:PID(pid)
-        obj.pid = pid
-        return obj
+        self.pid = pid
+        return self
     end
 
     return setmetatable(obj,{
@@ -34,7 +34,7 @@ function tcpProxyFactory.New(did, sid)
                 arg[1] = k
                 --npc 试图控制可见范围内客户端对象状态时
                 --这个接口会直接通过网络层转发到客户端
-                docker.SendToClient(obj.did, obj.sid, cmsgpack.pack(table.unpack(arg)))
+                docker.SendToClient(self.did, self.sid, cmsgpack.pack(table.unpack(arg)))
             end
         end,
         __newindex = function (t,k,v)

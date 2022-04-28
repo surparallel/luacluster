@@ -29,6 +29,7 @@
 #include "uvnettcp.h"
 #include "dicthelp.h"
 #include "uvnetudp.h"
+#include "configfile.h"
 
 #define _BINDADDR_MAX 16
 typedef struct _NetServerMng {
@@ -47,39 +48,12 @@ typedef struct _NetServerMng {
 
 static PNetServerMng __pNetServerMng;
 
-static void doJsonParseFile(PNetServerMng pNetServerMng, char* config)
+static void doJsonParseFile(void* pVoid, char* data)
 {
-    if (config == NULL) {
-        config = getenv("AssetsPath");
-        if (config == 0 || access_t(config, 0) != 0) {
-            config = "../../res/server/config_defaults.json";
-            if (access_t(config, 0) != 0) {
-                return;
-            }
-        }
-    }
-
-    FILE* f; size_t len; char* data;
-    cJSON* json;
-
-    f = fopen_t(config, "rb");
-
-    if (f == NULL) {
-        printf("Error Open File: [%s]\n", config);
-        return;
-    }
-
-    fseek_t(f, 0, SEEK_END);
-    len = ftell_t(f);
-    fseek_t(f, 0, SEEK_SET);
-    data = (char*)malloc(len + 1);
-    fread(data, 1, len, f);
-    fclose(f);
-
-    json = cJSON_Parse(data);
+    PNetServerMng pNetServerMng = pVoid;
+    cJSON* json = cJSON_Parse(data);
     if (!json) {
         //printf("Error before: [%s]\n", cJSON_GetErrorPtr());	
-        free(data);
         return;
     }
 
@@ -120,7 +94,6 @@ static void doJsonParseFile(PNetServerMng pNetServerMng, char* config)
     }
 
     cJSON_Delete(json);
-    free(data);
 }
 
 void udpFreeCallback(void* privdata, void* val) {
@@ -156,7 +129,7 @@ void* NetMngCreate(unsigned char nodetype) {
     pNetServerMng->TcpServer = 0;
     pNetServerMng->udpIndex = dictCreate(DefaultLonglongUdpPtr(), NULL);
 
-    doJsonParseFile(pNetServerMng, NULL);
+    DoJsonParseFile(pNetServerMng, doJsonParseFile);
     pNetServerMng->TcpServer = TcpCreate(pNetServerMng, nodetype);
 
     if (!(nodetype & NO_UDP_LISTEN)) {

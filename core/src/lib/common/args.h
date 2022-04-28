@@ -28,3 +28,4 @@
 typedef int(*FUNIssueCommand)(int argc, char** argv, int noFind);
 int ArgsInteractive(FUNIssueCommand pIssueCommand);
 int IsNumber(char* s);
+void RmFileName(char* appPath);

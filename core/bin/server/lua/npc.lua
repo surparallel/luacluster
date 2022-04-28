@@ -5,7 +5,7 @@ local int64 = require("int64")
 local entitymng = require("entitymng")
 
 local npcFactory = {}
-function npcFactory.OnFreshKey(t,k,v,o,f)
+function npcFactory.OnFreshKey(root, rootKey)
     print("OnFreshKey")
 end
 
