@@ -633,6 +633,7 @@ int DockerLoop(void* pVoid, lua_State* L) {
 		if (listLength(pDockerHandle->bufList) == 0 && pDockerHandle->eventQueueLength == 0 && waittime != 0) {
 
 			if (dictSize(pDockerHandle->entitiesCache)) {
+				//每轮结束后将所有封包发送出去
 				DockerCache(pDockerHandle, beginstamp);
 
 				n_stat("DockerLoop::stat(%i) stat_send_count %i/%i/%i", pDockerHandle->id, pDockerHandle->stat_send_count, pDockerHandle->stat_packet_count, pDockerHandle->stat_packet_client);
@@ -1020,6 +1021,7 @@ void DockerSendToClient(void* pVoid, unsigned long long did, unsigned long long 
 				}
 			}
 			else {
+				//目前看代码不是这样的，每轮小于256的直接发送不使用压缩
 				if (pDockerHandle->bufListLen < pDocksHandle->packetLimit) {
 					MngSendToEntity(pid, (unsigned char*)pProtoHead, len);
 				}

@@ -25,9 +25,13 @@ void* SudokuCreate(struct Vector3 gird, struct Vector3 begin, struct Vector3 end
 void SudokuDestory(void* pSudokus);
 void SudokuUpdate(void* pSudoku, unsigned int count, float deltaTime);
 void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position, 
-	struct Vector3 rotation, float velocity, unsigned int stamp, unsigned int isGhost, unsigned int stampStop);
+	struct Vector3 rotation, float velocity, unsigned int stamp, unsigned int stampStop, unsigned int isGhost, int entityType);
 void SudokuLeave(void* pSudoku, unsigned long long id);
-void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position, struct Vector3 rotation, float velocity, unsigned int stamp, unsigned int stampStop);
+void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position, struct Vector3 rotation, float velocity, 
+	unsigned int stamp, unsigned int stampStop, unsigned int isGhost, int entityType);
 void PrintAllPoition(void* pSudoku);
 int GirdDir(void* pSudoku, unsigned int entry, unsigned int centre);
 unsigned int GirdId(void* pVoid, struct Vector3* position);
+void SudokuSetGhost(void* pSudokus, unsigned long long id);
+int SudokuAlter(void* pSudokus, unsigned long long id, double rect[4]);
+void SudokuInsert(void* pSudokus, unsigned long long id, double rect[4]);

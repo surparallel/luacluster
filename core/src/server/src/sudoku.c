@@ -100,6 +100,7 @@ typedef struct _Entity {
 	int oldGird;
 	unsigned int status;//entity_status，0普通区域，2在边界区域，4超出范围, 8鬼魂状态。 超出地图范围的对象将不会再更新数据。直到被删除。
 	unsigned long long outingStamp;//超出区域的时间戳
+	int entityType;//保留给用户使用，在广播时区分对象类型，减少对类似item类型的广播量，或者发送定向广播例如对战士，npc。目前默认是所有client玩家类型。
 }*PEntity, Entity;
 
 //网格相当于缩小的坐标系统。例如网格和坐标比例是1比10。哪么0到10就是在网格1 * 1位置, 也就是编号为1的网格。
@@ -234,7 +235,7 @@ int GirdLimite(void* pSudoku, struct Vector3* position) {
 }
 
 void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position, 
-	struct Vector3 rotation, float velocity, unsigned int stamp, unsigned int stampStop) {
+	struct Vector3 rotation, float velocity, unsigned int stamp, unsigned int stampStop, unsigned int isGhost, int entityType) {
 
 	PSudoku s = (PSudoku)pSudoku;
 	//查找对应的id
@@ -244,7 +245,7 @@ void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position,
 		s_error("sudoku(%U)::move error not find id %U", s->spaceId, id);
 		//这时候再次进入可能导致灵魂标记出现错误
 		//压力测试下，因为延迟导致删除
-		SudokuEntry(pSudoku, id, position, rotation, velocity, stamp, stampStop, 0);
+		SudokuEntry(pSudoku, id, position, rotation, velocity, stamp, stampStop, isGhost, entityType);
 		return;
 	}
 
@@ -269,6 +270,7 @@ void SudokuMove(void* pSudoku, unsigned long long id, struct Vector3 position,
 	pEntity->stamp = stamp;
 	pEntity->stampStop = stampStop;
 	pEntity->status &= ~entity_stop;
+	pEntity->entityType = entityType;
 }
 
 static int luaB_Move(lua_State* L) {
@@ -295,8 +297,10 @@ static int luaB_Move(lua_State* L) {
 	//stamp 秒
 	unsigned int stamp = luaL_checkinteger(L, 10);
 	unsigned int stampStop = luaL_checkinteger(L, 11);
+	unsigned int isGhost = luaL_checkinteger(L, 12);
+	unsigned int entityType = luaL_checkinteger(L, 13);
 
-	SudokuMove(s, id, position, rotation, velocity, stamp, stampStop);
+	SudokuMove(s, id, position, rotation, velocity, stamp, stampStop, isGhost, entityType);
 	return 0;
 }
 
@@ -346,6 +350,7 @@ static int luaB_Leave(lua_State* L) {
 }
 
 void SendAddView(PSudoku s, PEntity pEntity, PEntity pViewEntity) {
+
 	mp_buf* pmp_buf = mp_buf_new();
 	MP_ENCODE_CONST(pmp_buf, "OnAddView");
 
@@ -363,6 +368,7 @@ void SendAddView(PSudoku s, PEntity pEntity, PEntity pViewEntity) {
 	mp_encode_double(pmp_buf, pViewEntity->velocity);
 	mp_encode_int(pmp_buf, pViewEntity->stamp);
 	mp_encode_int(pmp_buf, pViewEntity->stampStop);
+	mp_encode_int(pmp_buf, pViewEntity->entityType);
 
 	DockerSendWithList(pEntity->entityid, pmp_buf->b, pmp_buf->len, s->msgList);
 	mp_buf_free(pmp_buf);
@@ -420,7 +426,7 @@ void GirdPut(PSudoku s, PEntity pEntity) {
 
 void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position, 
 	struct Vector3 rotation, float velocity, 
-	unsigned int stamp, unsigned int stampStop, unsigned int isGhost) {
+	unsigned int stamp, unsigned int stampStop, unsigned int isGhost, int entityType) {
 	
 	PSudoku s = (PSudoku)pSudoku;
 	//兼容重复进入空间，如果重复进入空间就相当于瞬间移动。
@@ -444,6 +450,11 @@ void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position,
 		pEntity->stamp = stamp;
 		pEntity->stampStop = stampStop;
 		pEntity->status &= ~entity_stop;
+
+		if(isGhost)
+			pEntity->status &= ~entity_ghost;
+		else
+			pEntity->status |= entity_ghost;
 	}
 	else {
 		pEntity = calloc(1, sizeof(Entity));
@@ -466,10 +477,17 @@ void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position,
 		pEntity->newGird = UINT_MAX;
 		pEntity->oldGird = UINT_MAX;
 
+		if (isGhost)
+			pEntity->status &= ~entity_ghost;
+		else
+			pEntity->status |= entity_ghost;
+
 		listAddNodeHead(s->entitiesList, pEntity);
 		pEntity->listNode = listFirst(s->entitiesList);
 		dictAddWithLonglong(s->entitiesDict, id, pEntity);
 	}
+
+	pEntity->entityType = entityType;
 
 	s_details("Sudoku(%U)::SudokuEntry id:%U Euler(%f, %f, %f) pos(%f, %f, %f) rotation(%f, %f, %f, %f)"
 		, s->spaceId, pEntity->entityid, rotation.x, rotation.y, rotation.z, pEntity->transform.position.x, pEntity->transform.position.y, pEntity->transform.position.z
@@ -501,9 +519,10 @@ static int luaB_Entry(lua_State* L) {
 	unsigned int stamp = luaL_checkinteger(L, 10);
 	unsigned int stampStop = luaL_checkinteger(L, 11);
 	int isGhost = luaL_checkinteger(L, 12);
+	int entityType = luaL_checkinteger(L, 13);
 	
 	//s_fun("sudoku(%U)::Entry %U ",s->spaceId, id);
-	SudokuEntry(s, id, position, rotation, velocity, stamp, stampStop, isGhost);
+	SudokuEntry(s, id, position, rotation, velocity, stamp, stampStop, isGhost, entityType);
 	return 0;
 }
 
@@ -533,8 +552,8 @@ void FillView(PSudoku s, enum SudokuDir dir, PEntity pEntityEntry) {
 					//a发起进入更新，b是否被动更新分为2种情况。1，从其他非可见移动过来(包括新进入)，不用处理各自更新。2，没动要更新。
 
 					//a发起进入更新
-					if (pEntityEntry->update == update_entry) {				
-						SendAddView(s, pEntityEntry, pEntity);
+					if (pEntityEntry->update == update_entry) {
+							SendAddView(s, pEntityEntry, pEntity);
 						//b没动要更新。
 						if (pEntity->update == update_stable) {
 							SendAddView(s, pEntity, pEntityEntry);
@@ -959,6 +978,11 @@ static int luaB_Destroy(lua_State* L) {
 	return 1;
 }
 
+void SudokuInsert(void* pSudokus, unsigned long long id, double rect[4]) {
+	PSudoku s = pSudokus;
+	rtree_insert(s->prtree, rect, &id);
+}
+
 static int luaB_Insert(lua_State* L) {
 
 	PSudoku s = lua_touserdata(L, 1);
@@ -971,8 +995,32 @@ static int luaB_Insert(lua_State* L) {
 	rect[2] = luaL_checknumber(L, 5);
 	rect[3] = luaL_checknumber(L, 6);
 
-	rtree_insert(s->prtree, rect, &id);
+	SudokuInsert(s, id, rect);
 	return 0;
+}
+
+int SudokuAlter(void* pSudokus, unsigned long long id, double rect[4]) {
+
+	PSudoku s = pSudokus;
+	int r = 0;
+	if (s->isBigWorld && s->spaceId == id) {
+		s->begin.x = rect[0];
+		s->begin.z = rect[1];
+		s->end.x = rect[2];
+		s->end.z = rect[3];
+
+		s->linex = (unsigned int)floor((s->end.x - s->begin.x) / s->gird.x);
+		unsigned int dx = (unsigned int)floor((s->end.x - 0.001 - s->begin.x) / s->gird.x);
+		unsigned int dz = (unsigned int)floor((s->end.z - 0.001 - s->begin.z) / s->gird.z);
+		s->maxid = dx + s->linex * dz;
+		s_details("sudoku(%U)::Config bx:%f bz:%f ex:%f ez:%f", s->spaceId, s->begin.x, s->begin.z, s->end.x, s->end.z);
+		r = 1;
+	}
+
+	rtree_delete(s->prtree, rect, &id);
+	rtree_insert(s->prtree, rect, &id);
+
+	return r;
 }
 
 static int luaB_Alter(lua_State* L) {
@@ -987,31 +1035,13 @@ static int luaB_Alter(lua_State* L) {
 	rect[2] = luaL_checknumber(L, 5);
 	rect[3] = luaL_checknumber(L, 6);
 
-	if (s->isBigWorld && s->spaceId == id) {
-		s->begin.x = rect[0];
-		s->begin.z = rect[1];
-		s->end.x = rect[2];
-		s->end.z = rect[3];
-
-		s->linex = (unsigned int)floor((s->end.x - s->begin.x) / s->gird.x);
-		unsigned int dx = (unsigned int)floor((s->end.x - 0.001 - s->begin.x) / s->gird.x);
-		unsigned int dz = (unsigned int)floor((s->end.z - 0.001 - s->begin.z) / s->gird.z);
-		s->maxid = dx + s->linex * dz;
-		s_details("sudoku(%U)::Config bx:%f bz:%f ex:%f ez:%f", s->spaceId, s->begin.x, s->begin.z, s->end.x, s->end.z);
-	}
-
-	rtree_delete(s->prtree, rect, &id);
-	rtree_insert(s->prtree, rect, &id);
+	SudokuAlter(s, id, rect);
 	return 0;
 }
 
-static int luaB_SetGhost(lua_State* L) {
+void SudokuSetGhost(void* pSudokus, unsigned long long id) {
 
-	PSudoku s = lua_touserdata(L, 1);
-	unsigned long long id = luaL_tou64(L, 2);
-
-	//s_fun("sudoku(%U)::SetGhost %U", s->spaceId, id);
-
+	PSudoku s = (PSudoku)pSudokus;
 	PEntity pEntity;
 	dictEntry* entry = dictFind(s->entitiesDict, &id);
 	if (entry != NULL) {
@@ -1019,11 +1049,18 @@ static int luaB_SetGhost(lua_State* L) {
 	}
 	else {
 		s_error("sudoku::SetGhost not finde entity %U", id);
-		return 0;
+		return;
 	}
 
 	pEntity->status |= entity_ghost;
+}
 
+static int luaB_SetGhost(lua_State* L) {
+
+	PSudoku s = lua_touserdata(L, 1);
+	unsigned long long id = luaL_tou64(L, 2);
+
+	SudokuSetGhost(s, id);
 	return 0;
 }
 

@@ -74,7 +74,7 @@ set ( INSTALL_FOO  ${INSTALL_DATA}/etc CACHE PATH
 # Setting CMAKE to use loose block and search for find modules in source directory
 set ( CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS true )
 set ( CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH} )
-option ( BUILD_SHARED_LIBS "Build shared libraries" ON )
+option ( BUILD_SHARED_LIBS "Build shared libraries" OFF )
 
 # In MSVC, prevent warnings that can occur when using standard libraries.
 if ( MSVC )

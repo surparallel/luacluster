@@ -37,6 +37,7 @@
 #include "bigworld.h"
 #include "lua-mongodb.h"
 #include "3dmathapi.h"
+#include "go.h"
 
 typedef struct _LVMHandle
 {
@@ -92,6 +93,7 @@ void* LVMCreate(const char* scriptPath, const char* binPath) {
 	luaL_requiref(pLVMHandle->luaVM, "math3d", LuaOpenMath3d, 1);
 	luaL_requiref(pLVMHandle->luaVM, "socket.core", luaopen_socket_core, 1);
 	luaL_requiref(pLVMHandle->luaVM, "mime.core", luaopen_mime_core, 1);
+	luaL_requiref(pLVMHandle->luaVM, "goapi", LuaOpenGo, 1);
 	
 	//lua本身是添加了lua的路径其他路径需要手动添加
 	if (sdslen((sds)binPath) != 0 && sdslen((sds)scriptPath) != 0) {

@@ -285,8 +285,14 @@ function spacepluginFactory.New()
     function obj:SpaceMove(poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
 
         --通知空间
+        local isGhost = 1
         for k, v in pairs(self.spaces) do
-            v:Move(self.id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop)
+            if self.master == v then
+                isGhost = 0
+            else
+                isGhost = 1
+            end
+            v:Move(self.id, poitionx, poitiony, poitionz, rotationx, rotationy, rotationz, velocity, stamp, stampStop, isGhost)
         end
     end
 

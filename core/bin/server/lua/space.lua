@@ -55,6 +55,7 @@ function spaceFactory.New()
         self.entities[entryid][8] = velocity
         self.entities[entryid][9] = stamp
         self.entities[entryid][10] = stampStop
+        self.entities[entryid][11] = 0
 
         --这个空间没有尺寸限制
         local entityProxy = udpproxy.New(id)
