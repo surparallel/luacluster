@@ -2,6 +2,7 @@ local elog = require("eloghelp")
 local cmsgpack = require("cmsgpack")
 local docker = require("docker")
 
+---@class UdpProxyList
 local udpProxyFactory = {}
 
 function udpProxyFactory.New(id, list)
@@ -36,4 +37,5 @@ function udpProxyFactory.New(id, list)
     })
 end
 
+setmetatable(udpProxyFactory, { __call = function(_, ...) return udpProxyFactory.New(...) end })
 return udpProxyFactory

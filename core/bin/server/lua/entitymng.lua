@@ -4,8 +4,11 @@ local elog = require("eloghelp")
 local int64 = require("int64")
 local cmsgpack = require("cmsgpack")
 local redishelp = require('redishelp')
+---@type UdpProxy
 local udpproxy = require 'udpproxy'
 local sc = require("sc")
+---@type  Entity
+local entity = require("entity")
 
 local entityMng = {}
 
@@ -36,12 +39,11 @@ end
 
 function entityMng.NewEntity(name, arg)
 
-    local e = require(name).New()
+    local e = new(name)
+
     if e ~= nil then
 
         e:CopyArg(arg)
-        e:EntityClass(name)
-
         entityMng.RegistryObj(e)
         local myint64,error = int64.new_unsigned(e.id)
         local myid = tostring(myint64)
@@ -166,7 +168,7 @@ end
 function entityMng.GetSev(ServerName)
     local id = redishelp:hget("servers", ServerName)
     if id ~= nil then
-        return udpproxy.New(id)
+        return udpproxy(id)
     else
         elog.sys_error("entityMng.GetSev not find %s",ServerName)
         return nil

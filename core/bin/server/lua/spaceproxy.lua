@@ -36,4 +36,5 @@ function spaceProxyFactory.New(entity)
     })
 end
 
+setmetatable(spaceProxyFactory, { __call = function(_, ...) return spaceProxyFactory.New(...) end })
 return spaceProxyFactory

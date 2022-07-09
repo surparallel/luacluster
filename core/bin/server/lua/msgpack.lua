@@ -243,7 +243,7 @@ encoder_table = {
         elements[#elements + 1] = encode_value(v)
       end
 
-      local length = #elements // 2
+      local length = #elements / 2
       if length <= 0xf then
         return ('>B'):pack(0x80 + length) .. table.concat(elements)
       elseif length <= 0xffff then

@@ -8,18 +8,12 @@ local entitymng = require("entitymng")
 local udpproxylist = require 'udpproxylist'
 local cmsgpack = require("cmsgpack")
 
-local roleFactory = {}
+local obj = class("client")
 
-function roleFactory.New()
-    local obj = entity.New()
-    obj:Inherit("client")
-
-    function obj:Init()
-        local myid = tostring(int64.new_unsigned(self.id))
-        elog.sys_fun("role::init %s", myid)
-    end
-
-    return obj
+function obj:Init()
+    local myid = tostring(int64.new_unsigned(self.id))
+    elog.sys_fun("role::init %s", myid)
 end
 
-return roleFactory
+return obj
+

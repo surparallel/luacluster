@@ -1,69 +1,68 @@
+---@type Entity
 local entity = require("entity")
 local sc = require("sc")
 local docker = require("docker")
 local int64 = require("int64")
 local entitymng = require("entitymng")
+---@type TcpProxy
+local tcpproxy = require("tcpproxy")
 
-local npcFactory = {}
-function npcFactory.OnFreshKey(root, rootKey)
+---@class Npc
+local npc = class("moveplugin")
+
+function npc.OnFreshKey(root, rootKey)
     print("OnFreshKey")
 end
 
-function npcFactory.New()
-    local obj = entity.New()
-    obj:Inherit("moveplugin")
-    obj:AddFlagFun(sc.keyflags.private, npcFactory.OnFreshKey)
+npc:AddFlagFun(sc.keyflags.private, npcFactory.OnFreshKey)
 
-    obj.transform.position.x = 0
-    obj.transform.position.y = 0
-    obj.transform.position.z = 0
+npc.transform.position.x = 0
+npc.transform.position.y = 0
+npc.transform.position.z = 0
 
-    obj.transform.rotation.x = 0
-    obj.transform.rotation.z = 0
-    obj.transform.rotation.y = 0
+npc.transform.rotation.x = 0
+npc.transform.rotation.z = 0
+npc.transform.rotation.y = 0
 
-    obj.transform.velocity = 0
-    obj.transform.stamp = os.time()
-    obj.transform.stampStop = 0
+npc.transform.velocity = 0
+npc.transform.stamp = os.time()
+npc.transform.stampStop = 0
 
-    obj.status = 0
+npc.status = 0
 
-    function obj:Init()
+function npc:Init()
 
-        elog.sys_fun("npc::init")
-        entitymng.RegistryUpdata(self)
+    elog.sys_fun("npc::init")
+    entitymng.RegistryUpdata(self)
 
-        if(self.clientid ~= nil)then
-            self.client = tcpproxy.New(self.id)
-        end
-
-        self:EntryWorld("bigworld")
+    if(self.clientid ~= nil)then
+        self.client = tcpproxy(self.id)
     end
 
-    function obj:OnGetSpace(spaceId)
-
-        --移动到地图的对角
-        if self.status == 0 then
-            self:MoveTo(self.spaceInfo.endx, 0, self.spaceInfo.endz)
-            self.status = 1
-        end
-    end
-
-    function obj:Destory()
-        obj:LeaveWorld("bigworld")
-    end
-
-    function obj:Update(count, deltaTime)
-        self.__allparant["spaceplugin"].Update(self, count, deltaTime)
-
-        if self.status == 1 then
-            if os.time() > self.transform.stampStop and self.spaceInfo.endx ~= nil and self.spaceInfo.endz ~= nil then
-                self:MoveTo(math.random(0, self.spaceInfo.endx), 0, math.random(0, self.spaceInfo.endz))
-            end
-        end
-    end
-
-    return obj
+    self:EntryWorld("bigworld")
 end
 
-return npcFactory
+function npc:OnGetSpace(spaceId)
+
+    --移动到地图的对角
+    if self.status == 0 then
+        self:MoveTo(self.spaceInfo.endx, 0, self.spaceInfo.endz)
+        self.status = 1
+    end
+end
+
+function npc:Destory()
+    npc:LeaveWorld("bigworld")
+end
+
+function npc:Update(count, deltaTime)
+    self.__allparant["spaceplugin"].Update(self, count, deltaTime)
+
+    if self.status == 1 then
+        if os.time() > self.transform.stampStop and self.spaceInfo.endx ~= nil and self.spaceInfo.endz ~= nil then
+            self:MoveTo(math.random(0, self.spaceInfo.endx), 0, math.random(0, self.spaceInfo.endz))
+        end
+    end
+end
+
+return npc

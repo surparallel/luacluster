@@ -2,8 +2,8 @@ local elog = require("eloghelp")
 local cmsgpack = require("cmsgpack")
 local docker = require("docker")
 
+---@class TcpProxy
 local tcpProxyFactory = {}
-
 function tcpProxyFactory.New(did, sid)
     local obj = {}
     obj.did = did
@@ -44,4 +44,5 @@ function tcpProxyFactory.New(did, sid)
     })
 end
 
+setmetatable(tcpProxyFactory, { __call = function(_, ...) return tcpProxyFactory.New(...) end })
 return tcpProxyFactory
