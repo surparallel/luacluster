@@ -1,6 +1,8 @@
 ---@class Parant
 local parant = class("parant3")
 
+parant.cc = {}
+
 function parant.OnFreshKey(t,k,v,o,f)
     print("OnFreshKey")
 end

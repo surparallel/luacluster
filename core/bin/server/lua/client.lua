@@ -54,7 +54,7 @@ function client:Destory()
     --正常流程要加延迟处理，否则在注册空间过程中退出会导致空间残留
     self:LeaveWorld("bigworld")
     --通知管理器销毁对象，当对象有多个继承时要考虑销毁顺序
-    entitymng.UnRegistryclient(self.id)
+    entitymng.UnRegistryObj(self.id)
 end
 
 function client:Ping(a)

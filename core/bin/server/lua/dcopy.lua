@@ -2,7 +2,7 @@
 local dcopy = {}
 function dcopy.clone(tDest, tSrc)
     if next(tSrc) ~= nil  then
-        for key,value in tSrc do
+        for key,value in pairs(tSrc) do
             if type(value)=='table' and next(value) ~= nil then
                 tDest[key] = {}
                 dcopy.clone(tDest[key],value)

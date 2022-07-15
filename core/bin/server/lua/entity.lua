@@ -2,6 +2,7 @@ local bit32 = bit32
 if bit32 == nil then
     bit32 = bit
 end
+local dcopy = require("dcopy")
 
 ---@class Entity
 local entity = {}
@@ -243,13 +244,13 @@ function entity.NewClass()
 
         if parantClass.__rawobj ~= nil  then
             for k, v in pairs(parantClass.__rawobj) do
-                if self.__rawobj[k] ~= nil then
+                if self.__rawobj[k] == nil then
                     self.__rawobj[k] = v
                 end
             end
         else
             for k, v in pairs(parantClass) do
-                if self.__rawobj[k] ~= nil then
+                if self.__rawobj[k] == nil then
                     self.__rawobj[k] = v
                 end
             end
@@ -305,13 +306,9 @@ function entity.NewClass()
         rawset(self, "__parantClass", parantClass)
 
         if parantClass.__rawobj ~= nil  then
-            for k, v in pairs(parantClass.__rawobj) do
-                self.__rawobj[k] = v
-            end
+            dcopy.clone(self.__rawobj, parantClass.__rawobj)
         else
-            for k, v in pairs(parantClass) do
-                self.__rawobj[k] = v
-            end
+            dcopy.clone(self.__rawobj, parantClass)
         end
 
         if parantClass.__FlagFilter ~= nil then
