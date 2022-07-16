@@ -71,6 +71,157 @@ function entity.CreateSub(obj, t, name, root, rootk)
     })
 end
 
+--luacluster中能被称为对象只有存在于空间的entity。
+function entity.SubClass(parant, preSub)
+
+    local sub
+    local parantClass = require(parant)
+
+    if parantClass == nil then
+        error("Inherit error to New ["..parant.."]")
+        return
+    end
+
+    if preSub  == nil then
+        sub = {}
+        sub.__rawobj = {}
+        sub.__FlagFilter = {} --key对应的KeyFilterFlag下的所有fun
+        sub.__FlagFilterFun = {} --单一flag对应的函数防止误释放
+        sub.__KeyFlags = {}
+        sub.__inherit = {}
+        sub.__allparant = {}
+        sub.__entity = 1
+        sub.__class = "Entity"
+
+        setmetatable(sub,getmetatable(parantClass))
+    else
+        sub = preSub
+    end
+
+    if sub.__inherit[parant] ~= nil then
+        error("Repeated inheritance ["..parant.."]")
+        return
+    end
+
+    --这会导致只有继承或者创建对象的时候才知道名字，但多加个参数就显得很不优雅
+    parantClass:EntityClass(parant)
+
+    for k, v in pairs(parantClass.__allparant) do
+        if sub.__allparant[k] ~= nil then
+            error("Repeated inheritance ["..k.."]")
+            return
+        end
+        sub.__allparant[k] = v
+    end 
+
+    sub.__inherit[parant] = parantClass
+
+    if sub.__allparant[parant] ~= nil then
+        error("Repeated inheritance ["..parant.."]")
+        return    
+    end
+    sub.__allparant[parant] = parantClass
+
+    if parantClass.__rawobj ~= nil  then
+        for k, v in pairs(parantClass.__rawobj) do
+            if sub.__rawobj[k] == nil then
+                sub.__rawobj[k] = v
+            end
+        end
+    else
+        for k, v in pairs(parantClass) do
+            if sub.__rawobj[k] == nil then
+                sub.__rawobj[k] = v
+            end
+        end
+    end
+
+    if parantClass.__FlagFilter ~= nil then
+        for k, v in pairs(parantClass.__FlagFilter) do
+            for key, fun in pairs(v) do
+                if sub.__FlagFilter[k] == nil then
+                    sub.__FlagFilter[k] = {}       
+                end
+                sub.__FlagFilter[k][tostring(fun)] = fun
+            end
+        end
+    end
+
+    if parantClass.__KeyFlags ~= nil then
+        for k, v in pairs(parantClass.__KeyFlags) do sub.__KeyFlags[k] = v end
+    end
+
+    if parantClass.__FlagFilterFun ~= nil then
+        for k, v in pairs(parantClass.__FlagFilterFun) do sub.__FlagFilterFun[k] = v end
+    end
+
+    return sub
+end
+
+    --复制类对象
+function entity.CopyObject(name)       
+
+    local parantClass = require(name)
+    if parantClass == nil then
+        error("New ["..name.."]")
+        return
+    end
+
+    local newObejct = {}
+
+    newObejct.__rawobj = {}
+    newObejct.__FlagFilter = {} --key对应的KeyFilterFlag下的所有fun
+    newObejct.__FlagFilterFun = {} --单一flag对应的函数防止误释放
+    newObejct.__KeyFlags = {}
+    newObejct.__inherit = {}
+    newObejct.__allparant = {}
+    newObejct.__FreshKey = {}
+    newObejct.__entity = 1
+    newObejct.__obj = name
+    setmetatable(newObejct,getmetatable(parantClass))
+
+    for k, v in pairs(parantClass.__allparant) do
+        if newObejct.__allparant[k] ~= nil then
+            error("Repeated inheritance ["..k.."]")
+            return
+        end
+        newObejct.__allparant[k] = v
+    end
+
+    for k, v in pairs(parantClass.__inherit) do
+        newObejct.__inherit[k] = v
+    end
+
+    rawset(newObejct, "__parantClass", parantClass)
+
+    if parantClass.__rawobj ~= nil  then
+        dcopy.clone(newObejct.__rawobj, parantClass.__rawobj)
+    else
+        dcopy.clone(newObejct.__rawobj, parantClass)
+    end
+
+    if parantClass.__FlagFilter ~= nil then
+        for k, v in pairs(parantClass.__FlagFilter) do
+            for key, fun in pairs(v) do
+                if newObejct.__FlagFilter[k] == nil then
+                    newObejct.__FlagFilter[k] = {}       
+                end
+                newObejct.__FlagFilter[k][tostring(fun)] = fun
+            end
+        end
+    end
+
+    if parantClass.__KeyFlags ~= nil then
+        for k, v in pairs(parantClass.__KeyFlags) do newObejct.__KeyFlags[k] = v end
+    end
+
+    if parantClass.__FlagFilterFun ~= nil then
+        for k, v in pairs(parantClass.__FlagFilterFun) do newObejct.__FlagFilterFun[k] = v end
+    end
+
+    return newObejct
+end
+
 --CreateObj 以及其他的所有CreateObj 就是一个构造函数
 function entity.NewClass()
 
@@ -82,8 +233,6 @@ function entity.NewClass()
     wrap.__KeyFlags = {}
     wrap.__inherit = {}
     wrap.__allparant = {}
-    wrap.__entity = 1
-    wrap.__FreshKey = {}
     wrap.__class = "Entity"
 
     function rawobj:CopyArg(arg)
@@ -209,125 +358,6 @@ function entity.NewClass()
     function rawobj:initialize(...)
     end
 
-    --注意类继承和生成对象都是浅copy，可能导致修改指针的错误
-    function rawobj:Inherit(parant)
-        if self.__inherit[parant] ~= nil then
-            error("Repeated inheritance ["..parant.."]")
-            return
-        end
-
-        local parantClass = require(parant)
-
-        if parantClass == nil then
-            error("Inherit error to New ["..parant.."]")
-            return
-        end
-
-        --这会导致只有继承或者创建对象的时候才知道名字，但多加个参数就显得很不优雅
-        parantClass:EntityClass(parant)
-
-        for k, v in pairs(parantClass.__allparant) do
-            if self.__allparant[k] ~= nil then
-                error("Repeated inheritance ["..k.."]")
-                return
-            end
-            self.__allparant[k] = v
-        end 
-
-        self.__inherit[parant] = parantClass
-
-        if self.__allparant[parant] ~= nil then
-            error("Repeated inheritance ["..parant.."]")
-            return    
-        end
-        self.__allparant[parant] = parantClass
-
-        if parantClass.__rawobj ~= nil  then
-            for k, v in pairs(parantClass.__rawobj) do
-                if self.__rawobj[k] == nil then
-                    self.__rawobj[k] = v
-                end
-            end
-        else
-            for k, v in pairs(parantClass) do
-                if self.__rawobj[k] == nil then
-                    self.__rawobj[k] = v
-                end
-            end
-        end
-
-        if parantClass.__FlagFilter ~= nil then
-            for k, v in pairs(parantClass.__FlagFilter) do
-                for key, fun in pairs(v) do
-                    self:AddOneFlagFilter(k, fun)
-                end
-            end
-        end
-
-        if parantClass.__KeyFlags ~= nil then
-            for k, v in pairs(parantClass.__KeyFlags) do self.__KeyFlags[k] = v end
-        end
-
-        if parantClass.__FlagFilterFun ~= nil then
-            for k, v in pairs(parantClass.__FlagFilterFun) do self.__FlagFilterFun[k] = v end
-        end
-    end
-
-    --复制类对象
-    function rawobj:CopyObject(name)       
-
-        local parantClass = require(name)
-        if parantClass == nil then
-            error("New ["..name.."]")
-            return
-        end
-
-        self.Inherit = nil
-        rawset(self, "__obj", name)
-        rawset(self, "__class", nil)
-
-        for k, v in pairs(parantClass.__allparant) do
-            if self.__allparant[k] ~= nil then
-                error("Repeated inheritance ["..k.."]")
-                return
-            end
-            self.__allparant[k] = v
-        end
-
-        for k, v in pairs(parantClass.__inherit) do
-            self.__inherit[k] = v
-        end
-
-        if self.__allparant[parant] ~= nil then
-            error("Repeated inheritance ["..parant.."]")
-            return    
-        end
-
-        rawset(self, "__parantClass", parantClass)
-
-        if parantClass.__rawobj ~= nil  then
-            dcopy.clone(self.__rawobj, parantClass.__rawobj)
-        else
-            dcopy.clone(self.__rawobj, parantClass)
-        end
-
-        if parantClass.__FlagFilter ~= nil then
-            for k, v in pairs(parantClass.__FlagFilter) do
-                for key, fun in pairs(v) do
-                    self:AddOneFlagFilter(k, fun)
-                end
-            end
-        end
-
-        if parantClass.__KeyFlags ~= nil then
-            for k, v in pairs(parantClass.__KeyFlags) do self.__KeyFlags[k] = v end
-        end
-
-        if parantClass.__FlagFilterFun ~= nil then
-            for k, v in pairs(parantClass.__FlagFilterFun) do self.__FlagFilterFun[k] = v end
-        end
-    end
-
     setmetatable(wrap,{
         __index = function (t,k)
             return t.__rawobj[k]
@@ -358,7 +388,7 @@ function entity.NewClass()
             end
             t.__rawobj[k] = v
         end,
---[[
+
         __ipairs = function(t)
             return ipairs(t.__rawobj)
           end,
@@ -366,7 +396,7 @@ function entity.NewClass()
         --__pairs会导致调试器的循环失效，显示错误的数据
         __pairs = function(t)
             return pairs(t.__rawobj)
-          end,]]
+          end,
     })
     return wrap
 end
@@ -377,17 +407,20 @@ function class(...)
     local args = {...}
 
     --创建当前的类
-    local myEntity = entity.NewClass()
+    local myEntity
     
-    --按顺序依次继承
-    for i, v in ipairs(args) do
-        if v ~= "" then
-            myEntity:Inherit(v)
-        else
-            error("error entity.NewAndInherit arg "..i.." is nil")
-        end
+    if #args == 0 then
+        myEntity = entity.NewClass()
+    else
+        --按顺序依次继承
+        for i, v in ipairs(args) do
+            if v ~= "" then
+                myEntity = entity.SubClass(v, myEntity)
+            else
+                error("error entity.NewAndInherit arg "..i.." is nil")
+            end
+        end      
     end
-    
     return myEntity
 end
 
@@ -402,8 +435,7 @@ function new(name, ...)
 
     local args = {...}
     --创建当前的类
-    local myEntity = entity.NewClass()
-    myEntity:CopyObject(name)
+    local myEntity = entity.CopyObject(name)
     myEntity:initialize(args)
     return myEntity
 end
