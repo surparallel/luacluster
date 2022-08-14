@@ -22,10 +22,10 @@
 #define __VERSION_H
 
 #define VERSION_MAJOR	"1"
-#define VERSION_MINOR	"7"
+#define VERSION_MINOR	"8"
 
 #define VERSION_NUMMAJOR	1
-#define VERSION_NUMMINOR	7
+#define VERSION_NUMMINOR	8
 
 void Version();
 

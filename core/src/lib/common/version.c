@@ -35,7 +35,7 @@ void Version() {
 	getcwd(path, 256);
 
 	Color(11);
-	printf("luacluter version \"" VERSION_MAJOR "." VERSION_MINOR "\"\n");
+	printf("luacluster version \"" VERSION_MAJOR "." VERSION_MINOR "\"\n");
 	printf("Copyright(C) 2021-2022, sun shuo<sun.shuo@surparallel.org>\n");
 	printf("* All rights reserved. *\n");
 	printf("PWD:%s\n", path);

@@ -7,9 +7,11 @@ local json = require("dkjson")
 ---@class DBEntity
 local dbEntity = class("dbplugin")
 
-dbEntity:AddKeyFlags("a", sc.keyflags.persistent)
-dbEntity:AddKeyFlags("b", sc.keyflags.persistent)
-dbEntity:AddKeyFlags("c", sc.keyflags.persistent)
+dbEntity:AddKeyFlags(sc.keyflags.persistent, "a")
+dbEntity:AddKeyFlags( sc.keyflags.persistent, "b")
+dbEntity:AddKeyFlags(sc.keyflags.persistent, "c")
+dbEntity:AddKeyFlags(sc.keyflags.persistent, "account")
+dbEntity:AddKeyFlags(sc.keyflags.persistent, "passwrod")
 dbEntity.stamp = os.time()
 
 function dbEntity:Init()
@@ -19,11 +21,18 @@ end
 
 function dbEntity:fun()
     print("dbentity fun")
-    self.a = 1
+    self.account = 'admin'
+    self.password = '123456'
+    self.a= 1
     self.b = {a = 1, b = 2}
     self.c = {1,2,3,4}
     table.remove(self.c, 1)
     self:Save()
+end
+
+function dbEntity:fun3()
+    print("dbentity fun2")
+    self:LoadAccount('admin', '123456')
 end
 
 function  dbEntity:SaveBack(dbid)
@@ -34,7 +43,25 @@ function  dbEntity:SaveBack(dbid)
     self:Load(dbid)
 end
 
+function  dbEntity:LoadAccountBack(data)
+
+    if data == nil then
+        print("db not find "..self.account..":"..self.password)
+        return
+    end
+
+    print(data)
+    self.__allparant["dbplugin"].LoadBack(self, data)
+end
+
 function  dbEntity:LoadBack(data)
+
+    if data == nil then
+        print("db not find "..self.dbid)
+        return
+    end
+
+    print(data)
     self.__allparant["dbplugin"].LoadBack(self, data)
 end
 

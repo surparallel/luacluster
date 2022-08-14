@@ -1,4 +1,4 @@
-/* luacluter.c - main function
+/* luacluster.c - main function
 *
 * Copyright(C) 2021 - 2022, sun shuo <sun.shuo@surparallel.org>
 * All rights reserved.
@@ -60,14 +60,16 @@ void CliOutputGenericHelp(void) {
 	printf(
 		"\n"
 		"      \"quit\" to exit\n"
-		"      \"redis\" --.\n"
-		"      \"net\" --.\n"
-		"      \"create [...]\" --.\n"
+		"      \"new [type][class name]\" --[type]DockerCurrent = 0,DockerRandom,NodeInside,NodeOutside,NodeRandom,DockerGlobe\n"
 		"      \"call [entityid][...]\" --.\n"
-		"      \"connect [ip][port][docker]\" --.\n"
-		"      \"run [script]\" --.\n"
-		"      \"client [did][pid]\" --.\n"
-	);
+		"      \"connect [ip][port][docker]\" --Set UDP link parameters.\n"
+		"      \"run [script]\" --Run UDP script.\n"
+		"      \"btcp (bc) [ip][port][count]\" --bots tcp connect.\n"
+		"      \"redis\" -- test redis.\n"
+		"      \"3dmath\" -- test 3dmath.\n"
+		"      \"pack\" -- test pack.\n"
+		"      \"sudoku\" -- test sudoku.\n"
+	); 
 }
 
 void btcp2(unsigned int count, sds ip, unsigned short len, unsigned short port, unsigned short rang)
@@ -113,15 +115,15 @@ int IssueCommand(int argc, char** argv, int noFind) {
 	}
 	char* command = argv[0];
 
-	if (!strcasecmp(command, "help") || !strcasecmp(command, "?")) {
+	if (!strcasecmp(command, "help") || !strcasecmp(command, "?") || !strcasecmp(command, "h")) {
 		CliOutputGenericHelp();
 		return 1;
 	}
-	else if (!strcasecmp(command, "version")) {
+	else if (!strcasecmp(command, "version") || !strcasecmp(command, "v")) {
 		Version();
 		return 1;
 	}
-	else if (!strcasecmp(command, "quit")) {
+	else if (!strcasecmp(command, "quit") || !strcasecmp(command, "q")) {
 		printf("bye!\n");
 		return 0;
 	}
@@ -209,10 +211,10 @@ int IssueCommand(int argc, char** argv, int noFind) {
 
 		DockerRunScript(ip, port, dockerid, (unsigned char*)argv[1], strlen(argv[1]));
 	}
-	else if (!strcasecmp(command, "btcp")) {
+	else if (!strcasecmp(command, "btcp") || !strcasecmp(command, "bc")) {
 
 		if (argc < 4) {
-			printf("botstcp Parameter does not enough the requirement\n");
+			printf("Bots tcp connect Parameter does not enough the requirement\n");
 			return 1;
 		}
 		btcp(atoi(argv[3]), argv[1], sdslen(argv[1]), atoi(argv[2]));
@@ -377,13 +379,13 @@ int main(int argc, char** argv) {
 		LogInit();
 		//这里有需要输入参数的，指定要绑定的地址之类的
 		n_details("**********************************************");
-		n_details("*              hello luacluter!              *");
+		n_details("*              hello luacluster!              *");
 		n_details("**********************************************");
 		s_details("**********************************************");
-		s_details("*              hello luacluter!              *");
+		s_details("*              hello luacluster!              *");
 		s_details("**********************************************");
 		u_details("**********************************************");
-		u_details("*              hello luacluter!              *");
+		u_details("*              hello luacluster!              *");
 		u_details("**********************************************");
 
 		n_details("ALLGRG:'%s'", allgrg);

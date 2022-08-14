@@ -20,6 +20,7 @@ spacePlugin.transform = {}
 spacePlugin.transform.position = {}
 spacePlugin.transform.nowPosition = {}
 spacePlugin.transform.rotation = {}
+spacePlugin.transform.stamp = 0 
 spacePlugin.entities = {}
 spacePlugin.spaces = {}
 
@@ -87,6 +88,14 @@ function spacePlugin:OnAddView(entity)
     --转发到客户端
     if self.clientid ~= nil then
         docker.CopyRpcToClient(entity[1])
+    end
+
+    --如果stamp和当前的不一致要补发当前最新的状态
+    if entity[12] ~= self.transform.stamp and self.transform.stamp > entity[12] then
+        local view = udpproxy(entity[1])
+        view:OnMove(self.id, self.transform.position.x, self.transform.position.y, self.transform.position.z
+        ,self.transform.rotation.x, self.transform.rotation.y, self.transform.rotation.z, self.transform.velocity
+        , self.transform.stamp, self.transform.stampStop)
     end
 end
 

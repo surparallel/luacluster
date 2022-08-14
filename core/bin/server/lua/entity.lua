@@ -159,7 +159,7 @@ function entity.SubClass(parant, preSub)
 end
 
     --复制类对象
-function entity.CopyObject(name)       
+function entity.CopyObject(name)
 
     local parantClass = require(name)
     if parantClass == nil then
@@ -326,12 +326,12 @@ function entity.NewClass()
         self:AddOneFlagFilter(flag, fun)
     end
 
-    function rawobj:SetKeyFlags(k, f)
+    function rawobj:SetKeyFlags(f, k)
         local KeyFlags = rawget(self, "__KeyFlags")
         KeyFlags[k] = f
     end
 
-    function rawobj:AddKeyFlags(k, f)
+    function rawobj:__AddKeyFlags(f, k)
         local KeyFlags = rawget(self, "__KeyFlags")
         if KeyFlags[k] ~= nil then
             KeyFlags[k] = bit32.bor(KeyFlags[k] , f)
@@ -340,12 +340,22 @@ function entity.NewClass()
         end
     end
 
+    function rawobj:AddKeyFlags(f, k)
+        if type(k) == "table" then
+            for index, value in ipairs(k) do
+                self:__AddKeyFlags(f, value)
+            end
+        else
+            self:___AddKeyFlags(f, k)
+        end
+    end
+
     function rawobj:ClearKeyFlags(k)
         local KeyFlags = rawget(self, "__KeyFlags")
         KeyFlags[k] = nil
     end
 
-    function rawobj:HaveKeyFlags(k, f)
+    function rawobj:HaveKeyFlags(f, k)
         local KeyFlags = rawget(self, "__KeyFlags")
         if KeyFlags[k] ~= nil then
             if bit32.band(KeyFlags[k], f) ~= 0 then

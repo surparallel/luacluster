@@ -1,9 +1,6 @@
 --dbplugin
-local docker = require("docker")
 local int64 = require("int64")
 local elog = require("eloghelp")
----@type  Entity
-local entity = require("entity")
 local entitymng = require("entitymng")
 local sc = require("sc")
 local json = require("dkjson")
@@ -15,7 +12,7 @@ function dbplugin.OnFreshKey(root, rootKey)
     root:AddFresh(rootKey)
 end
 
-dbplugin:AddFlagFun(sc.keyflags.persistent, dbPluginFactory.OnFreshKey)
+dbplugin:AddFlagFun(sc.keyflags.persistent, dbplugin.OnFreshKey)
 
 function  dbplugin:Save()
 
@@ -78,6 +75,17 @@ function  dbplugin:Load(dbid)
     end
     self.dbid = dbid
     self.dbsvr:Load(self.dbid, self.id)
+
+end
+
+function  dbplugin:LoadAccount(account, password)
+
+    if self.dbsvr == nil then
+        self.dbsvr = entitymng.GetSev("dbsvr")
+    end
+    self.account = account
+    self.password = password
+    self.dbsvr:LoadAccount(account, password, self.id)
 
 end
 

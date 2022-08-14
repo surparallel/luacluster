@@ -20,8 +20,8 @@ function client.OnFreshKey(root, rootKey)
     root.client:ChangStatus(out)
 end
 
-client:AddKeyFlags("Ping", sc.keyflags.exposed)
-client:AddKeyFlags("Move", sc.keyflags.exposed)
+client:AddKeyFlags(sc.keyflags.exposed, "Ping")
+client:AddKeyFlags(sc.keyflags.exposed, "Move")
 client.client = tcpproxy(client.id)
 
 client:AddFlagFun(sc.keyflags.private, client.OnFreshKey)

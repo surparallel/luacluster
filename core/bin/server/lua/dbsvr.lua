@@ -1,7 +1,5 @@
 --dbsvr
 local sc = require 'sc'
----@type  Entity
-local entity = require("entity")
 local entitymng = require("entitymng")
 local elog = require("eloghelp")
 local udpproxy = require 'udpproxy'
@@ -24,26 +22,52 @@ function dbsvr:Init()
     --entitymng.RegistryUpdata(self)
     self.client = mongo.Client(sc.db.uri)
     self.database = self.client:getDatabase(sc.db.dbname)
-    self.collection = self.database:createCollection(sc.db.collname)
+    local r, e = self.database:createCollection(sc.db.collname)
+    if e ~= nil then
+        --主意需要运维介入的严重数据库错误
+        elog.sys_warn(e)
+    end
+
+    self.collection = self.client:getCollection(sc.db.dbname, sc.db.collname)
 end
 
 function dbsvr:Save(entityid, date)
     local myid = tostring(int64.new_unsigned(entityid))
-    self.collection = self.client:getCollection(sc.db.dbname, sc.db.collname)
-    self.collection:updateOne('{"entityid":\"'.. myid ..'\"}', '{ "$set":'.. date ..'}', '{"upsert":true}')
-    local cursor = self.collection:findOne({entityid = myid})
+    local r, e = self.collection:updateOne('{"entityid":\"'.. myid ..'\"}', '{ "$set":'.. date ..'}', '{"upsert":true}')
+    if e ~= nil then
+        elog.sys_warn(e)
+    end
+    local cursor, ef = self.collection:findOne({entityid = myid})
+    if ef ~= nil then
+        elog.sys_warn(ef)
+    end
     local entityProxy = udpproxy(entityid)
     entityProxy:SaveBack(tostring(cursor:value()._id))
 end
 
 function dbsvr:SaveUpdate(dbid, date)
-    self.collection:updateOne('{"_id":{ "$oid":\"'.. dbid ..'\" }}', '{ "$set":'.. date ..'}', '{"upsert":true}')
+    local r, e = self.collection:updateOne('{"_id":{ "$oid":\"'.. dbid ..'\" }}', '{ "$set":'.. date ..'}', '{"upsert":true}')
+    if e ~= nil then
+        elog.sys_warn(e)
+    end
 end
 
 function dbsvr:Load(dbid, entityid)
-    local cursor = self.collection:findOne('{"_id":{ "$oid":\"'.. dbid ..'\" }}')
+    local cursor, e = self.collection:findOne('{"_id":{ "$oid":\"'.. dbid ..'\" }}')
+    if e ~= nil then
+        elog.sys_warn(e)
+    end
     local entityProxy = udpproxy(entityid)
     entityProxy:LoadBack(tostring(cursor))
+end
+
+function dbsvr:LoadAccount(account, password, entityid)
+    local cursor, e = self.collection:findOne('{"account":\"'.. account ..'\", "password":\"'.. password ..'\"}')
+    if e ~= nil then
+        elog.sys_warn(e)
+    end
+    local entityProxy = udpproxy(entityid)
+    entityProxy:LoadAccountBack(tostring(cursor))
 end
 
 function dbsvr:Update(count, deltaTime)

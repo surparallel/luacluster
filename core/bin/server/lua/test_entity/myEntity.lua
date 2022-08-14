@@ -1,7 +1,7 @@
 ---@class MyEntity
 local myEntity = class("parant", "parant2")
 
-myEntity:SetKeyFlags("a", 1)
+myEntity:SetKeyFlags(1, "a")
 myEntity.a = {"f", "h",{"l","m"}}
 myEntity.cc.a = 1
 

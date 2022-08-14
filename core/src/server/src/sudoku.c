@@ -354,7 +354,7 @@ void SendAddView(PSudoku s, PEntity pEntity, PEntity pViewEntity) {
 	mp_buf* pmp_buf = mp_buf_new();
 	MP_ENCODE_CONST(pmp_buf, "OnAddView");
 
-	mp_encode_array(pmp_buf, 10);
+	mp_encode_array(pmp_buf, 12);
 	mp_encode_double(pmp_buf, u642double(pViewEntity->entityid));
 	mp_encode_double(pmp_buf, pViewEntity->transform.position.x);
 	mp_encode_double(pmp_buf, pViewEntity->transform.position.y);
@@ -369,6 +369,7 @@ void SendAddView(PSudoku s, PEntity pEntity, PEntity pViewEntity) {
 	mp_encode_int(pmp_buf, pViewEntity->stamp);
 	mp_encode_int(pmp_buf, pViewEntity->stampStop);
 	mp_encode_int(pmp_buf, pViewEntity->entityType);
+	mp_encode_int(pmp_buf, pEntity->stamp);
 
 	DockerSendWithList(pEntity->entityid, pmp_buf->b, pmp_buf->len, s->msgList);
 	mp_buf_free(pmp_buf);
