@@ -22,6 +22,7 @@
 
 void test_id() {
 
+#ifdef __WIN32
 	for (int j = 0; j < 256; j++)
 	{
 		for (int i = 0; i < 128; i++)
@@ -45,5 +46,6 @@ void test_id() {
 			}*/
 		}
 	}
+#endif // __WIN32
 	printf("test_id done \n");
 }
