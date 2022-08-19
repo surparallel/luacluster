@@ -26,8 +26,8 @@ typedef void* VPEID;
 typedef struct _EID {
 	unsigned short id;
 	unsigned int addr;//ipv4
-	unsigned char dock;
 	unsigned char port;//UDP¶Ë¿ÚºÅµÄÆ«ÒÆ
+	unsigned char dock;
 }*PEID, EID;
 
 typedef union idl64
@@ -51,3 +51,5 @@ typedef union idl32
 
 #pragma pack(pop)
 
+unsigned char MakeUp(unsigned char h, unsigned char bit);
+unsigned char MakeDown(unsigned char bit);

@@ -20,8 +20,40 @@
 * 2）IND - Indeterminate Number。意思是不确定数值。VS调试显示类似“1.#IND000000000000”。是NAN的一种特殊情况。产生原因：0除0，或无限大除无限大。判断方法通NAN。指数位全为1，尾数位不为空。
 * 3）INF - Infinity。意思是无限大。VS调试显示类似“1.#INF000000000000”。产生原因：如1/0.0的计算结果。判断方法：_finite()。 7ff开头其余位为0。
 * 4）DEN - Denormalized。意思是非规格化数值。VS调试显示类似“4.940656458421e-324#DEN”。指数位全为零，尾数位不为空。
+* 5) 非规格化浮点数（denormalized number,a.k.a. subnormal number）是指的计算机中处理的一类特殊浮点数。在规格化浮点数中，浮点数的尾数不应当包含前导0。
 */
 
 #include "plateform.h"
 #include "entityid.h"
 
+//port max 127
+unsigned char MakeUp(unsigned char h, unsigned char bit) {
+
+	unsigned char bitHigh = bit;
+	unsigned char bitLow = bit & 15;
+
+	bitHigh = bitHigh >> 4;
+	bitHigh = bitHigh << 5;
+	bitHigh = bitHigh | bitLow;
+
+	int ih = h & 127;
+	int ibit = bitHigh & 224;
+
+	if (((h & 127) == 127) && ((bitHigh & 224) == 224)) {
+		bitHigh = bitHigh | 239;
+	}
+	else {
+		bitHigh = bitHigh | 16;
+	}
+	return 	bitHigh;
+}
+
+unsigned char MakeDown(unsigned char bit) {
+	unsigned char bitLow = bit & 15;
+
+	bit = bit >> 5;
+	bit = bit << 4;
+	bit = bit | bitLow;
+
+	return bit;
+}

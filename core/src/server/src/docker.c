@@ -41,6 +41,7 @@
 #include "uvnetudp.h"
 #include "ruby_atomic.h"
 #include "configfile.h"
+#include "bitorder.h"
 
 #define MAX_DOCKER 255
 
@@ -141,17 +142,13 @@ unsigned long long AllocateID(void* pVoid) {
 	
 	unsigned long long udpId = 0;
 	GetRandomUdp(&udpId);
-	idl64 rid;
-	rid.u = udpId;
-	if (rid.eid.port == 0)rid.eid.port = 1;
 
 	idl64 eid;
-	eid.eid.addr = rid.eid.addr;
-	eid.eid.port = ~rid.eid.port;
+	eid.u = udpId;
 	eid.eid.dock = pDockerHandle->id;
 	eid.eid.id = id;
-	unsigned long long retId = eid.u;
-	return retId;
+	eid.eid.port = MakeUp(eid.eid.dock, MakeDown(eid.eid.port));
+	return eid.u;
 }
 
 void UnallocateID(void* pVoid, unsigned long long id) {
@@ -159,12 +156,8 @@ void UnallocateID(void* pVoid, unsigned long long id) {
 	PDockerHandle pDockerHandle = pVoid;
 	idl64 eid;
 	eid.u = id;
-	unsigned char port = ~eid.eid.port;
+	unsigned char port = MakeDown(eid.eid.port);
 	unsigned int t_id = eid.eid.id;
-
-	eid.eid.port= ~eid.eid.port;
-	eid.eid.dock = 0;
-	eid.eid.id = 0;
 
 	if (!(IsNodeUdp(eid.u) && pDockerHandle->id == eid.eid.dock)) {
 		n_error("UnallocateID::entity id is error! ip:%i port:%i dock:%i", eid.eid.addr, port, eid.eid.dock);
@@ -890,7 +883,7 @@ void DockerSendWithList(unsigned long long id, const char* pc, size_t s, list** 
 	idl64 eid;
 	eid.u = id;
 	unsigned int addr = eid.eid.addr;
-	unsigned char port = ~eid.eid.port;
+	unsigned char port = MakeDown(eid.eid.port);
 	unsigned char docker = eid.eid.dock;
 
 	unsigned int len = sizeof(ProtoRPC) + s;
@@ -904,11 +897,7 @@ void DockerSendWithList(unsigned long long id, const char* pc, size_t s, list** 
 
 	memcpy(pProtoRPC->callArg, pc, s);
 
-	eid.eid.port = ~eid.eid.port;
-	eid.eid.dock = 0;
-	eid.eid.id = 0;
-
-	if (IsNodeUdp(eid.u) || (eid.eid.port == 1 && eid.eid.addr == 0)) {
+	if (IsNodeUdp(eid.u) || (port == 1 && addr == 0)) {
 		DockerPushMsgList(list, docker, (unsigned char*)pProtoHead, len);
 	}
 	else {
@@ -922,7 +911,7 @@ void DockerSend(unsigned long long id, const char* pc, size_t s) {
 	idl64 eid;
 	eid.u = id;
 	unsigned int addr = eid.eid.addr;
-	unsigned char port = ~eid.eid.port;
+	unsigned char port = MakeDown(eid.eid.port);
 	unsigned char docker = eid.eid.dock;
 
 	unsigned int len = sizeof(ProtoRPC) + s;
@@ -936,11 +925,7 @@ void DockerSend(unsigned long long id, const char* pc, size_t s) {
 
 	memcpy(pProtoRPC->callArg, pc, s);
 
-	eid.eid.port = ~eid.eid.port;
-	eid.eid.dock = 0;
-	eid.eid.id = 0;
-
-	if (IsNodeUdp(eid.u) || (eid.eid.port == 1 && eid.eid.addr == 0)) {
+	if (IsNodeUdp(eid.u) || (port == 1 && addr == 0)) {
 		DockerPushMsg(docker, (unsigned char*)pProtoHead, len);
 	}
 	else {
@@ -957,7 +942,7 @@ void DockerSendToClient(void* pVoid, unsigned long long did, unsigned long long 
 	idl64 eid;
 	eid.u = pid;
 	unsigned int addr = eid.eid.addr;
-	unsigned char port = ~eid.eid.port;
+	unsigned char port = MakeDown(eid.eid.port);
 	unsigned char docker = eid.eid.dock;
 
 	unsigned int len = sizeof(ProtoRoute) + s;
@@ -975,11 +960,7 @@ void DockerSendToClient(void* pVoid, unsigned long long did, unsigned long long 
 
 	memcpy(pProtoRoute->callArg, pc, s);
 
-	eid.eid.port = ~eid.eid.port;
-	eid.eid.dock = 0;
-	eid.eid.id = 0;
-
-	if (IsNodeUdp(eid.u) || (eid.eid.port == 1 && eid.eid.addr == 0)) {
+	if (IsNodeUdp(pid) || (port == 1 && addr == 0)) {
 		if (pVoid == 0) {
 			MngSendToEntity(pid, (unsigned char*)pProtoHead, len);
 		}
@@ -1142,7 +1123,7 @@ void DockerCreateEntity(void* pVoid, int type, const char* c, size_t s) {
 		idl64 eid;
 		eid.u = 0;
 		eid.eid.addr = ip;
-		eid.eid.port = port - UdpBasePort();
+		eid.eid.port = MakeUp(0, port - UdpBasePort());
 
 		if (IsNodeUdp(eid.u) || (eid.eid.port == 1 && eid.eid.addr == 0)) {
 			DockerRandomPushMsg((unsigned char*)pProtoHead, len);

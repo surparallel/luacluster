@@ -30,6 +30,7 @@
 #include "dicthelp.h"
 #include "uvnetudp.h"
 #include "configfile.h"
+#include "entityid.h"
 
 #define _BINDADDR_MAX 16
 typedef struct _NetServerMng {
@@ -187,7 +188,14 @@ void GetRandomUdp(unsigned long long* id) {
 }
 
 int IsNodeUdp(unsigned long long id) {
-    dictEntry* entry = dictFind(__pNetServerMng->udpIndex, &id);
+
+    idl64 eid;
+    eid.u = id;
+    eid.eid.dock = 0;
+    eid.eid.id = 0;
+    unsigned long long cid = eid.u;
+
+    dictEntry* entry = dictFind(__pNetServerMng->udpIndex, &cid);
     if (entry == NULL)
         return 0;
     else

@@ -1,6 +1,5 @@
-/* version.h - version function
-*
-* Copyright(C) 2021 - 2022, sun shuo <sun.shuo@surparallel.org>
+/*
+* Copyright(C) 2019 - 2022, sun shuo <sun.shuo@surparallel.org>
 * All rights reserved.
 *
 * This program is free software : you can redistribute it and / or modify
@@ -17,16 +16,32 @@
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
 
+#include "bitorder.h"
 
-#ifndef __VERSION_H
-#define __VERSION_H
+unsigned char bitltoh(unsigned char bit) {
 
-#define VERSION_MAJOR	"1"
-#define VERSION_MINOR	"9"
+	unsigned char mov, out;
+	out = 0;
+	mov = bit;
 
-#define VERSION_NUMMAJOR	1
-#define VERSION_NUMMINOR	9
+	for (int i = 0; i < 8; i++)
+	{
+		out = (out << 1) | (mov & 1);
+		mov = mov >> 1;
+	}
+	return out;
+}
 
-void Version();
+unsigned char bithtol(unsigned char bit) {
 
-#endif
+	unsigned char mov, out;
+	out = 0;
+	mov = bit;
+
+	for (int i = 0; i < 8; i++)
+	{
+		out = (out >> 1) | (mov & 128);
+		mov = mov << 1;	
+	}
+	return out;
+}

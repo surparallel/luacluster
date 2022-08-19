@@ -213,9 +213,9 @@ void TcpDestory(void* pVoid) {
 int TcpSendToEntity(void* pVoid, unsigned long long entityid, const char* b, unsigned int s) {
 
     PNetTcp pNetTcp = pVoid;
-    idl64 id;
-    id.u = entityid;
-    return TcpWorkSendToEntity(pNetTcp->tcpWorker[id.eid.dock % pNetTcp->tcpWorkerCount], entityid, b, s);
+    idl64 eid;
+    eid.u = entityid;
+    return TcpWorkSendToEntity(pNetTcp->tcpWorker[eid.eid.dock % pNetTcp->tcpWorkerCount], entityid, b, s);
 }
 
 int TcpSendToClient(void* pVoid, unsigned long int id, const char* b, unsigned int s) {

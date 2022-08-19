@@ -1,5 +1,4 @@
-/* version.h - version function
-*
+/*
 * Copyright(C) 2021 - 2022, sun shuo <sun.shuo@surparallel.org>
 * All rights reserved.
 *
@@ -17,16 +16,4 @@
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
 
-
-#ifndef __VERSION_H
-#define __VERSION_H
-
-#define VERSION_MAJOR	"1"
-#define VERSION_MINOR	"9"
-
-#define VERSION_NUMMAJOR	1
-#define VERSION_NUMMINOR	9
-
-void Version();
-
-#endif
+void test_id();

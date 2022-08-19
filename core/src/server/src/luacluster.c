@@ -69,6 +69,7 @@ void CliOutputGenericHelp(void) {
 		"      \"3dmath\" -- test 3dmath.\n"
 		"      \"pack\" -- test pack.\n"
 		"      \"sudoku\" -- test sudoku.\n"
+		"      \"testid\" -- test id.\n"
 	); 
 }
 
@@ -221,6 +222,9 @@ int IssueCommand(int argc, char** argv, int noFind) {
 	}
 	else if (!strcasecmp(command, "sudoku")) {
 		test_sudoku();
+	}
+	else if (!strcasecmp(command, "testid")) {
+		test_id();
 	}
 	else {
 		printf("not find command %s\n", command);

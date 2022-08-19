@@ -35,6 +35,7 @@
 #include "timesys.h"
 #include "dictQueue.h"
 #include "configfile.h"
+#include "bitorder.h"
 
 #define _BINDADDR_MAX 16
 #define PACKET_MAX_SIZE_UDP					1472
@@ -130,7 +131,7 @@ static void RecvCallback(PNetClient c, char* buf, size_t buffsize) {
             idl64 eid;
             eid.u = pProtoRPC->id;
             unsigned int addr = eid.eid.addr;
-            unsigned char port = ~eid.eid.port;
+            unsigned char port = MakeDown(eid.eid.port);
 
             if (c->pNetUdp->udp_ip == addr && c->pNetUdp->uportOffset == port) {
                 DockerPushMsg(eid.eid.dock, buf, buffsize);
@@ -146,7 +147,7 @@ static void RecvCallback(PNetClient c, char* buf, size_t buffsize) {
             idl64 eid;
             eid.u = pProtoRoute->pid;
             unsigned int addr = eid.eid.addr;
-            unsigned char port = ~eid.eid.port;
+            unsigned char port = MakeDown(eid.eid.port);
 
             if (c->pNetUdp->udp_ip == addr && c->pNetUdp->uportOffset == port) {
                 //找到对应entity id 的client id 转发
@@ -376,6 +377,7 @@ void* UdpCreate(char* ip, unsigned short uportBegin, unsigned char uportOffset, 
     }
 
     pNetUdp->uportBegin = uportBegin;
+    pNetUdp->uportOffset = uportOffset;
     pNetUdp->udp_ip = 0;
     pNetUdp->udp_port = uportBegin + uportOffset;
     pNetUdp->allClientID = 0;
@@ -383,7 +385,6 @@ void* UdpCreate(char* ip, unsigned short uportBegin, unsigned char uportOffset, 
     pNetUdp->clients = listCreate();
     pNetUdp->sendDeQueue = DqCreate();
     pNetUdp->pDictList = DictListCreate();
-    pNetUdp->uportOffset = 0;
     pNetUdp->sendStamp = GetTick();
 
     DoJsonParseFile(pNetUdp, doJsonParseFile);
@@ -415,11 +416,11 @@ void* UdpCreate(char* ip, unsigned short uportBegin, unsigned char uportOffset, 
         }
     }
 
-    idl64 id;
-    id.u = 0;
-    id.eid.addr = pNetUdp->udp_ip;
-    id.eid.port = pNetUdp->udp_port - pNetUdp->uportBegin;
-    *retId = id.u;
+    idl64 eid;
+    eid.u = 0;
+    eid.eid.addr = pNetUdp->udp_ip;
+    eid.eid.port = MakeUp(0, pNetUdp->udp_port - pNetUdp->uportBegin);
+    *retId = eid.u;
 
     if(inOrOut){
         SetUpdIPAndPortToInside(pNetUdp->udp_ip, pNetUdp->udp_port);

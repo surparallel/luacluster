@@ -1,6 +1,5 @@
-/* version.h - version function
-*
-* Copyright(C) 2021 - 2022, sun shuo <sun.shuo@surparallel.org>
+/*
+* Copyright(C) 2019 - 2022, sun shuo <sun.shuo@surparallel.org>
 * All rights reserved.
 *
 * This program is free software : you can redistribute it and / or modify
@@ -17,16 +16,5 @@
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
 
-
-#ifndef __VERSION_H
-#define __VERSION_H
-
-#define VERSION_MAJOR	"1"
-#define VERSION_MINOR	"9"
-
-#define VERSION_NUMMAJOR	1
-#define VERSION_NUMMINOR	9
-
-void Version();
-
-#endif
+unsigned char bitltoh(unsigned char bit);
+unsigned char bithtol(unsigned char bit);

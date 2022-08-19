@@ -1,5 +1,4 @@
-/* version.h - version function
-*
+/*
 * Copyright(C) 2021 - 2022, sun shuo <sun.shuo@surparallel.org>
 * All rights reserved.
 *
@@ -16,17 +15,35 @@
 * You should have received a copy of the GNU Affero General Public License
 * along with this program.If not, see < https://www.gnu.org/licenses/>.
 */
+#include <float.h>
+#include "plateform.h"
+#include "testid.h"
+#include "entityid.h"
 
+void test_id() {
 
-#ifndef __VERSION_H
-#define __VERSION_H
+	for (int j = 0; j < 256; j++)
+	{
+		for (int i = 0; i < 128; i++)
+		{
 
-#define VERSION_MAJOR	"1"
-#define VERSION_MINOR	"9"
-
-#define VERSION_NUMMAJOR	1
-#define VERSION_NUMMINOR	9
-
-void Version();
-
-#endif
+			if (j == 255 && i == 127) {
+				int a = 0;
+			}
+			idl64 a;
+			a.eid.addr = 0;
+			a.eid.dock = j;
+			a.eid.port = MakeUp(a.eid.dock,i);
+			a.eid.id = 0;
+			
+			if (0 != _isnan(a.d)) {
+				printf("%d %d error _isnan \n", i, j);
+			}
+			/*
+			if (0 != _finite(a.d)) {
+				printf("%d error _finite \n", i);
+			}*/
+		}
+	}
+	printf("test_id done \n");
+}
