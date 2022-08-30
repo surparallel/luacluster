@@ -88,7 +88,7 @@ function EntryProcess(ret)
                     local arg = {cmsgpack.unpack(ret[4])}
                     local funName = arg[1]
                     if type(obj[funName]) == 'function' then
-                        if obj:HaveKeyFlags(funName, sc.keyflags.exposed) then
+                        if obj:HaveKeyFlags(sc.keyflags.exposed, funName) then
                             table.remove(arg, 1)
                             obj[funName](obj, table.unpack(arg))
                         else

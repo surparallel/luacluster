@@ -272,7 +272,7 @@ function entity.NewClass()
 
     function rawobj:AddOneFlagFilter(flag, fun)
         if self.__FlagFilter[flag] == nil then
-            self.__FlagFilter[flag] = {}       
+            self.__FlagFilter[flag] = {}
         end
         self.__FlagFilter[flag][tostring(fun)] = fun
 
@@ -346,7 +346,7 @@ function entity.NewClass()
                 self:__AddKeyFlags(f, value)
             end
         else
-            self:___AddKeyFlags(f, k)
+            self:__AddKeyFlags(f, k)
         end
     end
 

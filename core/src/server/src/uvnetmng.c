@@ -181,6 +181,7 @@ void NetMngDestory() {
 
 void GetRandomUdp(unsigned long long* id) {
     if (dictSize(__pNetServerMng->udpIndex) == 0) {
+        *id = 0x11000000000000;
         return;
     }
     dictEntry* entry = dictGetRandomKey(__pNetServerMng->udpIndex);

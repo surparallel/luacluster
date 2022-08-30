@@ -960,7 +960,7 @@ void DockerSendToClient(void* pVoid, unsigned long long did, unsigned long long 
 
 	memcpy(pProtoRoute->callArg, pc, s);
 
-	if (IsNodeUdp(pid) || (port == 1 && addr == 0)) {
+	if (IsNodeUdp(pid) || (port == 1 && addr == 0 )) {
 		if (pVoid == 0) {
 			MngSendToEntity(pid, (unsigned char*)pProtoHead, len);
 		}
