@@ -31,7 +31,7 @@ end
 
 function bots:Destory()
     entitymng.UnRegistryUpdata(self)
-    entitymng.UnRegistrybots(self.id)
+    entitymng.UnRegistryObj(self.id)
 end
 
 function bots:Update(count, deltaTime)
