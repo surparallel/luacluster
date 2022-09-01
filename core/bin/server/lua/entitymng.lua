@@ -12,6 +12,13 @@ local entity = require("entity")
 
 local entityMng = {}
 
+function entityMng.PrintEntitys()
+    for key, value in pairs(_G["__entity"]) do
+        print(key,":", value.__obj)
+    end
+
+end
+
 function entityMng.RegistryObj(obj)
 
     local id = docker.AllocateID()

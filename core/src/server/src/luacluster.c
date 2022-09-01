@@ -226,6 +226,17 @@ int IssueCommand(int argc, char** argv, int noFind) {
 	else if (!strcasecmp(command, "testid")) {
 		test_id();
 	}
+	else if (!strcasecmp(command, "list")) {
+
+		if (argc == 2) {
+			unsigned int id = atoi(argv[1]);
+			DockerList(0, 1, id);
+		}
+		else {
+			printf("Parameter does not enough the requirement\n");
+			return 1;
+		}
+	}
 	else {
 		printf("not find command %s\n", command);
 	}

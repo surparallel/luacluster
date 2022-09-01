@@ -36,6 +36,8 @@ enum proto {
 	proto_client_id,//废弃
 	proto_client_entity,//废弃
 	proto_packet,//上述协议的拼包
+	//控制协议
+	proto_ctr_list,//输出当前docker的所有entity及其类型
 };
 
 #pragma pack(push,1)

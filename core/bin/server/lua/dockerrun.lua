@@ -105,6 +105,8 @@ function EntryProcess(ret)
         end).catch(function (ex)
             elog.sys_error(ex)
         end)
+    elseif ret[1] == sc.proto.proto_ctr_list then
+        entitymng.PrintEntitys()
     else
         elog.node_error("main:: not proto")
     end

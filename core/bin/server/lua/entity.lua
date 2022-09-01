@@ -3,6 +3,7 @@ if bit32 == nil then
     bit32 = bit
 end
 local dcopy = require("dcopy")
+local tabtostr = require("tabtostr")
 
 ---@class Entity
 local entity = {}
@@ -365,7 +366,11 @@ function entity.NewClass()
         return false
     end
 
-    function rawobj:initialize(...)
+    function rawobj:Initialize(...)
+    end
+
+    function rawobj:Print()
+        print(tabtostr.doing(self))
     end
 
     setmetatable(wrap,{
@@ -446,7 +451,7 @@ function new(name, ...)
     local args = {...}
     --创建当前的类
     local myEntity = entity.CopyObject(name)
-    myEntity:initialize(args)
+    myEntity:Initialize(args)
     return myEntity
 end
 

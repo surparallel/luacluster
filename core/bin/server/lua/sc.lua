@@ -16,6 +16,8 @@ sc.proto.proto_net_destory = 8
 sc.proto.proto_net_connect = 9
 sc.proto.proto_client_id = 10
 sc.proto.proto_client_entity = 11
+sc.proto.proto_packet = 12
+sc.proto.proto_ctr_list = 13
 
 sc.entity = {}
 sc.entity.DockerCurrent = 0 --当前ddocker

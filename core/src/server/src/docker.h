@@ -42,3 +42,4 @@ void DockerPushAllMsgList(list* retList[]);
 void DockerPushMsgList(list* retList[], unsigned int dockerId, unsigned char* b, unsigned int s);
 
 void DockerSendWithList(unsigned long long id, const char* pc, size_t s, list** list);
+void DockerList(unsigned int ip, unsigned short port, unsigned int id);

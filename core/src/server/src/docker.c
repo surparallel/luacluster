@@ -569,6 +569,14 @@ int DockerLoopProcessBuf(PDockerHandle pDockerHandle, lua_State* L, char* pBuf) 
 			lua_settable(L, -3);
 			return 1;
 		}
+		else if (pProtoHead->proto == proto_ctr_list) {
+		//由脚本退出循环
+		lua_newtable(L);
+		lua_pushnumber(L, 1);
+		lua_pushnumber(L, pProtoHead->proto);
+		lua_settable(L, -3);
+		return 1;
+		}
 	}
 	return 0;
 }
@@ -897,7 +905,7 @@ void DockerSendWithList(unsigned long long id, const char* pc, size_t s, list** 
 
 	memcpy(pProtoRPC->callArg, pc, s);
 
-	if (IsNodeUdp(eid.u) || (port == 1 && addr == 0)) {
+	if (IsNodeUdp(eid.u) || (port == 0 && addr == 0)) {
 		DockerPushMsgList(list, docker, (unsigned char*)pProtoHead, len);
 	}
 	else {
@@ -925,7 +933,7 @@ void DockerSend(unsigned long long id, const char* pc, size_t s) {
 
 	memcpy(pProtoRPC->callArg, pc, s);
 
-	if (IsNodeUdp(eid.u) || (port == 1 && addr == 0)) {
+	if (IsNodeUdp(eid.u) || (port == 0 && addr == 0)) {
 		DockerPushMsg(docker, (unsigned char*)pProtoHead, len);
 	}
 	else {
@@ -1120,12 +1128,13 @@ void DockerCreateEntity(void* pVoid, int type, const char* c, size_t s) {
 
 	if (NodeInside == type || NodeOutside == type || NodeRandom == type) {
 
+		unsigned int rangPort = port - UdpBasePort();
 		idl64 eid;
 		eid.u = 0;
 		eid.eid.addr = ip;
-		eid.eid.port = MakeUp(0, port - UdpBasePort());
+		eid.eid.port = MakeUp(0, rangPort);
 
-		if (IsNodeUdp(eid.u) || (eid.eid.port == 1 && eid.eid.addr == 0)) {
+		if (IsNodeUdp(eid.u) || (rangPort == 0 && eid.eid.addr == 0)) {
 			DockerRandomPushMsg((unsigned char*)pProtoHead, len);
 		}
 		else {
@@ -1143,4 +1152,26 @@ unsigned int GetDockerID(void* pVoid) {
 unsigned int GetEntityCount(void* pVoid) {
 	PDockerHandle pDockerHandle = pVoid;
 	return pDockerHandle->entityCount;
+}
+
+void DockerList(unsigned int ip, unsigned short port, unsigned int id) {
+
+	unsigned int len = sizeof(PProtoHead);
+	PProtoHead pProtoHead = malloc(len);
+	pProtoHead->len = len;
+	pProtoHead->proto = proto_ctr_list;
+
+	idl64 eid;
+	eid.u = 0;
+	eid.eid.addr = ip;
+	eid.eid.port = MakeUp(0, port);
+
+	if (IsNodeUdp(eid.u) || (port == 0 && eid.eid.addr == 0)) {
+		DockerPushMsg(id, (unsigned char*)pProtoHead, len);
+	}
+	else {
+		UdpSendToWithUINT(ip, port, (unsigned char*)pProtoHead, len);
+	}
+
+	free(pProtoHead);
 }
