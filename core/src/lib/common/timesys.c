@@ -25,9 +25,12 @@ void usleep(unsigned long usec)
 {
 	HANDLE timer;
 	LARGE_INTEGER interval;
-	interval.QuadPart = (-10 * usec);
+	interval.QuadPart = (unsigned long long)-10 * usec;
 
 	timer = CreateWaitableTimer(NULL, TRUE, NULL);
+	if (timer == 0)
+		return;
+
 	SetWaitableTimer(timer, &interval, 0, NULL, NULL, 0);
 	WaitForSingleObject(timer, INFINITE);
 	CloseHandle(timer);

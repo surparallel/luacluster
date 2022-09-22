@@ -453,9 +453,9 @@ void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position,
 		pEntity->status &= ~entity_stop;
 
 		if(isGhost)
-			pEntity->status &= ~entity_ghost;
-		else
 			pEntity->status |= entity_ghost;
+		else
+			pEntity->status &= ~entity_ghost;
 	}
 	else {
 		pEntity = calloc(1, sizeof(Entity));
@@ -479,9 +479,9 @@ void SudokuEntry(void* pSudoku, unsigned long long id, struct Vector3 position,
 		pEntity->oldGird = UINT_MAX;
 
 		if (isGhost)
-			pEntity->status &= ~entity_ghost;
-		else
 			pEntity->status |= entity_ghost;
+		else
+			pEntity->status &= ~entity_ghost;
 
 		listAddNodeHead(s->entitiesList, pEntity);
 		pEntity->listNode = listFirst(s->entitiesList);

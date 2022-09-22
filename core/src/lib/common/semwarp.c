@@ -57,7 +57,7 @@ int semwarp_post(semwarp_t *psem) {
 }
 
 int semwarp_trywait(semwarp_t*psem) {
-	int xresult;
+	int xresult = 0;
 
 	if (!psem) {
 		return -1;

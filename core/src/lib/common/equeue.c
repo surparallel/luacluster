@@ -36,6 +36,9 @@ typedef struct _EventQueue
 
 void* EqCreate() {
 	PEventQueue pEventQueue = malloc(sizeof(EventQueue));
+	if (pEventQueue == 0)
+		return 0;
+
 	pEventQueue->mutexHandle = MutexCreateHandle(LockLevel_4);
 
 	int r = semwarp_init(&pEventQueue->semaphore, 0);

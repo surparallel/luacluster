@@ -115,6 +115,9 @@ void* LocksGetSpecific() {
 
 void* MutexCreateHandle(unsigned int rank) {
 	PSafeMutex pSafeMutex = malloc(sizeof(SafeMutex));
+	if (pSafeMutex == 0)
+		return 0;
+
 	pSafeMutex->rank = rank;
 	uv_mutex_init(&pSafeMutex->lock);
 	return pSafeMutex;
