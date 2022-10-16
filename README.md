@@ -1,20 +1,20 @@
-# luacluster 
+# luacluster
+
 [![C/C++ CI](https://github.com/surparallel/luacluter/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/surparallel/luacluter/actions/workflows/c-cpp.yml)
 
-### 概要
+## 概要
 
 luacluster分布式游戏服务器框架。特色是实现了万人同屏，实现了无缝大地图，用户开发方式为lua的rpc调用模式，已经接入mongodb。近期计划是写技术白皮书。QQ群：927073440。
 
+Lucluster distributed game server framework. The feature is to achieve the same screen for ten thousand people and a big seamless world. The user development mode is the rpc call mode of lua. Mongodb is already available. The immediate plan is to write a technical white paper.
 
+## 1. BUILDING AND INSTALLATION
 
-[TOC]
-
-# 1. BUILDING AND INSTALLATION
-## CMake (Windows)
+### CMake (Windows)
 
 Install CMake: <https://www.cmake.org>
 
-```
+``` cmd
 $ md build && cd build
 $ cmake -G "Visual Studio 10" ..   # Or use any generator you want to use. Run cmake --help for a list
 $ cmake --build . --config Release # Or "start libevent.sln" and build with menu in Visual Studio.
@@ -22,40 +22,45 @@ $ cmake --build . --config Release # Or "start libevent.sln" and build with menu
 
 See [Documentation/Building#Building on Windows](/Documentation/Building.md#building-on-windows) for more information
 
-## CMake (Ubuntu)
+### CMake (Ubuntu)
 
-```
+``` cmd
 $ cd core && mkdir build
 $ cd core/build && cmake ..     # Default to ubuntu Makefiles.
 $ cd core && cmake --build build
 ```
 
-## CMake  (optional)
+### CMake  (optional)
 
-```
+``` cmd
 $ cmake -DLUA_USE_LUAJIT=ON #使用luajit
 ```
 
-# 2. START RUNING (Windows)
-## 服务器
+## 2. START RUNING (Windows)
+
+### 服务器
 
 启动流程：redis.bat, luacluter(_d).exe, bots.bat
 
 在bots.bat中修改要启动的机器人数量
 
-## 机器人
-```
+### 机器人
+
+``` cmd
 # --btcp的参数为连接服务器的 Ip port 总数量
 $ luacluter_d.exe --bots --noudp --inside --btcp 127.0.0.1 9577 500 #服务器ip, 端口，总数量
 
 # --btcp2的参数为连接服务器的 Ip port 数量 ip数量
 $ luacluter_d.exe --bots --noudp --inside --btcp2 127.0.0.1 9577 500 #服务器ip, 端口，数量， ip的数量
 ```
-## 两种模式的配置
+
+### 两种模式的配置
+
 服务器的默认配置文件core\res\server\config_defaults.json
 
-**压力测试模式**
-``` 
+#### 压力测试模式
+
+``` cmd
 {
   "log_config": {
     "ruleDefault": {
@@ -118,8 +123,9 @@ $ luacluter_d.exe --bots --noudp --inside --btcp2 127.0.0.1 9577 500 #服务器i
 }
 ```
 
-**单线程调试模式**
-``` 
+#### 单线程调试模式
+
+``` cmd
 {
   "log_config": {
     "ruleDefault": {
@@ -146,19 +152,19 @@ $ luacluter_d.exe --bots --noudp --inside --btcp2 127.0.0.1 9577 500 #服务器i
 }
 ```
 
-## 数据库存储的测试
+### 数据库存储的测试
 
 在luacluster中使用mongodb
 
 sc.lua全局配置中已经添加了"dbsvr"全局服务对象。
 
-```
+``` lua
 sc.cluster.serves = {"space","bigworld","dbsvr"}--集群启动时要启动的服务列表
 ```
 
 在任意节点控制台输入命令创建一个dbentity对象
 
-```
+``` cmd
 #命令new
 #参数1：在什么地方创建对象
 	DockerCurrent = 0, //当前线程的docker
@@ -175,7 +181,7 @@ sc.cluster.serves = {"space","bigworld","dbsvr"}--集群启动时要启动的服
 
 使用call命令调用dbentity对象的fun函数返回dbid。
 
-```
+``` cmd
 >call 18302840717262782469 fun
 >test entity fun
 db      6253f48671099513a0f5165f
@@ -186,9 +192,9 @@ db      6253f48671099513a0f5165f
 #剩余参数:为函数参数,类型为数字，字符串，json。例如call 18302840717262782469 fun2 111 {"a"：1} aaa
 ```
 
-# 3. luacluster白皮书纲要
+## 3. luacluster白皮书纲要
 
-1.  [luacluster组织架构及名词定义](./docs/1.整体架构设计.md)
+1. [luacluster组织架构及名词定义](./docs/1.整体架构设计.md)
 2. [entity对象的创建，继承，多重继承，多态，健事件。](./docs/2.entity的面向对象.md)
 3. luarpc调用及封包结构。
 4. 全局对象的创建和全局对象的功能插件
@@ -199,6 +205,3 @@ db      6253f48671099513a0f5165f
 9. 命令以及参数
 10. docker的脚本api
 11. 如何使用luacluster创建一个MMO游戏
-
-
-
