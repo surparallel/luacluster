@@ -22,9 +22,10 @@ $ cmake --build . --config Release # Or "start libevent.sln" and build with menu
 
 See [Documentation/Building#Building on Windows](/Documentation/Building.md#building-on-windows) for more information
 
-### CMake (Ubuntu)
+### CMake (Ubuntu 18,20)
 
 ``` cmd
+$ apt-get install -y build-essential libreadline-dev
 $ cd core && mkdir build
 $ cd core/build && cmake ..     # Default to ubuntu Makefiles.
 $ cd core && cmake --build build
